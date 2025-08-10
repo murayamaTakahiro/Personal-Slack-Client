@@ -76,7 +76,10 @@
       const params = $searchParams;
       const result = await searchMessages(params);
       searchResults.set(result);
-      addToHistory(params.query, result.messages.length);
+      // Only add to history if there was a query
+      if (params.query) {
+        addToHistory(params.query, result.messages.length);
+      }
     } catch (err) {
       let errorMessage = 'Search failed';
       if (err instanceof Error) {

@@ -14,7 +14,11 @@
   let limit = 100;
   
   function handleSearch() {
-    if ($searchQuery.trim()) {
+    // Check if we have either a query or at least one filter
+    const hasFilters = channel || user || fromDate || toDate;
+    const hasQuery = $searchQuery.trim();
+    
+    if (hasQuery || hasFilters) {
       // Clean up user input - remove @ symbol if present and check for empty/placeholder
       let cleanUser = user.trim();
       if (cleanUser.startsWith('@')) {
@@ -28,7 +32,7 @@
       }
       
       searchParams.set({
-        query: $searchQuery,
+        query: $searchQuery.trim() || undefined,  // Make query optional
         channel: cleanChannel || undefined,
         user: cleanUser || undefined,
         fromDate: fromDate ? new Date(fromDate) : undefined,
@@ -44,6 +48,9 @@
       handleSearch();
     }
   }
+  
+  // Check if search is possible
+  $: canSearch = $searchQuery.trim() || channel || user || fromDate || toDate;
   
   function toggleAdvanced() {
     showAdvanced = !showAdvanced;
@@ -64,7 +71,7 @@
       type="text"
       bind:value={$searchQuery}
       on:keydown={handleKeydown}
-      placeholder="Search messages..."
+      placeholder="Search messages... (optional with filters)"
       disabled={$searchLoading}
       class="search-input"
     />
@@ -84,7 +91,7 @@
     
     <button
       on:click={handleSearch}
-      disabled={$searchLoading || !$searchQuery.trim()}
+      disabled={$searchLoading || (!$searchQuery.trim() && !channel && !user && !fromDate && !toDate)}
       class="btn-primary"
     >
       {#if $searchLoading}
@@ -97,6 +104,16 @@
   
   {#if showAdvanced}
     <div class="search-advanced">
+      {#if !$searchQuery.trim() && (channel || user || fromDate || toDate)}
+        <div class="info-message">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span>You can search with filters only - no search term required!</span>
+        </div>
+      {/if}
       {#if channel || user || fromDate || toDate}
         <div class="active-filters">
           <span class="filter-label">Active filters:</span>
@@ -343,5 +360,22 @@
     border-radius: 16px;
     font-size: 0.875rem;
     color: var(--primary);
+  }
+  
+  .info-message {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    background: var(--primary-bg);
+    border: 1px solid var(--primary);
+    border-radius: 4px;
+    color: var(--primary);
+    font-size: 0.875rem;
+  }
+  
+  .info-message svg {
+    flex-shrink: 0;
   }
 </style>

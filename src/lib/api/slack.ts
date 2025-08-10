@@ -8,7 +8,7 @@ import type {
 
 export async function searchMessages(params: SearchParams): Promise<SearchResult> {
   return await invoke('search_messages', {
-    query: params.query,
+    query: params.query || '',  // Send empty string if no query
     channel: params.channel,
     user: params.user,
     fromDate: params.fromDate?.toISOString(),

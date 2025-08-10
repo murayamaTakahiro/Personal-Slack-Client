@@ -64,7 +64,16 @@
     </div>
   {:else}
     <div class="results-header">
-      <h3>{messages.length} message{messages.length !== 1 ? 's' : ''} found</h3>
+      <h3>
+        {#if !$searchParams?.query}
+          Browsing {messages.length} message{messages.length !== 1 ? 's' : ''}
+          {#if $searchParams?.channel}
+            in #{$searchParams.channel}
+          {/if}
+        {:else}
+          {messages.length} message{messages.length !== 1 ? 's' : ''} found
+        {/if}
+      </h3>
     </div>
     <div class="messages">
       {#each messages as message}

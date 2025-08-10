@@ -313,7 +313,12 @@ impl SlackClient {
 
 // Helper functions for building search queries
 pub fn build_search_query(params: &SearchRequest) -> String {
-    let mut query_parts = vec![params.query.clone()];
+    let mut query_parts = Vec::new();
+    
+    // Only add the query if it's not empty
+    if !params.query.trim().is_empty() {
+        query_parts.push(params.query.clone());
+    }
     
     // Add channel filter - remove # if present
     if let Some(channel) = &params.channel {
@@ -350,7 +355,13 @@ pub fn build_search_query(params: &SearchRequest) -> String {
         }
     }
     
-    let final_query = query_parts.join(" ");
+    // If no query parts at all, use a wildcard to get all messages
+    let final_query = if query_parts.is_empty() {
+        "*".to_string()  // Slack wildcard for all messages
+    } else {
+        query_parts.join(" ")
+    };
+    
     info!("Built search query: {}", final_query);
     final_query
 }
