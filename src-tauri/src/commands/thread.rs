@@ -67,37 +67,66 @@ pub async fn get_thread(
         }
     }
     
+    // Collect unique user IDs that need fetching
+    let mut users_to_fetch = Vec::new();
+    for msg in &messages {
+        if let Some(user_id) = &msg.user {
+            if !user_cache.contains_key(user_id) && !users_to_fetch.contains(user_id) {
+                users_to_fetch.push(user_id.clone());
+            }
+        }
+    }
+    
+    // Batch fetch user information in parallel
+    use futures::future::join_all;
+    if !users_to_fetch.is_empty() {
+        info!("Fetching {} unique users in parallel", users_to_fetch.len());
+        let user_futures: Vec<_> = users_to_fetch
+            .into_iter()
+            .map(|user_id| {
+                let client = client.clone();
+                let uid = user_id.clone();
+                async move {
+                    match client.get_user_info(&uid).await {
+                        Ok(user_info) => {
+                            let name = user_info.profile
+                                .as_ref()
+                                .and_then(|p| p.display_name.clone().filter(|s| !s.is_empty()))
+                                .or_else(|| user_info.profile
+                                    .as_ref()
+                                    .and_then(|p| p.real_name.clone().filter(|s| !s.is_empty())))
+                                .or_else(|| user_info.real_name.clone().filter(|s| !s.is_empty()))
+                                .unwrap_or_else(|| user_info.name.clone());
+                            Some((uid, name))
+                        }
+                        Err(e) => {
+                            error!("Failed to get user info for {}: {}", uid, e);
+                            None
+                        }
+                    }
+                }
+            })
+            .collect();
+        
+        let user_results = join_all(user_futures).await;
+        
+        // Update cache with all fetched users
+        for result in user_results {
+            if let Some((user_id, name)) = result {
+                state.cache_user(user_id, name).await;
+            }
+        }
+    }
+    
+    // Refresh cache after batch fetching
+    let user_cache = state.get_user_cache().await;
+    
     // Convert messages to our format
     let mut converted_messages = Vec::new();
     
     for msg in messages {
         let user_name = if let Some(user_id) = &msg.user {
-            // Try to get from cache first
-            if let Some(cached_name) = user_cache.get(user_id) {
-                cached_name.clone()
-            } else {
-                // Fetch from API and cache
-                match client.get_user_info(user_id).await {
-                    Ok(user_info) => {
-                        let name = user_info.profile
-                            .as_ref()
-                            .and_then(|p| p.display_name.clone().filter(|s| !s.is_empty()))
-                            .or_else(|| user_info.profile
-                                .as_ref()
-                                .and_then(|p| p.real_name.clone().filter(|s| !s.is_empty())))
-                            .or_else(|| user_info.real_name.clone().filter(|s| !s.is_empty()))
-                            .unwrap_or_else(|| user_info.name.clone());
-                        
-                        // Update cache
-                        state.cache_user(user_id.clone(), name.clone()).await;
-                        name
-                    }
-                    Err(e) => {
-                        error!("Failed to get user info for {}: {}", user_id, e);
-                        user_id.clone()
-                    }
-                }
-            }
+            user_cache.get(user_id).cloned().unwrap_or_else(|| user_id.clone())
         } else {
             "Unknown".to_string()
         };

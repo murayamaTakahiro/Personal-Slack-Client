@@ -5,15 +5,19 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
 use tracing::{debug, error, info};
+use std::sync::Arc;
 
 use super::models::*;
 
 const SLACK_API_BASE: &str = "https://slack.com/api";
 const RATE_LIMIT_DELAY_MS: u64 = 100;
+const MAX_CONCURRENT_REQUESTS: usize = 3;  // Slack rate limit safety
 
+#[derive(Clone)]
 pub struct SlackClient {
     client: Client,
     token: String,
+    rate_limiter: Arc<tokio::sync::Semaphore>,
 }
 
 impl SlackClient {
@@ -33,7 +37,11 @@ impl SlackClient {
             .timeout(Duration::from_secs(30))
             .build()?;
 
-        Ok(Self { client, token })
+        Ok(Self { 
+            client, 
+            token,
+            rate_limiter: Arc::new(tokio::sync::Semaphore::new(MAX_CONCURRENT_REQUESTS)),
+        })
     }
 
     pub async fn search_messages(

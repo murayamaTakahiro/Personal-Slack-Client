@@ -4,12 +4,26 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, error};
+use serde::{Serialize, Deserialize};
+use std::time::{SystemTime, UNIX_EPOCH, Duration};
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct CachedUser {
+    pub name: String,
+    pub cached_at: u64,  // Unix timestamp
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct CachedChannel {
+    pub name: String,
+    pub cached_at: u64,  // Unix timestamp
+}
 
 #[derive(Clone)]
 pub struct AppState {
     token: Arc<RwLock<Option<String>>>,
-    user_cache: Arc<RwLock<HashMap<String, String>>>,
-    channel_cache: Arc<RwLock<HashMap<String, String>>>,
+    user_cache: Arc<RwLock<HashMap<String, CachedUser>>>,
+    channel_cache: Arc<RwLock<HashMap<String, CachedChannel>>>,
 }
 
 impl AppState {
@@ -19,6 +33,19 @@ impl AppState {
             user_cache: Arc::new(RwLock::new(HashMap::new())),
             channel_cache: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+    
+    fn current_timestamp() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or(Duration::from_secs(0))
+            .as_secs()
+    }
+    
+    fn is_cache_valid(cached_at: u64) -> bool {
+        let now = Self::current_timestamp();
+        const CACHE_DURATION_SECS: u64 = 86400; // 24 hours
+        now - cached_at < CACHE_DURATION_SECS
     }
 
     pub async fn set_token(&self, token: String) -> AppResult<()> {
@@ -81,22 +108,40 @@ impl AppState {
 
     pub async fn cache_user(&self, user_id: String, user_name: String) {
         let mut cache = self.user_cache.write().await;
-        cache.insert(user_id, user_name);
+        cache.insert(user_id, CachedUser {
+            name: user_name,
+            cached_at: Self::current_timestamp(),
+        });
     }
 
     pub async fn cache_channel(&self, channel_id: String, channel_name: String) {
         let mut cache = self.channel_cache.write().await;
-        cache.insert(channel_id, channel_name);
+        cache.insert(channel_id, CachedChannel {
+            name: channel_name,
+            cached_at: Self::current_timestamp(),
+        });
     }
 
     pub async fn get_user_cache(&self) -> HashMap<String, String> {
         let cache = self.user_cache.read().await;
-        cache.clone()
+        let mut result = HashMap::new();
+        for (id, user) in cache.iter() {
+            if Self::is_cache_valid(user.cached_at) {
+                result.insert(id.clone(), user.name.clone());
+            }
+        }
+        result
     }
 
     pub async fn get_channel_cache(&self) -> HashMap<String, String> {
         let cache = self.channel_cache.read().await;
-        cache.clone()
+        let mut result = HashMap::new();
+        for (id, channel) in cache.iter() {
+            if Self::is_cache_valid(channel.cached_at) {
+                result.insert(id.clone(), channel.name.clone());
+            }
+        }
+        result
     }
 
     pub async fn clear_caches(&self) {
