@@ -40,7 +40,21 @@
     if (savedToken) {
       token = savedToken;
       maskedToken = maskTokenClient(savedToken);
-      await loadChannels();
+      
+      // Initialize token in backend
+      try {
+        const initialized = await initTokenFromStorage();
+        if (initialized) {
+          await loadChannels();
+        } else {
+          console.warn('Token found in frontend but not initialized in backend');
+        }
+      } catch (err) {
+        console.error('Failed to initialize token:', err);
+      }
+    } else {
+      // No token saved, show a helpful message
+      searchError.set('Welcome! Please configure your Slack token in Settings to start searching.');
     }
     if (savedWorkspace) {
       workspace = savedWorkspace;
@@ -52,12 +66,32 @@
     searchError.set(null);
     
     try {
+      // First ensure the token is initialized in the backend
+      const tokenInitialized = await initTokenFromStorage();
+      if (!tokenInitialized) {
+        searchError.set('No Slack token configured. Please add your token in Settings.');
+        return;
+      }
+      
       const params = $searchParams;
       const result = await searchMessages(params);
       searchResults.set(result);
       addToHistory(params.query, result.messages.length);
     } catch (err) {
-      searchError.set(err instanceof Error ? err.message : 'Search failed');
+      let errorMessage = 'Search failed';
+      if (err instanceof Error) {
+        // Provide more specific error messages
+        if (err.message.includes('No Slack token') || err.message.includes('Authentication')) {
+          errorMessage = 'Authentication failed. Please check your Slack token in Settings.';
+        } else if (err.message.includes('Network')) {
+          errorMessage = 'Network error. Please check your internet connection.';
+        } else if (err.message.includes('API')) {
+          errorMessage = `Slack API error: ${err.message}`;
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      searchError.set(errorMessage);
       console.error('Search error:', err);
     } finally {
       searchLoading.set(false);
@@ -243,19 +277,32 @@
       on:search={handleSearch}
     />
     
-    <div class="main-content">
-      <div class="results-panel">
-        <ResultList
-          messages={$searchResults?.messages || []}
-          loading={$searchLoading}
-          error={$searchError}
-        />
+    {#if !token && !$searchError}
+      <div class="welcome-message">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 11H3v2h6v-2zm0-4H3v2h6V7zm0 8H3v2h6v-2zm12-8h-6v2h6V7zm0 4h-6v2h6v-2zm0 4h-6v2h6v-2z"/>
+        </svg>
+        <h2>Welcome to Slack Search Enhancer!</h2>
+        <p>To get started, please configure your Slack token in Settings.</p>
+        <button class="btn-primary" on:click={() => showSettings = true}>
+          Open Settings
+        </button>
       </div>
-      
-      <div class="thread-panel">
-        <ThreadView message={$selectedMessage} />
+    {:else}
+      <div class="main-content">
+        <div class="results-panel">
+          <ResultList
+            messages={$searchResults?.messages || []}
+            loading={$searchLoading}
+            error={$searchError}
+          />
+        </div>
+        
+        <div class="thread-panel">
+          <ThreadView message={$selectedMessage} />
+        </div>
       </div>
-    </div>
+    {/if}
   {/if}
 </div>
 
@@ -523,5 +570,34 @@
   
   .btn-close:hover {
     opacity: 1;
+  }
+  
+  .welcome-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    text-align: center;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    margin-top: 2rem;
+  }
+  
+  .welcome-message svg {
+    color: var(--primary);
+    margin-bottom: 1rem;
+  }
+  
+  .welcome-message h2 {
+    margin-bottom: 1rem;
+    font-size: 1.75rem;
+    color: var(--text-primary);
+  }
+  
+  .welcome-message p {
+    margin-bottom: 2rem;
+    color: var(--text-secondary);
+    font-size: 1.1rem;
   }
 </style>

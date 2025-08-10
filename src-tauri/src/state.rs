@@ -89,10 +89,18 @@ impl AppState {
             Err(e) => {
                 error!("Failed to get token for Slack client: {}", e);
                 return Err(AppError::AuthError(
-                    "No Slack token configured. Please add your token in Settings.".to_string()
+                    "No Slack token configured. Please add your token in Settings (Settings button in top-right corner).".to_string()
                 ));
             }
         };
+        
+        // Validate token format
+        if !token.starts_with("xoxp-") && !token.starts_with("xoxb-") {
+            error!("Invalid token format - should start with xoxp- or xoxb-");
+            return Err(AppError::AuthError(
+                "Invalid token format. Slack tokens should start with 'xoxp-' (user token) or 'xoxb-' (bot token).".to_string()
+            ));
+        }
         
         match SlackClient::new(token) {
             Ok(client) => {
@@ -101,7 +109,7 @@ impl AppState {
             },
             Err(e) => {
                 error!("Failed to create Slack client: {}", e);
-                Err(AppError::Unknown(e.to_string()))
+                Err(AppError::ConfigError(format!("Failed to initialize Slack client: {}", e)))
             }
         }
     }

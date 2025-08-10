@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Message } from '../types/slack';
   import MessageItem from './MessageItem.svelte';
-  import { selectedMessage } from '../stores/search';
+  import { selectedMessage, searchParams } from '../stores/search';
   
   export let messages: Message[] = [];
   export let loading = false;
@@ -10,6 +10,14 @@
   function handleMessageClick(message: Message) {
     selectedMessage.set(message);
   }
+  
+  // Check if any filters are active
+  $: hasFilters = $searchParams && (
+    $searchParams.channel || 
+    $searchParams.user || 
+    $searchParams.fromDate || 
+    $searchParams.toDate
+  );
 </script>
 
 <div class="result-list">
@@ -34,7 +42,25 @@
         <path d="m21 21-4.35-4.35"/>
       </svg>
       <p>No messages found</p>
-      <p class="hint">Try adjusting your search criteria</p>
+      {#if hasFilters}
+        <p class="hint">Try removing some filters or adjusting the date range</p>
+        <div class="filter-summary">
+          {#if $searchParams?.channel}
+            <span class="filter-item">Channel: {$searchParams.channel}</span>
+          {/if}
+          {#if $searchParams?.user}
+            <span class="filter-item">User: {$searchParams.user}</span>
+          {/if}
+          {#if $searchParams?.fromDate}
+            <span class="filter-item">From: {new Date($searchParams.fromDate).toLocaleDateString()}</span>
+          {/if}
+          {#if $searchParams?.toDate}
+            <span class="filter-item">To: {new Date($searchParams.toDate).toLocaleDateString()}</span>
+          {/if}
+        </div>
+      {:else}
+        <p class="hint">Try adjusting your search criteria</p>
+      {/if}
     </div>
   {:else}
     <div class="results-header">
@@ -136,5 +162,22 @@
   
   .messages::-webkit-scrollbar-thumb:hover {
     background: var(--text-secondary);
+  }
+  
+  .filter-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    justify-content: center;
+  }
+  
+  .filter-item {
+    padding: 0.25rem 0.75rem;
+    background: var(--bg-hover);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
   }
 </style>

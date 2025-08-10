@@ -15,10 +15,22 @@
   
   function handleSearch() {
     if ($searchQuery.trim()) {
+      // Clean up user input - remove @ symbol if present and check for empty/placeholder
+      let cleanUser = user.trim();
+      if (cleanUser.startsWith('@')) {
+        cleanUser = cleanUser.substring(1);
+      }
+      
+      // Clean up channel - remove # symbol if present
+      let cleanChannel = channel.trim();
+      if (cleanChannel.startsWith('#')) {
+        cleanChannel = cleanChannel.substring(1);
+      }
+      
       searchParams.set({
         query: $searchQuery,
-        channel: channel || undefined,
-        user: user || undefined,
+        channel: cleanChannel || undefined,
+        user: cleanUser || undefined,
         fromDate: fromDate ? new Date(fromDate) : undefined,
         toDate: toDate ? new Date(toDate) : undefined,
         limit
@@ -59,12 +71,15 @@
     
     <button
       on:click={toggleAdvanced}
-      class="btn-icon"
-      title="Advanced filters"
+      class="btn-icon {(channel || user || fromDate || toDate) ? 'active' : ''}"
+      title="Advanced filters {(channel || user || fromDate || toDate) ? '(active)' : ''}"
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
         <path d="M3 4h18v2.172a2 2 0 0 1-.586 1.414l-6.828 6.828A2 2 0 0 0 13 15.828V20l-4 2v-6.172a2 2 0 0 0-.586-1.414L1.586 7.586A2 2 0 0 1 1 6.172V4z"/>
       </svg>
+      {#if channel || user || fromDate || toDate}
+        <span class="filter-indicator"></span>
+      {/if}
     </button>
     
     <button
@@ -82,13 +97,30 @@
   
   {#if showAdvanced}
     <div class="search-advanced">
+      {#if channel || user || fromDate || toDate}
+        <div class="active-filters">
+          <span class="filter-label">Active filters:</span>
+          {#if channel}
+            <span class="filter-tag">Channel: {channel}</span>
+          {/if}
+          {#if user}
+            <span class="filter-tag">User: {user}</span>
+          {/if}
+          {#if fromDate}
+            <span class="filter-tag">From: {fromDate}</span>
+          {/if}
+          {#if toDate}
+            <span class="filter-tag">To: {toDate}</span>
+          {/if}
+        </div>
+      {/if}
       <div class="filter-row">
         <label>
           Channel:
           <select bind:value={channel}>
             <option value="">All channels</option>
-            {#each channels as [_id, name]}
-              <option value={name}>#{name}</option>
+            {#each channels as [id, name]}
+              <option value={name}>{name}</option>
             {/each}
           </select>
         </label>
@@ -98,7 +130,7 @@
           <input
             type="text"
             bind:value={user}
-            placeholder="@username"
+            placeholder="Enter username (without @)"
           />
         </label>
       </div>
@@ -251,9 +283,65 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
   }
   
   .btn-icon:hover {
     background: var(--bg-hover);
+  }
+  
+  .btn-icon.active {
+    color: var(--primary);
+    background: var(--primary-bg);
+  }
+  
+  .filter-indicator {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 8px;
+    height: 8px;
+    background: var(--primary);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  
+  @keyframes pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(74, 144, 226, 0.4);
+    }
+    70% {
+      box-shadow: 0 0 0 6px rgba(74, 144, 226, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(74, 144, 226, 0);
+    }
+  }
+  
+  .active-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: var(--primary-bg);
+    border-radius: 4px;
+    border: 1px solid var(--primary);
+  }
+  
+  .filter-label {
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-right: 0.5rem;
+  }
+  
+  .filter-tag {
+    padding: 0.25rem 0.75rem;
+    background: white;
+    border: 1px solid var(--primary);
+    border-radius: 16px;
+    font-size: 0.875rem;
+    color: var(--primary);
   }
 </style>

@@ -59,7 +59,7 @@ impl SlackClient {
         params.insert("sort", "timestamp".to_string());
         params.insert("sort_dir", "desc".to_string());
 
-        debug!("Searching messages with query: {}, page: {}", query, page);
+        info!("Searching messages with query: '{}', page: {}, count: {}", query, page, count);
 
         let response = self.client
             .get(&url)
@@ -70,7 +70,17 @@ impl SlackClient {
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().await?;
-            error!("Slack API error: {} - {}", status, text);
+            error!("Slack API HTTP error: {} - {}", status, text);
+            
+            // Provide more specific error messages
+            if status == 401 {
+                return Err(anyhow!("Authentication failed. Your Slack token may be invalid or expired."));
+            } else if status == 403 {
+                return Err(anyhow!("Access denied. Your token may not have the required permissions for search."));
+            } else if status == 429 {
+                return Err(anyhow!("Rate limit exceeded. Please wait a moment and try again."));
+            }
+            
             return Err(anyhow!("Slack API error: {} - {}", status, text));
         }
 
@@ -79,9 +89,22 @@ impl SlackClient {
         if !result.ok {
             let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
             error!("Slack API returned error: {}", error_msg);
+            
+            // Provide more specific error messages based on Slack error codes
+            if error_msg.contains("invalid_auth") {
+                return Err(anyhow!("Invalid authentication token. Please check your Slack token in Settings."));
+            } else if error_msg.contains("token_revoked") {
+                return Err(anyhow!("Your Slack token has been revoked. Please generate a new token."));
+            } else if error_msg.contains("not_in_channel") {
+                return Err(anyhow!("You don't have access to search in the specified channel."));
+            } else if error_msg.contains("missing_scope") {
+                return Err(anyhow!("Your token doesn't have the required permissions. Please ensure it has 'search:read' scope."));
+            }
+            
             return Err(anyhow!("Slack API error: {}", error_msg));
         }
 
+        debug!("Search successful, found {} results", result.messages.as_ref().map(|m| m.total).unwrap_or(0));
         Ok(result)
     }
 
@@ -256,21 +279,34 @@ impl SlackClient {
     pub async fn test_auth(&self) -> Result<bool> {
         let url = format!("{}/auth.test", SLACK_API_BASE);
         
+        info!("Testing Slack authentication");
+        
         let response = self.client
             .get(&url)
             .send()
             .await?;
 
         if !response.status().is_success() {
+            error!("Auth test failed with status: {}", response.status());
             return Ok(false);
         }
 
         #[derive(Deserialize)]
         struct AuthTestResponse {
             ok: bool,
+            #[serde(default)]
+            error: Option<String>,
         }
 
         let result: AuthTestResponse = response.json().await?;
+        
+        if result.ok {
+            info!("Slack authentication successful");
+        } else {
+            let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
+            error!("Slack auth test failed: {}", error_msg);
+        }
+        
         Ok(result.ok)
     }
 }
@@ -279,23 +315,44 @@ impl SlackClient {
 pub fn build_search_query(params: &SearchRequest) -> String {
     let mut query_parts = vec![params.query.clone()];
     
+    // Add channel filter - remove # if present
     if let Some(channel) = &params.channel {
-        query_parts.push(format!("in:{}", channel));
+        let clean_channel = channel.trim_start_matches('#');
+        if !clean_channel.is_empty() {
+            query_parts.push(format!("in:{}", clean_channel));
+        }
     }
     
+    // Add user filter - remove @ if present
     if let Some(user) = &params.user {
-        query_parts.push(format!("from:{}", user));
+        let clean_user = user.trim_start_matches('@');
+        if !clean_user.is_empty() {
+            query_parts.push(format!("from:{}", clean_user));
+        }
     }
     
+    // Add date filters - Slack expects dates in YYYY-MM-DD format
     if let Some(from) = &params.from_date {
-        query_parts.push(format!("after:{}", from));
+        // Parse ISO string and format as YYYY-MM-DD for Slack
+        if let Some(date_part) = from.split('T').next() {
+            query_parts.push(format!("after:{}", date_part));
+        } else {
+            query_parts.push(format!("after:{}", from));
+        }
     }
     
     if let Some(to) = &params.to_date {
-        query_parts.push(format!("before:{}", to));
+        // Parse ISO string and format as YYYY-MM-DD for Slack
+        if let Some(date_part) = to.split('T').next() {
+            query_parts.push(format!("before:{}", date_part));
+        } else {
+            query_parts.push(format!("before:{}", to));
+        }
     }
     
-    query_parts.join(" ")
+    let final_query = query_parts.join(" ");
+    info!("Built search query: {}", final_query);
+    final_query
 }
 
 // Pagination helper
