@@ -321,10 +321,27 @@ pub fn build_search_query(params: &SearchRequest) -> String {
     }
     
     // Add channel filter - remove # if present
+    // Support multi-channel search with comma-separated values
     if let Some(channel) = &params.channel {
-        let clean_channel = channel.trim_start_matches('#');
-        if !clean_channel.is_empty() {
-            query_parts.push(format!("in:{}", clean_channel));
+        if channel.contains(',') {
+            // Multi-channel search
+            let channels: Vec<String> = channel
+                .split(',')
+                .map(|ch| ch.trim().trim_start_matches('#'))
+                .filter(|ch| !ch.is_empty())
+                .map(|ch| format!("in:{}", ch))
+                .collect();
+            
+            if !channels.is_empty() {
+                // Slack search syntax: (in:channel1 OR in:channel2 OR ...)
+                query_parts.push(format!("({})", channels.join(" OR ")));
+            }
+        } else {
+            // Single channel search
+            let clean_channel = channel.trim_start_matches('#');
+            if !clean_channel.is_empty() {
+                query_parts.push(format!("in:{}", clean_channel));
+            }
         }
     }
     

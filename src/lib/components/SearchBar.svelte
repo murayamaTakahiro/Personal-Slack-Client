@@ -1,6 +1,7 @@
 <script lang="ts">
   import { searchQuery, searchParams, searchLoading } from '../stores/search';
   import { createEventDispatcher } from 'svelte';
+  import ChannelSelector from './ChannelSelector.svelte';
   
   export let channels: [string, string][] = [];
   export let showAdvanced = false;
@@ -132,14 +133,21 @@
         </div>
       {/if}
       <div class="filter-row">
-        <label>
+        <label class="channel-label">
           Channel:
-          <select bind:value={channel}>
-            <option value="">All channels</option>
-            {#each channels as [id, name]}
-              <option value={name}>{name}</option>
-            {/each}
-          </select>
+          <ChannelSelector 
+            bind:value={channel}
+            {channels}
+            on:change={(e) => {
+              if (e.detail.channels) {
+                // Multi-select mode
+                channel = e.detail.channels.join(',');
+              } else {
+                // Single select mode
+                channel = e.detail.channel || '';
+              }
+            }}
+          />
         </label>
         
         <label>
@@ -377,5 +385,18 @@
   
   .info-message svg {
     flex-shrink: 0;
+  }
+  
+  .channel-label {
+    flex: 2;
+    min-width: 300px;
+  }
+  
+  .filter-row .channel-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
   }
 </style>
