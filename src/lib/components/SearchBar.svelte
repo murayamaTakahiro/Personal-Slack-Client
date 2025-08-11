@@ -13,7 +13,7 @@
   let user = '';
   let fromDate = '';
   let toDate = '';
-  let limit = 100;
+  let limit = 1000;
   let searchInput: HTMLInputElement;
   let showChannelSelector = false;
   let channelSelectorComponent: ChannelSelector;
@@ -242,7 +242,7 @@
             type="number"
             bind:value={limit}
             min="10"
-            max="1000"
+            max="10000"
             step="10"
           />
         </label>

@@ -1,5 +1,4 @@
 import { writable, derived, get } from 'svelte/store';
-import { invoke } from '@tauri-apps/api/core';
 
 interface ChannelInfo {
   id: string;
@@ -168,43 +167,25 @@ function createChannelStore() {
 
 // Persistent storage functions
 async function loadFavorites(): Promise<string[]> {
-  try {
-    const favorites = await invoke<string[]>('get_favorite_channels');
-    return favorites || [];
-  } catch {
-    // Try localStorage as fallback
-    const stored = localStorage.getItem('channel_favorites');
-    return stored ? JSON.parse(stored) : [];
-  }
+  // Use localStorage
+  const stored = localStorage.getItem('channel_favorites');
+  return stored ? JSON.parse(stored) : [];
 }
 
 async function saveFavorites(favorites: string[]): Promise<void> {
-  try {
-    await invoke('save_favorite_channels', { favorites });
-  } catch {
-    // Fallback to localStorage
-    localStorage.setItem('channel_favorites', JSON.stringify(favorites));
-  }
+  // Use localStorage
+  localStorage.setItem('channel_favorites', JSON.stringify(favorites));
 }
 
 async function loadRecentChannels(): Promise<string[]> {
-  try {
-    const recent = await invoke<string[]>('get_recent_channels');
-    return recent || [];
-  } catch {
-    // Try localStorage as fallback
-    const stored = localStorage.getItem('recent_channels');
-    return stored ? JSON.parse(stored) : [];
-  }
+  // Use localStorage
+  const stored = localStorage.getItem('recent_channels');
+  return stored ? JSON.parse(stored) : [];
 }
 
 async function saveRecentChannels(recent: string[]): Promise<void> {
-  try {
-    await invoke('save_recent_channels', { recent });
-  } catch {
-    // Fallback to localStorage
-    localStorage.setItem('recent_channels', JSON.stringify(recent));
-  }
+  // Use localStorage
+  localStorage.setItem('recent_channels', JSON.stringify(recent));
 }
 
 export const channelStore = createChannelStore();

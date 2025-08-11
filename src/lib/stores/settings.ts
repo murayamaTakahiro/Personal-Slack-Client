@@ -20,7 +20,7 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
 
 // Default settings
 const defaultSettings: AppSettings = {
-  maxResults: 100,
+  maxResults: 1000,
   theme: 'auto',
   keyboardShortcuts: defaultKeyboardShortcuts
 };
