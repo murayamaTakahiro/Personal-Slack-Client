@@ -55,6 +55,15 @@
     highlightedIndex = -1;
   }
   
+  // Export function for keyboard shortcut integration
+  export function toggleDropdown() {
+    showDropdown = !showDropdown;
+    if (showDropdown && inputElement) {
+      inputElement.focus();
+    }
+    highlightedIndex = -1;
+  }
+  
   function handleInputKeydown(event: KeyboardEvent) {
     if (!showDropdown && (event.key === 'ArrowDown' || event.key === 'Enter')) {
       showDropdown = true;
@@ -125,21 +134,36 @@
   function clearSelection() {
     if (mode === 'multi') {
       channelStore.clearSelection();
-    } else {
-      value = '';
-      searchInput = '';
     }
+    value = '';
+    searchInput = '';
     dispatch('change', { channel: '' });
   }
   
   function selectAllFavorites() {
     channelStore.selectAllFavorites();
+    // Apply the selection immediately for better UX
+    if (mode === 'multi') {
+      setTimeout(() => {
+        // Give the store time to update
+        applyMultiSelect();
+      }, 100);
+    }
   }
   
   function applyMultiSelect() {
     value = selectedChannels.join(',');
+    searchInput = selectedChannels.length > 0 
+      ? `${selectedChannels.length} channel${selectedChannels.length !== 1 ? 's' : ''} selected`
+      : '';
     showDropdown = false;
     dispatch('change', { channels: selectedChannels });
+  }
+  
+  // Update search input when value changes externally
+  $: if (value && value.includes(',')) {
+    const channels = value.split(',').filter(Boolean);
+    searchInput = `${channels.length} channel${channels.length !== 1 ? 's' : ''} selected`;
   }
 </script>
 
@@ -152,8 +176,13 @@
         bind:value={searchInput}
         on:focus={handleInputFocus}
         on:keydown={handleInputKeydown}
-        placeholder={mode === 'multi' ? 'Search channels (multi-select)' : 'Search or select a channel'}
+        placeholder={mode === 'multi' 
+          ? (selectedChannels.length > 0 
+            ? `${selectedChannels.length} channel${selectedChannels.length !== 1 ? 's' : ''} selected - click to modify`
+            : 'Search channels (multi-select)') 
+          : 'Search or select a channel'}
         class="channel-input"
+        class:has-selection={selectedChannels.length > 0 || value}
       />
       
       {#if value || selectedChannels.length > 0}
@@ -367,6 +396,12 @@
   .channel-input:focus {
     outline: none;
     border-color: var(--primary);
+  }
+  
+  .channel-input.has-selection {
+    background: var(--primary-bg);
+    border-color: var(--primary);
+    font-weight: 500;
   }
   
   .clear-btn {

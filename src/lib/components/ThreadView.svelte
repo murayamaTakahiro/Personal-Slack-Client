@@ -53,7 +53,7 @@
   }
 </script>
 
-<div class="thread-view">
+<div class="thread-view" tabindex="-1">
   {#if !message}
     <div class="empty">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" opacity="0.3">

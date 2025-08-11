@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import SearchBar from './lib/components/SearchBar.svelte';
   import ResultList from './lib/components/ResultList.svelte';
   import ThreadView from './lib/components/ThreadView.svelte';
@@ -17,6 +17,7 @@
     updateWorkspaceSecure, 
     loadSecureSettings 
   } from './lib/stores/secureSettings';
+  import { settings } from './lib/stores/settings';
   import { maskTokenClient } from './lib/api/secure';
   import { 
     searchMessages, 
@@ -25,16 +26,48 @@
     getThreadFromUrl,
     initTokenFromStorage 
   } from './lib/api/slack';
+  import { initKeyboardService, type KeyboardService } from './lib/services/keyboardService';
+  import KeyboardSettings from './lib/components/KeyboardSettings.svelte';
+  import KeyboardHelp from './lib/components/KeyboardHelp.svelte';
   
   let channels: [string, string][] = [];
   let showSettings = false;
+  let showAdvancedSearch = false;
   let token = '';
   let maskedToken = '';
   let workspace = '';
   let urlInput = '';
   let urlLoading = false;
+  let keyboardService: KeyboardService;
+  let searchBarElement: SearchBar;
+  let resultListElement: ResultList;
+  let showKeyboardHelp = false;
   
   onMount(async () => {
+    // Initialize keyboard service
+    const currentSettings = $settings;
+    keyboardService = initKeyboardService(currentSettings.keyboardShortcuts || {
+      executeSearch: 'Enter',
+      toggleAdvancedSearch: 'Ctrl+Shift+F',
+      focusSearchBar: 'Ctrl+K',
+      focusResults: 'Ctrl+1',
+      focusThread: 'Ctrl+2',
+      focusUrlInput: 'Ctrl+U',
+      toggleSettings: 'Ctrl+,',
+      newSearch: 'Ctrl+N',
+      nextResult: 'ArrowDown',
+      prevResult: 'ArrowUp',
+      openResult: 'Enter',
+      clearSearch: 'Escape',
+      toggleChannelSelector: 'Ctrl+L'
+    });
+    
+    // Register keyboard handlers
+    setupKeyboardHandlers();
+    
+    // Add global keyboard event listener
+    document.addEventListener('keydown', handleGlobalKeydown);
+    
     // Load secure settings
     const { token: savedToken, workspace: savedWorkspace } = await loadSecureSettings();
     if (savedToken) {
@@ -60,6 +93,119 @@
       workspace = savedWorkspace;
     }
   });
+  
+  onDestroy(() => {
+    // Clean up keyboard event listener
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('keydown', handleGlobalKeydown);
+    }
+  });
+  
+  function handleGlobalKeydown(event: KeyboardEvent) {
+    // Check for help shortcut first
+    if (event.key === '?' && !showSettings) {
+      event.preventDefault();
+      showKeyboardHelp = !showKeyboardHelp;
+      return;
+    }
+    
+    if (keyboardService) {
+      keyboardService.handleKeyboardEvent(event);
+    }
+  }
+  
+  function setupKeyboardHandlers() {
+    // Toggle Settings
+    keyboardService.registerHandler('toggleSettings', {
+      action: () => {
+        showSettings = !showSettings;
+      },
+      allowInInput: true
+    });
+    
+    // Focus Search Bar
+    keyboardService.registerHandler('focusSearchBar', {
+      action: () => {
+        if (!showSettings && searchBarElement) {
+          searchBarElement.focusSearchInput();
+        }
+      },
+      allowInInput: false
+    });
+    
+    // New Search
+    keyboardService.registerHandler('newSearch', {
+      action: () => {
+        if (!showSettings) {
+          searchParams.update(p => ({ ...p, query: '' }));
+          searchResults.set(null);
+          selectedMessage.set(null);
+          if (searchBarElement) {
+            searchBarElement.focusSearchInput();
+          }
+        }
+      },
+      allowInInput: false
+    });
+    
+    // Toggle Advanced Search
+    keyboardService.registerHandler('toggleAdvancedSearch', {
+      action: () => {
+        if (!showSettings && searchBarElement) {
+          searchBarElement.toggleAdvancedSearch();
+        }
+      },
+      allowInInput: true
+    });
+    
+    // Focus Results
+    keyboardService.registerHandler('focusResults', {
+      action: () => {
+        if (!showSettings && resultListElement) {
+          resultListElement.focusList();
+        }
+      },
+      allowInInput: false
+    });
+    
+    // Focus Thread
+    keyboardService.registerHandler('focusThread', {
+      action: () => {
+        if (!showSettings && $selectedMessage) {
+          // Focus the thread view component
+          const threadView = document.querySelector('.thread-view');
+          if (threadView) {
+            (threadView as HTMLElement).focus();
+          }
+        }
+      },
+      allowInInput: false
+    });
+    
+    // Focus URL Input
+    keyboardService.registerHandler('focusUrlInput', {
+      action: () => {
+        if (!showSettings) {
+          const urlInput = document.querySelector('.url-input') as HTMLInputElement;
+          if (urlInput) {
+            urlInput.focus();
+            urlInput.select();
+          }
+        }
+      },
+      allowInInput: false
+    });
+    
+    // Toggle Channel Selector
+    keyboardService.registerHandler('toggleChannelSelector', {
+      action: () => {
+        if (!showSettings && searchBarElement) {
+          searchBarElement.toggleChannelSelector();
+        }
+      },
+      allowInInput: false
+    });
+  }
   
   async function handleSearch() {
     searchLoading.set(true);
@@ -230,6 +376,8 @@
         </p>
       </div>
       
+      <KeyboardSettings />
+      
       <div class="settings-actions">
         <button class="btn-secondary" on:click={() => showSettings = false}>
           Cancel
@@ -276,6 +424,7 @@
     {/if}
     
     <SearchBar
+      bind:this={searchBarElement}
       {channels}
       on:search={handleSearch}
     />
@@ -295,6 +444,7 @@
       <div class="main-content">
         <div class="results-panel">
           <ResultList
+            bind:this={resultListElement}
             messages={$searchResults?.messages || []}
             loading={$searchLoading}
             error={$searchError}
@@ -307,6 +457,8 @@
       </div>
     {/if}
   {/if}
+  
+  <KeyboardHelp bind:show={showKeyboardHelp} />
 </div>
 
 <style>

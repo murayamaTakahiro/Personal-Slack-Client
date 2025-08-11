@@ -1,14 +1,24 @@
 <script lang="ts">
+  import { onMount, onDestroy } from 'svelte';
   import type { Message } from '../types/slack';
   import MessageItem from './MessageItem.svelte';
   import { selectedMessage, searchParams } from '../stores/search';
+  import { getKeyboardService } from '../services/keyboardService';
   
   export let messages: Message[] = [];
   export let loading = false;
   export let error: string | null = null;
   
+  let focusedIndex = -1;
+  let listContainer: HTMLDivElement;
+  let messageElements: HTMLElement[] = [];
+  
   function handleMessageClick(message: Message) {
     selectedMessage.set(message);
+    const index = messages.findIndex(m => m.ts === message.ts);
+    if (index >= 0) {
+      focusedIndex = index;
+    }
   }
   
   // Check if any filters are active
@@ -18,6 +28,105 @@
     $searchParams.fromDate || 
     $searchParams.toDate
   );
+  
+  // Reset focus when messages change
+  $: if (messages) {
+    focusedIndex = -1;
+  }
+  
+  export function focusList() {
+    if (messages.length > 0) {
+      focusedIndex = 0;
+      updateFocus();
+    }
+  }
+  
+  function updateFocus() {
+    if (focusedIndex >= 0 && focusedIndex < messages.length) {
+      const message = messages[focusedIndex];
+      selectedMessage.set(message);
+      
+      // Scroll into view if needed
+      requestAnimationFrame(() => {
+        const element = messageElements[focusedIndex];
+        if (element && listContainer) {
+          const rect = element.getBoundingClientRect();
+          const containerRect = listContainer.getBoundingClientRect();
+          
+          if (rect.top < containerRect.top) {
+            element.scrollIntoView({ block: 'start', behavior: 'smooth' });
+          } else if (rect.bottom > containerRect.bottom) {
+            element.scrollIntoView({ block: 'end', behavior: 'smooth' });
+          }
+        }
+      });
+    }
+  }
+  
+  function handleKeyNavigation(direction: 'up' | 'down') {
+    if (messages.length === 0) return;
+    
+    if (direction === 'down') {
+      if (focusedIndex < messages.length - 1) {
+        focusedIndex++;
+      } else {
+        focusedIndex = 0; // Wrap to start
+      }
+    } else {
+      if (focusedIndex > 0) {
+        focusedIndex--;
+      } else {
+        focusedIndex = messages.length - 1; // Wrap to end
+      }
+    }
+    
+    updateFocus();
+  }
+  
+  onMount(() => {
+    const keyboardService = getKeyboardService();
+    if (!keyboardService) return;
+    
+    // Next Result
+    keyboardService.registerHandler('nextResult', {
+      action: () => {
+        if (messages.length > 0) {
+          handleKeyNavigation('down');
+        }
+      },
+      allowInInput: false
+    });
+    
+    // Previous Result
+    keyboardService.registerHandler('prevResult', {
+      action: () => {
+        if (messages.length > 0) {
+          handleKeyNavigation('up');
+        }
+      },
+      allowInInput: false
+    });
+    
+    // Open Result (already selected via navigation)
+    keyboardService.registerHandler('openResult', {
+      action: () => {
+        if (focusedIndex >= 0 && focusedIndex < messages.length) {
+          const message = messages[focusedIndex];
+          selectedMessage.set(message);
+        }
+      },
+      allowInInput: false
+    });
+  });
+  
+  onDestroy(() => {
+    const keyboardService = getKeyboardService();
+    if (keyboardService) {
+      keyboardService.unregisterHandler('nextResult');
+      keyboardService.unregisterHandler('prevResult');
+      keyboardService.unregisterHandler('openResult');
+    }
+  });
 </script>
 
 <div class="result-list">
@@ -75,13 +184,16 @@
         {/if}
       </h3>
     </div>
-    <div class="messages">
-      {#each messages as message}
-        <MessageItem 
-          {message}
-          on:click={() => handleMessageClick(message)}
-          selected={$selectedMessage?.ts === message.ts}
-        />
+    <div class="messages" bind:this={listContainer}>
+      {#each messages as message, index}
+        <div bind:this={messageElements[index]}>
+          <MessageItem 
+            {message}
+            on:click={() => handleMessageClick(message)}
+            selected={$selectedMessage?.ts === message.ts}
+            focused={focusedIndex === index}
+          />
+        </div>
       {/each}
     </div>
   {/if}

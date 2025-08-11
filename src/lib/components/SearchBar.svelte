@@ -1,7 +1,8 @@
 <script lang="ts">
   import { searchQuery, searchParams, searchLoading } from '../stores/search';
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import ChannelSelector from './ChannelSelector.svelte';
+  import { getKeyboardService } from '../services/keyboardService';
   
   export let channels: [string, string][] = [];
   export let showAdvanced = false;
@@ -13,6 +14,9 @@
   let fromDate = '';
   let toDate = '';
   let limit = 100;
+  let searchInput: HTMLInputElement;
+  let showChannelSelector = false;
+  let channelSelectorComponent: ChannelSelector;
   
   function handleSearch() {
     // Check if we have either a query or at least one filter
@@ -64,12 +68,66 @@
     toDate = '';
     limit = 100;
   }
+  
+  // Exported methods for keyboard shortcuts
+  export function focusSearchInput() {
+    if (searchInput) {
+      searchInput.focus();
+      searchInput.select();
+    }
+  }
+  
+  export function toggleAdvancedSearch() {
+    showAdvanced = !showAdvanced;
+  }
+  
+  export function toggleChannelSelector() {
+    if (channelSelectorComponent && channelSelectorComponent.toggleDropdown) {
+      channelSelectorComponent.toggleDropdown();
+    }
+  }
+  
+  // Setup keyboard handlers
+  onMount(() => {
+    const keyboardService = getKeyboardService();
+    if (!keyboardService) return;
+    
+    // Execute Search (Enter key is already handled in input)
+    keyboardService.registerHandler('executeSearch', {
+      action: () => {
+        if (canSearch && !$searchLoading) {
+          handleSearch();
+        }
+      },
+      allowInInput: true
+    });
+    
+    // Clear Search
+    keyboardService.registerHandler('clearSearch', {
+      action: () => {
+        if ($searchQuery || channel || user || fromDate || toDate) {
+          $searchQuery = '';
+          clearFilters();
+        }
+      },
+      allowInInput: true
+    });
+  });
+  
+  onDestroy(() => {
+    const keyboardService = getKeyboardService();
+    if (keyboardService) {
+      keyboardService.unregisterHandler('executeSearch');
+      keyboardService.unregisterHandler('clearSearch');
+    }
+  });
 </script>
 
 <div class="search-bar">
   <div class="search-main">
     <input
       type="text"
+      bind:this={searchInput}
       bind:value={$searchQuery}
       on:keydown={handleKeydown}
       placeholder="Search messages... (optional with filters)"
@@ -136,6 +194,7 @@
         <label class="channel-label">
           Channel:
           <ChannelSelector 
+            bind:this={channelSelectorComponent}
             bind:value={channel}
             {channels}
             on:change={(e) => {
