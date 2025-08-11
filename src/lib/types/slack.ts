@@ -86,6 +86,7 @@ export interface AppSettings {
   maxResults: number;
   theme: 'light' | 'dark' | 'auto';
   keyboardShortcuts?: KeyboardShortcuts;
+  userFavorites?: UserFavorite[];
 }
 
 export interface SearchHistory {
@@ -102,4 +103,13 @@ export interface SearchPreset {
   user?: string;
   fromDate?: Date;
   toDate?: Date;
+}
+
+export interface UserFavorite {
+  id: string;        // Slack member ID (e.g., U04F9M6J2Q4)
+  name: string;      // Slack username
+  displayName?: string; // Display name from profile
+  realName?: string; // Real name from profile
+  alias?: string;    // User-defined alias for easy identification
+  avatar?: string;   // Avatar URL
 }

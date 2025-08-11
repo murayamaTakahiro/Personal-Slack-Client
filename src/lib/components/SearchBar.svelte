@@ -2,7 +2,9 @@
   import { searchQuery, searchParams, searchLoading } from '../stores/search';
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import ChannelSelector from './ChannelSelector.svelte';
+  import UserSelector from './UserSelector.svelte';
   import { getKeyboardService } from '../services/keyboardService';
+  import { userService } from '../services/userService';
   
   export let channels: [string, string][] = [];
   export let showAdvanced = false;
@@ -11,23 +13,26 @@
   
   let channel = '';
   let user = '';
+  let userId = '';  // Store the actual user ID
   let fromDate = '';
   let toDate = '';
   let limit = 1000;
   let searchInput: HTMLInputElement;
   let showChannelSelector = false;
   let channelSelectorComponent: ChannelSelector;
+  let userSelectorComponent: UserSelector;
   
-  function handleSearch() {
+  async function handleSearch() {
     // Check if we have either a query or at least one filter
-    const hasFilters = channel || user || fromDate || toDate;
+    const hasFilters = channel || userId || fromDate || toDate;
     const hasQuery = $searchQuery.trim();
     
     if (hasQuery || hasFilters) {
-      // Clean up user input - remove @ symbol if present and check for empty/placeholder
-      let cleanUser = user.trim();
-      if (cleanUser.startsWith('@')) {
-        cleanUser = cleanUser.substring(1);
+      // Resolve user input to user ID if needed
+      let resolvedUserId = userId;
+      if (user && !userId) {
+        // User typed something manually, try to resolve it
+        resolvedUserId = await userService.resolveUserToId(user) || '';
       }
       
       // Clean up channel - remove # symbol if present
@@ -39,7 +44,7 @@
       searchParams.set({
         query: $searchQuery.trim() || undefined,  // Make query optional
         channel: cleanChannel || undefined,
-        user: cleanUser || undefined,
+        user: resolvedUserId || undefined,
         fromDate: fromDate ? new Date(fromDate) : undefined,
         toDate: toDate ? new Date(toDate) : undefined,
         limit
@@ -55,7 +60,7 @@
   }
   
   // Check if search is possible
-  $: canSearch = $searchQuery.trim() || channel || user || fromDate || toDate;
+  $: canSearch = $searchQuery.trim() || channel || userId || user || fromDate || toDate;
   
   function toggleAdvanced() {
     showAdvanced = !showAdvanced;
@@ -64,6 +69,7 @@
   function clearFilters() {
     channel = '';
     user = '';
+    userId = '';
     fromDate = '';
     toDate = '';
     limit = 100;
@@ -105,7 +111,7 @@
     // Clear Search
     keyboardService.registerHandler('clearSearch', {
       action: () => {
-        if ($searchQuery || channel || user || fromDate || toDate) {
+        if ($searchQuery || channel || userId || user || fromDate || toDate) {
           $searchQuery = '';
           clearFilters();
         }
@@ -179,8 +185,8 @@
           {#if channel}
             <span class="filter-tag">Channel: {channel}</span>
           {/if}
-          {#if user}
-            <span class="filter-tag">User: {user}</span>
+          {#if userId || user}
+            <span class="filter-tag">User: {user || userId}</span>
           {/if}
           {#if fromDate}
             <span class="filter-tag">From: {fromDate}</span>
@@ -211,10 +217,13 @@
         
         <label>
           User:
-          <input
-            type="text"
-            bind:value={user}
-            placeholder="Enter username (without @)"
+          <UserSelector
+            bind:this={userSelectorComponent}
+            bind:value={userId}
+            on:change={(e) => {
+              userId = e.detail.userId || '';
+              user = e.detail.userName || '';
+            }}
           />
         </label>
       </div>

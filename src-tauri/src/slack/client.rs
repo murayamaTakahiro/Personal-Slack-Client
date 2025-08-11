@@ -213,6 +213,62 @@ impl SlackClient {
         result.user.ok_or_else(|| anyhow!("User not found"))
     }
 
+    pub async fn get_all_users(&self) -> Result<Vec<SlackUserInfo>> {
+        let url = format!("{}/users.list", SLACK_API_BASE);
+        
+        let mut all_users = Vec::new();
+        let mut cursor: Option<String> = None;
+
+        loop {
+            let mut params = HashMap::new();
+            params.insert("limit", "1000".to_string());
+            
+            if let Some(ref cursor_value) = cursor {
+                params.insert("cursor", cursor_value.clone());
+            }
+
+            debug!("Fetching users page with cursor: {:?}", cursor);
+
+            let response = self.client
+                .get(&url)
+                .query(&params)
+                .send()
+                .await?;
+
+            if !response.status().is_success() {
+                return Err(anyhow!("Failed to get users: {}", response.status()));
+            }
+
+            let result: SlackUsersListResponse = response.json().await?;
+            
+            if !result.ok {
+                let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
+                return Err(anyhow!("Slack API error: {}", error_msg));
+            }
+
+            if let Some(users) = result.members {
+                all_users.extend(users);
+            }
+
+            // Check if there are more pages
+            if let Some(metadata) = result.response_metadata {
+                if let Some(next) = metadata.next_cursor {
+                    if !next.is_empty() {
+                        cursor = Some(next);
+                        // Rate limiting
+                        sleep(Duration::from_millis(RATE_LIMIT_DELAY_MS)).await;
+                        continue;
+                    }
+                }
+            }
+            
+            break;
+        }
+
+        info!("Fetched {} users", all_users.len());
+        Ok(all_users)
+    }
+
     pub async fn get_channels(&self) -> Result<Vec<SlackConversation>> {
         let url = format!("{}/conversations.list", SLACK_API_BASE);
         

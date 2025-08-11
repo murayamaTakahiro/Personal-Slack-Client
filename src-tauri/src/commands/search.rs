@@ -1,7 +1,7 @@
 use crate::error::AppResult;
 use crate::slack::{
     SlackClient, SearchRequest, SearchResult, Message, SlackMessage,
-    build_search_query, fetch_all_results
+    build_search_query, fetch_all_results, SlackUser, SlackUserInfo
 };
 use crate::state::AppState;
 use std::time::Instant;
@@ -359,4 +359,60 @@ pub async fn test_connection(
             Ok(false)
         }
     }
+}
+
+#[tauri::command]
+pub async fn get_all_users(
+    state: State<'_, AppState>,
+) -> AppResult<Vec<SlackUser>> {
+    let client = state.get_client().await?;
+    
+    debug!("Fetching all users");
+    
+    let users_info = client.get_all_users().await?;
+    
+    // Convert SlackUserInfo to SlackUser for frontend
+    let users: Vec<SlackUser> = users_info
+        .into_iter()
+        .map(|user_info| SlackUser {
+            id: user_info.id,
+            name: user_info.name,
+            real_name: user_info.real_name.clone().or_else(|| 
+                user_info.profile.as_ref().and_then(|p| p.real_name.clone())
+            ),
+            display_name: user_info.profile.as_ref().and_then(|p| p.display_name.clone()),
+            avatar: user_info.profile.as_ref().and_then(|p| p.image_48.clone()),
+        })
+        .collect();
+    
+    info!("Fetched {} users", users.len());
+    
+    Ok(users)
+}
+
+#[tauri::command]
+pub async fn get_user_info(
+    user_id: String,
+    state: State<'_, AppState>,
+) -> AppResult<SlackUser> {
+    let client = state.get_client().await?;
+    
+    debug!("Fetching user info for: {}", user_id);
+    
+    let user_info = client.get_user_info(&user_id).await?;
+    
+    // Convert SlackUserInfo to SlackUser for frontend
+    let user = SlackUser {
+        id: user_info.id,
+        name: user_info.name,
+        real_name: user_info.real_name.clone().or_else(|| 
+            user_info.profile.as_ref().and_then(|p| p.real_name.clone())
+        ),
+        display_name: user_info.profile.as_ref().and_then(|p| p.display_name.clone()),
+        avatar: user_info.profile.as_ref().and_then(|p| p.image_48.clone()),
+    };
+    
+    info!("Fetched user info for: {}", user.name);
+    
+    Ok(user)
 }

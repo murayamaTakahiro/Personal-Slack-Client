@@ -51,6 +51,8 @@ pub fn run() {
             commands::search::search_messages,
             commands::search::get_user_channels,
             commands::search::test_connection,
+            commands::search::get_all_users,
+            commands::search::get_user_info,
             commands::thread::get_thread,
             commands::thread::parse_slack_url_command,
             commands::thread::get_thread_from_url,

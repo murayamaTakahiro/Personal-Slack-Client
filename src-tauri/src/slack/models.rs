@@ -193,3 +193,11 @@ pub struct SlackConversation {
 pub struct SlackResponseMetadata {
     pub next_cursor: Option<String>,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct SlackUsersListResponse {
+    pub ok: bool,
+    pub members: Option<Vec<SlackUserInfo>>,
+    pub error: Option<String>,
+    pub response_metadata: Option<SlackResponseMetadata>,
+}
