@@ -8,10 +8,17 @@
   let loading = false;
   let error: string | null = null;
   
-  $: if (message && message.threadTs) {
-    loadThread(message.channel, message.threadTs);
-  } else if (message) {
-    loadThread(message.channel, message.ts);
+  $: if (message) {
+    // For thread replies, use threadTs (parent's timestamp)
+    // For thread parents, use ts (message's own timestamp)
+    const tsToUse = message.threadTs || message.ts;
+    console.log('Loading thread - Message:', {
+      ts: message.ts,
+      threadTs: message.threadTs,
+      isThreadParent: message.isThreadParent,
+      usingTs: tsToUse
+    });
+    loadThread(message.channel, tsToUse);
   }
   
   async function loadThread(channelId: string, threadTs: string) {
@@ -20,7 +27,9 @@
     thread = null;
     
     try {
+      console.log(`Fetching thread for channel: ${channelId}, threadTs: ${threadTs}`);
       thread = await getThread(channelId, threadTs);
+      console.log('Thread loaded:', thread);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load thread';
       console.error('Failed to load thread:', err);
