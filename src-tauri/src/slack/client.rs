@@ -1,10 +1,11 @@
 use anyhow::{anyhow, Result};
+use chrono;
 use reqwest::{Client, header};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use std::sync::Arc;
 
 use super::models::*;
@@ -276,6 +277,61 @@ impl SlackClient {
         result.channel.ok_or_else(|| anyhow!("Channel not found"))
     }
 
+    pub async fn get_channel_messages(
+        &self,
+        channel_id: &str,
+        oldest: Option<String>,
+        latest: Option<String>,
+        limit: usize,
+    ) -> Result<Vec<SlackMessage>> {
+        let url = format!("{}/conversations.history", SLACK_API_BASE);
+        
+        let mut params = HashMap::new();
+        params.insert("channel", channel_id.to_string());
+        params.insert("limit", limit.to_string());
+        params.insert("inclusive", "true".to_string());
+        
+        if let Some(oldest_ts) = oldest {
+            params.insert("oldest", oldest_ts);
+        }
+        
+        if let Some(latest_ts) = latest {
+            params.insert("latest", latest_ts);
+        }
+        
+        info!("Getting channel messages for channel: {}, limit: {}", channel_id, limit);
+        
+        let response = self.client
+            .get(&url)
+            .query(&params)
+            .send()
+            .await?;
+            
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await?;
+            error!("Failed to get channel messages: {} - {}", status, text);
+            return Err(anyhow!("Failed to get channel messages: {} - {}", status, text));
+        }
+        
+        #[derive(Deserialize)]
+        struct ConversationsHistoryResponse {
+            ok: bool,
+            messages: Option<Vec<SlackMessage>>,
+            error: Option<String>,
+        }
+        
+        let result: ConversationsHistoryResponse = response.json().await?;
+        
+        if !result.ok {
+            let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
+            error!("Slack API error: {}", error_msg);
+            return Err(anyhow!("Slack API error: {}", error_msg));
+        }
+        
+        Ok(result.messages.unwrap_or_default())
+    }
+    
     pub async fn test_auth(&self) -> Result<bool> {
         let url = format!("{}/auth.test", SLACK_API_BASE);
         
@@ -314,35 +370,29 @@ impl SlackClient {
 // Helper functions for building search queries
 pub fn build_search_query(params: &SearchRequest) -> String {
     let mut query_parts = Vec::new();
+    let has_text_query = !params.query.trim().is_empty();
     
     // Only add the query if it's not empty
-    if !params.query.trim().is_empty() {
+    if has_text_query {
         query_parts.push(params.query.clone());
     }
     
     // Add channel filter - remove # if present
-    // Support multi-channel search with comma-separated values
+    // Note: Slack doesn't support OR for channels in a single query
+    // For multi-channel search, we'll need to handle this differently
     if let Some(channel) = &params.channel {
-        if channel.contains(',') {
-            // Multi-channel search
-            let channels: Vec<String> = channel
-                .split(',')
-                .map(|ch| ch.trim().trim_start_matches('#'))
-                .filter(|ch| !ch.is_empty())
-                .map(|ch| format!("in:{}", ch))
-                .collect();
-            
-            if !channels.is_empty() {
-                // Slack search syntax: (in:channel1 OR in:channel2 OR ...)
-                query_parts.push(format!("({})", channels.join(" OR ")));
-            }
-        } else {
+        if !channel.contains(',') {
             // Single channel search
-            let clean_channel = channel.trim_start_matches('#');
+            let clean_channel = channel.trim_start_matches('#').trim();
             if !clean_channel.is_empty() {
+                info!("Adding channel filter for: '{}'", clean_channel);
                 query_parts.push(format!("in:{}", clean_channel));
             }
+        } else {
+            warn!("Multi-channel parameter detected in build_search_query: '{}' - this should be handled at a higher level", channel);
         }
+        // For multi-channel search, we'll handle it at a higher level
+        // by making multiple searches and combining results
     }
     
     // Add user filter - remove @ if present
@@ -354,17 +404,30 @@ pub fn build_search_query(params: &SearchRequest) -> String {
     }
     
     // Add date filters - Slack expects dates in YYYY-MM-DD format
+    // Note: Slack's "after:" is exclusive, so we need to subtract 1 day for inclusive "from"
     if let Some(from) = &params.from_date {
         // Parse ISO string and format as YYYY-MM-DD for Slack
         if let Some(date_part) = from.split('T').next() {
-            query_parts.push(format!("after:{}", date_part));
+            // Parse the date and subtract one day for inclusive search
+            if let Ok(date) = chrono::NaiveDate::parse_from_str(date_part, "%Y-%m-%d") {
+                let adjusted_date = date - chrono::Duration::days(1);
+                let formatted_date = adjusted_date.format("%Y-%m-%d");
+                info!("Parsed from_date '{}' -> adjusted to '{}'", date_part, formatted_date);
+                query_parts.push(format!("after:{}", formatted_date));
+            } else {
+                // Fallback if parsing fails
+                warn!("Failed to parse from_date '{}', using as-is", date_part);
+                query_parts.push(format!("after:{}", date_part));
+            }
         } else {
+            warn!("from_date '{}' doesn't contain 'T', using as-is", from);
             query_parts.push(format!("after:{}", from));
         }
     }
     
     if let Some(to) = &params.to_date {
         // Parse ISO string and format as YYYY-MM-DD for Slack
+        // "before:" is exclusive which is what we want for "to" dates
         if let Some(date_part) = to.split('T').next() {
             query_parts.push(format!("before:{}", date_part));
         } else {
@@ -372,10 +435,25 @@ pub fn build_search_query(params: &SearchRequest) -> String {
         }
     }
     
-    // If no query parts at all, use a wildcard to get all messages
-    let final_query = if query_parts.is_empty() {
-        "*".to_string()  // Slack wildcard for all messages
+    // Determine if we have filters
+    let has_filters = params.channel.is_some() || 
+                     params.user.is_some() || 
+                     params.from_date.is_some() || 
+                     params.to_date.is_some();
+    
+    // Build the final query
+    // For filter-only searches, we need to be careful about how we construct the query
+    let final_query = if !has_text_query && has_filters {
+        // When we have filters but no text query, don't add wildcard
+        // Instead, let the filters work on their own
+        // The API should return all messages matching the filters
+        query_parts.join(" ")
+    } else if query_parts.is_empty() {
+        // If absolutely no query parts at all, return empty to indicate
+        // that we should use a different API method (conversations.history)
+        "".to_string()
     } else {
+        // Normal search with text query
         query_parts.join(" ")
     };
     

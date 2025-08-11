@@ -6,7 +6,7 @@ use crate::slack::{
 use crate::state::AppState;
 use std::time::Instant;
 use tauri::State;
-use tracing::{debug, info, error};
+use tracing::{debug, info, error, warn};
 
 #[tauri::command]
 pub async fn search_messages(
@@ -23,25 +23,152 @@ pub async fn search_messages(
     // Get the Slack client from app state
     let client = state.get_client().await?;
     
-    // Build the search request
-    let search_request = SearchRequest {
-        query: query.clone(),
-        channel,
-        user,
-        from_date,
-        to_date,
-        limit,
-    };
-    
-    // Build the Slack search query
-    let search_query = build_search_query(&search_request);
-    info!("Executing search with query: {}", search_query);
-    
     // Set default limit if not provided
     let max_results = limit.unwrap_or(100);
     
-    // Fetch all results with pagination
-    let slack_messages = fetch_all_results(&client, search_query.clone(), max_results).await?;
+    // Handle multi-channel search
+    let mut all_slack_messages = Vec::new();
+    
+    if let Some(ref channel_param) = channel {
+        if channel_param.contains(',') {
+            // Multi-channel search: search each channel separately
+            let channels: Vec<String> = channel_param
+                .split(',')
+                .map(|ch| ch.trim().to_string())
+                .filter(|ch| !ch.is_empty())
+                .collect();
+            
+            info!("Performing multi-channel search for {} channels", channels.len());
+            
+            for single_channel in channels {
+                let search_request = SearchRequest {
+                    query: query.clone(),
+                    channel: Some(single_channel.clone()),
+                    user: user.clone(),
+                    from_date: from_date.clone(),
+                    to_date: to_date.clone(),
+                    limit: Some(max_results),
+                };
+                
+                let search_query = build_search_query(&search_request);
+                info!("Searching channel '{}' with query: {}", single_channel, search_query);
+                
+                match fetch_all_results(&client, search_query, max_results).await {
+                    Ok(messages) => {
+                        info!("Found {} messages in channel '{}'", messages.len(), single_channel);
+                        all_slack_messages.extend(messages);
+                    }
+                    Err(e) => {
+                        error!("Failed to search channel '{}': {}", single_channel, e);
+                        // Continue with other channels even if one fails
+                    }
+                }
+            }
+        } else {
+            // Single channel search
+            // Check if we have a text query or just filters
+            if query.trim().is_empty() && user.is_none() {
+                // No text query and no user filter - use conversations.history for better results
+                info!("Using conversations.history API for channel '{}' without text query", channel_param);
+                
+                // Convert date filters to timestamps if needed
+                let oldest = from_date.as_ref().and_then(|d| {
+                    // Parse ISO date and convert to Unix timestamp
+                    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(d) {
+                        Some(dt.timestamp().to_string())
+                    } else if let Some(date_part) = d.split('T').next() {
+                        if let Ok(date) = chrono::NaiveDate::parse_from_str(date_part, "%Y-%m-%d") {
+                            let datetime = date.and_hms_opt(0, 0, 0)?;
+                            let dt = chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(datetime, chrono::Utc);
+                            Some(dt.timestamp().to_string())
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                });
+                
+                let latest = to_date.as_ref().and_then(|d| {
+                    // Parse ISO date and convert to Unix timestamp
+                    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(d) {
+                        Some(dt.timestamp().to_string())
+                    } else if let Some(date_part) = d.split('T').next() {
+                        if let Ok(date) = chrono::NaiveDate::parse_from_str(date_part, "%Y-%m-%d") {
+                            let datetime = date.and_hms_opt(23, 59, 59)?;
+                            let dt = chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(datetime, chrono::Utc);
+                            Some(dt.timestamp().to_string())
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                });
+                
+                // Clean channel name (remove # if present)
+                let clean_channel = channel_param.trim_start_matches('#');
+                
+                match client.get_channel_messages(clean_channel, oldest, latest, max_results).await {
+                    Ok(messages) => {
+                        info!("Got {} messages from conversations.history", messages.len());
+                        all_slack_messages = messages;
+                    }
+                    Err(e) => {
+                        warn!("conversations.history failed, falling back to search: {}", e);
+                        // Fallback to search API
+                        let search_request = SearchRequest {
+                            query: query.clone(),
+                            channel: channel.clone(),
+                            user: user.clone(),
+                            from_date: from_date.clone(),
+                            to_date: to_date.clone(),
+                            limit,
+                        };
+                        
+                        let search_query = build_search_query(&search_request);
+                        info!("Fallback: Executing single channel search with query: {}", search_query);
+                        
+                        all_slack_messages = fetch_all_results(&client, search_query.clone(), max_results).await?;
+                    }
+                }
+            } else {
+                // Has text query or user filter - use search API
+                let search_request = SearchRequest {
+                    query: query.clone(),
+                    channel: channel.clone(),
+                    user: user.clone(),
+                    from_date: from_date.clone(),
+                    to_date: to_date.clone(),
+                    limit,
+                };
+                
+                let search_query = build_search_query(&search_request);
+                info!("Executing single channel search with query: {}", search_query);
+                
+                all_slack_messages = fetch_all_results(&client, search_query.clone(), max_results).await?;
+            }
+        }
+    } else {
+        // No channel specified
+        let search_request = SearchRequest {
+            query: query.clone(),
+            channel: channel.clone(),
+            user: user.clone(),
+            from_date: from_date.clone(),
+            to_date: to_date.clone(),
+            limit,
+        };
+        
+        let search_query = build_search_query(&search_request);
+        info!("Executing search with query: {}", search_query);
+        
+        all_slack_messages = fetch_all_results(&client, search_query.clone(), max_results).await?;
+    }
+    
+    // Sort by timestamp (newest first) and limit to max_results
+    all_slack_messages.sort_by(|a, b| b.ts.cmp(&a.ts));
+    let slack_messages: Vec<_> = all_slack_messages.into_iter().take(max_results).collect();
     
     // Get user cache from state
     let user_cache = state.get_user_cache().await;
@@ -110,10 +237,47 @@ pub async fn search_messages(
     );
     
     let total = messages.len();
+    
+    // Build display query for multi-channel search
+    let display_query = if let Some(ref channel_param) = channel {
+        if channel_param.contains(',') {
+            let search_request = SearchRequest {
+                query: query.clone(),
+                channel: Some(format!("({})", channel_param.replace(",", " OR "))),
+                user: user.clone(),
+                from_date: from_date.clone(),
+                to_date: to_date.clone(),
+                limit,
+            };
+            build_search_query(&search_request)
+        } else {
+            // Use the original query building for single channel
+            let search_request = SearchRequest {
+                query: query.clone(),
+                channel: channel.clone(),
+                user: user.clone(),
+                from_date: from_date.clone(),
+                to_date: to_date.clone(),
+                limit,
+            };
+            build_search_query(&search_request)
+        }
+    } else {
+        let search_request = SearchRequest {
+            query: query.clone(),
+            channel: channel.clone(),
+            user: user.clone(),
+            from_date: from_date.clone(),
+            to_date: to_date.clone(),
+            limit,
+        };
+        build_search_query(&search_request)
+    };
+    
     Ok(SearchResult {
         messages,
         total,
-        query: search_query,
+        query: display_query,
         execution_time_ms,
     })
 }
