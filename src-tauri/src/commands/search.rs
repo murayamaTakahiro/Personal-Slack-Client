@@ -1,12 +1,14 @@
 use crate::error::AppResult;
 use crate::slack::{
-    SlackClient, SearchRequest, SearchResult, Message, 
+    SlackClient, SearchRequest, SearchResult, Message, SlackMessage,
     build_search_query, fetch_all_results
 };
 use crate::state::AppState;
 use std::time::Instant;
 use tauri::State;
 use tracing::{debug, info, error, warn};
+use futures::future::join_all;
+use std::sync::Arc;
 
 #[tauri::command]
 pub async fn search_messages(
@@ -22,6 +24,7 @@ pub async fn search_messages(
     
     // Get the Slack client from app state
     let client = state.get_client().await?;
+    let client = Arc::new(client);
     
     // Set default limit if not provided
     let max_results = limit.unwrap_or(100);
@@ -31,37 +34,58 @@ pub async fn search_messages(
     
     if let Some(ref channel_param) = channel {
         if channel_param.contains(',') {
-            // Multi-channel search: search each channel separately
+            // Multi-channel search: search each channel separately IN PARALLEL
             let channels: Vec<String> = channel_param
                 .split(',')
                 .map(|ch| ch.trim().to_string())
                 .filter(|ch| !ch.is_empty())
                 .collect();
             
-            info!("Performing multi-channel search for {} channels", channels.len());
+            info!("Performing parallel multi-channel search for {} channels", channels.len());
             
-            for single_channel in channels {
-                let search_request = SearchRequest {
-                    query: query.clone(),
-                    channel: Some(single_channel.clone()),
-                    user: user.clone(),
-                    from_date: from_date.clone(),
-                    to_date: to_date.clone(),
-                    limit: Some(max_results),
-                };
+            // Create futures for parallel execution
+            let search_futures = channels.iter().map(|single_channel| {
+                let client = Arc::clone(&client);
+                let query = query.clone();
+                let channel = single_channel.clone();
+                let user = user.clone();
+                let from_date = from_date.clone();
+                let to_date = to_date.clone();
                 
-                let search_query = build_search_query(&search_request);
-                info!("Searching channel '{}' with query: {}", single_channel, search_query);
-                
-                match fetch_all_results(&client, search_query, max_results).await {
-                    Ok(messages) => {
-                        info!("Found {} messages in channel '{}'", messages.len(), single_channel);
-                        all_slack_messages.extend(messages);
+                async move {
+                    let search_request = SearchRequest {
+                        query: query.clone(),
+                        channel: Some(channel.clone()),
+                        user,
+                        from_date,
+                        to_date,
+                        limit: Some(max_results),
+                    };
+                    
+                    let search_query = build_search_query(&search_request);
+                    info!("Searching channel '{}' with query: {}", channel, search_query);
+                    
+                    match fetch_all_results(&client, search_query, max_results).await {
+                        Ok(messages) => {
+                            info!("Found {} messages in channel '{}'", messages.len(), channel);
+                            Ok::<Vec<SlackMessage>, anyhow::Error>(messages)
+                        }
+                        Err(e) => {
+                            error!("Failed to search channel '{}': {}", channel, e);
+                            // Return empty vec on error to continue with other channels
+                            Ok::<Vec<SlackMessage>, anyhow::Error>(vec![])
+                        }
                     }
-                    Err(e) => {
-                        error!("Failed to search channel '{}': {}", single_channel, e);
-                        // Continue with other channels even if one fails
-                    }
+                }
+            });
+            
+            // Execute all searches in parallel
+            let results = join_all(search_futures).await;
+            
+            // Combine all results
+            for result in results {
+                if let Ok(messages) = result {
+                    all_slack_messages.extend(messages);
                 }
             }
         } else {
@@ -109,7 +133,7 @@ pub async fn search_messages(
                 // Clean channel name (remove # if present)
                 let clean_channel = channel_param.trim_start_matches('#');
                 
-                match client.get_channel_messages(clean_channel, oldest, latest, max_results).await {
+                match (*client).clone().get_channel_messages(clean_channel, oldest, latest, max_results).await {
                     Ok(messages) => {
                         info!("Got {} messages from conversations.history", messages.len());
                         all_slack_messages = messages;
@@ -174,6 +198,9 @@ pub async fn search_messages(
     let user_cache = state.get_user_cache().await;
     let channel_cache = state.get_channel_cache().await;
     
+    // Clone client for use in the loop
+    let client_for_loop = client.clone();
+    
     // Convert Slack messages to our Message format
     let mut messages = Vec::new();
     for slack_msg in slack_messages {
@@ -183,7 +210,7 @@ pub async fn search_messages(
                 cached_name.clone()
             } else {
                 // Fetch from API and cache
-                match client.get_user_info(user_id).await {
+                match client_for_loop.get_user_info(user_id).await {
                     Ok(user_info) => {
                         let name = user_info.profile
                             .as_ref()

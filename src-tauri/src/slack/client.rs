@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
 use std::sync::Arc;
+use futures;
 
 use super::models::*;
 
@@ -461,41 +462,91 @@ pub fn build_search_query(params: &SearchRequest) -> String {
     final_query
 }
 
-// Pagination helper
+// Pagination helper with parallel fetching
 pub async fn fetch_all_results(
     client: &SlackClient,
     query: String,
     max_results: usize,
 ) -> Result<Vec<SlackMessage>> {
     let start_time = Instant::now();
-    let mut all_messages = Vec::new();
-    let mut page = 1;
     let per_page = 100;
     
-    info!("Starting search for query: {}", query);
+    info!("Starting parallel search for query: {}", query);
     
-    loop {
-        let response = client.search_messages(&query, per_page, page).await?;
+    // First, get the initial page to determine total results
+    let initial_response = client.search_messages(&query, per_page, 1).await?;
+    
+    if initial_response.messages.is_none() {
+        return Ok(vec![]);
+    }
+    
+    let messages_data = initial_response.messages.unwrap();
+    let total_available = messages_data.total.min(max_results);
+    let mut all_messages = messages_data.matches;
+    
+    if all_messages.len() >= total_available {
+        info!("All results fetched in first page: {}", all_messages.len());
+        return Ok(all_messages);
+    }
+    
+    // Calculate how many pages we need
+    let pages_needed = ((total_available.min(max_results) - 1) / per_page) + 1;
+    let remaining_pages = pages_needed.saturating_sub(1); // We already fetched page 1
+    
+    if remaining_pages > 0 {
+        info!("Fetching {} additional pages in parallel", remaining_pages.min(MAX_CONCURRENT_REQUESTS));
         
-        if let Some(messages) = response.messages {
-            let match_count = messages.matches.len();
-            info!("Page {} returned {} results", page, match_count);
+        // Create client Arc for parallel requests
+        let client_arc = Arc::new(client.clone());
+        
+        // Process pages in batches to respect rate limits
+        let mut current_page = 2;
+        while current_page <= pages_needed {
+            let batch_end = (current_page + MAX_CONCURRENT_REQUESTS - 1).min(pages_needed);
+            let batch_futures = (current_page..=batch_end).map(|page| {
+                let client = Arc::clone(&client_arc);
+                let query = query.clone();
+                
+                async move {
+                    debug!("Fetching page {}", page);
+                    match client.search_messages(&query, per_page, page).await {
+                        Ok(response) => {
+                            if let Some(messages) = response.messages {
+                                info!("Page {} returned {} results", page, messages.matches.len());
+                                Ok::<Vec<SlackMessage>, anyhow::Error>(messages.matches)
+                            } else {
+                                Ok::<Vec<SlackMessage>, anyhow::Error>(vec![])
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed to fetch page {}: {}", page, e);
+                            Ok::<Vec<SlackMessage>, anyhow::Error>(vec![]) // Continue with other pages
+                        }
+                    }
+                }
+            });
             
-            all_messages.extend(messages.matches);
+            // Execute batch in parallel
+            let batch_results = futures::future::join_all(batch_futures).await;
             
-            // Check if we've reached the maximum or all results
-            if all_messages.len() >= max_results || 
-               all_messages.len() >= messages.total ||
-               match_count < per_page {
-                break;
+            // Collect results
+            for result in batch_results {
+                if let Ok(messages) = result {
+                    all_messages.extend(messages);
+                    
+                    // Check if we've reached the limit
+                    if all_messages.len() >= max_results {
+                        break;
+                    }
+                }
             }
             
-            page += 1;
+            current_page = batch_end + 1;
             
-            // Rate limit protection
-            sleep(Duration::from_millis(RATE_LIMIT_DELAY_MS)).await;
-        } else {
-            break;
+            // Rate limit protection between batches
+            if current_page <= pages_needed {
+                sleep(Duration::from_millis(RATE_LIMIT_DELAY_MS)).await;
+            }
         }
     }
     
@@ -506,7 +557,7 @@ pub async fn fetch_all_results(
     
     let elapsed = start_time.elapsed();
     info!(
-        "Search completed: {} results in {:.2}s",
+        "Parallel search completed: {} results in {:.2}s (speedup from parallel fetching)",
         all_messages.len(),
         elapsed.as_secs_f64()
     );
