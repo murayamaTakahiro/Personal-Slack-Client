@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount, onDestroy } from 'svelte';
   import type { ThreadMessages, Message } from '../types/slack';
   import { getThread, openInSlack } from '../api/slack';
   
@@ -7,6 +8,8 @@
   let thread: ThreadMessages | null = null;
   let loading = false;
   let error: string | null = null;
+  let selectedIndex = -1;
+  let threadViewElement: HTMLDivElement;
   
   $: if (message) {
     // For thread replies, use threadTs (parent's timestamp)
@@ -51,9 +54,106 @@
       console.error('Failed to open in Slack:', error);
     }
   }
+  
+  function getAllMessages(): Array<{message: Message, index: number}> {
+    if (!thread) return [];
+    
+    const messages = [];
+    messages.push({ message: thread.parent, index: 0 });
+    thread.replies.forEach((reply, i) => {
+      messages.push({ message: reply, index: i + 1 });
+    });
+    return messages;
+  }
+  
+  function handleKeyDown(event: KeyboardEvent) {
+    if (!thread) return;
+    
+    const messages = getAllMessages();
+    const totalMessages = messages.length;
+    
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        if (selectedIndex < totalMessages - 1) {
+          selectedIndex = selectedIndex + 1;
+          focusMessage(selectedIndex);
+        }
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        if (selectedIndex > 0) {
+          selectedIndex = selectedIndex - 1;
+          focusMessage(selectedIndex);
+        } else if (selectedIndex === -1 && totalMessages > 0) {
+          selectedIndex = 0;
+          focusMessage(selectedIndex);
+        }
+        break;
+      case 'Enter':
+        event.preventDefault();
+        if (selectedIndex >= 0 && selectedIndex < totalMessages) {
+          const selectedMsg = messages[selectedIndex].message;
+          handleOpenInSlack(selectedMsg.permalink);
+        }
+        break;
+      case 'Home':
+        event.preventDefault();
+        if (totalMessages > 0) {
+          selectedIndex = 0;
+          focusMessage(selectedIndex);
+        }
+        break;
+      case 'End':
+        event.preventDefault();
+        if (totalMessages > 0) {
+          selectedIndex = totalMessages - 1;
+          focusMessage(selectedIndex);
+        }
+        break;
+    }
+  }
+  
+  function focusMessage(index: number) {
+    const messageElement = document.querySelector(`.thread-message-${index}`) as HTMLElement;
+    if (messageElement) {
+      messageElement.focus();
+      messageElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+  
+  function handleMessageClick(index: number) {
+    selectedIndex = index;
+    focusMessage(index);
+  }
+  
+  function handleMessageKeyDown(event: KeyboardEvent, index: number, messageData: Message) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      handleOpenInSlack(messageData.permalink);
+    }
+  }
+  
+  onMount(() => {
+    // Set initial focus when thread loads
+    if (thread && getAllMessages().length > 0) {
+      selectedIndex = 0;
+      setTimeout(() => focusMessage(0), 100);
+    }
+  });
+  
+  $: if (thread && selectedIndex === -1) {
+    // Auto-select first message when thread loads
+    selectedIndex = 0;
+    setTimeout(() => {
+      if (threadViewElement && threadViewElement === document.activeElement) {
+        focusMessage(0);
+      }
+    }, 100);
+  }
 </script>
 
-<div class="thread-view" tabindex="-1">
+<div class="thread-view" tabindex="-1" bind:this={threadViewElement} on:keydown={handleKeyDown} role="region" aria-label="Thread messages">
   {#if !message}
     <div class="empty">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" opacity="0.3">
@@ -77,7 +177,10 @@
     </div>
   {:else if thread}
     <div class="thread-header">
-      <h3>Thread in #{thread.parent.channelName}</h3>
+      <div>
+        <h3>Thread in #{thread.parent.channelName}</h3>
+        <span class="keyboard-hint">Use ↑↓ to navigate, Enter to open in Slack</span>
+      </div>
       <button
         class="btn-open-thread"
         on:click={() => thread && handleOpenInSlack(thread.parent.permalink)}
@@ -93,7 +196,15 @@
     
     <div class="thread-messages">
       <div class="thread-parent">
-        <div class="message">
+        <div 
+          class="message thread-message-0" 
+          class:selected={selectedIndex === 0}
+          tabindex="0"
+          role="article"
+          aria-label="Thread parent message from {thread.parent.userName}"
+          on:click={() => handleMessageClick(0)}
+          on:keydown={(e) => handleMessageKeyDown(e, 0, thread.parent)}
+        >
           <div class="message-header">
             <span class="user-name">{thread.parent.userName}</span>
             <span class="timestamp">{formatTimestamp(thread.parent.ts)}</span>
@@ -107,8 +218,16 @@
           <div class="replies-header">
             {thread.replies.length} {thread.replies.length === 1 ? 'reply' : 'replies'}
           </div>
-          {#each thread.replies as reply}
-            <div class="message reply">
+          {#each thread.replies as reply, index}
+            <div 
+              class="message reply thread-message-{index + 1}" 
+              class:selected={selectedIndex === index + 1}
+              tabindex="0"
+              role="article"
+              aria-label="Reply from {reply.userName}"
+              on:click={() => handleMessageClick(index + 1)}
+              on:keydown={(e) => handleMessageKeyDown(e, index + 1, reply)}
+            >
               <div class="message-header">
                 <span class="user-name">{reply.userName}</span>
                 <span class="timestamp">{formatTimestamp(reply.ts)}</span>
@@ -126,7 +245,10 @@
   {:else if message && !message.isThreadParent}
     <div class="single-message">
       <div class="thread-header">
-        <h3>Message in #{message.channelName}</h3>
+        <div>
+          <h3>Message in #{message.channelName}</h3>
+          <span class="keyboard-hint">Press Enter to open in Slack</span>
+        </div>
         <button
           class="btn-open-thread"
           on:click={() => handleOpenInSlack(message.permalink)}
@@ -140,7 +262,15 @@
         </button>
       </div>
       
-      <div class="message">
+      <div 
+        class="message thread-message-0" 
+        class:selected={selectedIndex === 0}
+        tabindex="0"
+        role="article"
+        aria-label="Message from {message.userName}"
+        on:click={() => handleMessageClick(0)}
+        on:keydown={(e) => handleMessageKeyDown(e, 0, message)}
+      >
         <div class="message-header">
           <span class="user-name">{message.userName}</span>
           <span class="timestamp">{formatTimestamp(message.ts)}</span>
@@ -207,6 +337,13 @@
     color: var(--text-primary);
   }
   
+  .keyboard-hint {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+  }
+  
   .btn-open-thread {
     display: flex;
     align-items: center;
@@ -238,6 +375,25 @@
     border: 1px solid var(--border);
     border-radius: 6px;
     margin-bottom: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    outline: none;
+  }
+  
+  .message:hover {
+    border-color: var(--primary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  
+  .message:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-bg);
+  }
+  
+  .message.selected {
+    background: var(--primary-bg);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-bg);
   }
   
   .thread-parent {
