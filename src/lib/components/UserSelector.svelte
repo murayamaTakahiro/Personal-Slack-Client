@@ -155,6 +155,12 @@
         searchQuery = '';
         searchResults = [];
         break;
+        
+      case 'Tab':
+        // Close dropdown and allow Tab to move to next field
+        showDropdown = false;
+        // Don't prevent default - let Tab move focus naturally
+        break;
     }
   }
   

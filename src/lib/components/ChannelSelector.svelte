@@ -98,6 +98,13 @@
         showDropdown = false;
         highlightedIndex = -1;
         break;
+        
+      case 'Tab':
+        // Close dropdown and allow Tab to move to next field
+        showDropdown = false;
+        highlightedIndex = -1;
+        // Don't prevent default - let Tab move focus naturally
+        break;
     }
   }
   
