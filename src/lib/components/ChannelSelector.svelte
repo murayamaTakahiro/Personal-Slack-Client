@@ -4,6 +4,7 @@
   
   export let value = '';  // Currently selected channel(s)
   export let channels: [string, string][] = [];
+  export let onEnterKey: (() => void) | undefined = undefined;
   
   const dispatch = createEventDispatcher();
   
@@ -65,8 +66,16 @@
   }
   
   function handleInputKeydown(event: KeyboardEvent) {
-    if (!showDropdown && (event.key === 'ArrowDown' || event.key === 'Enter')) {
+    if (!showDropdown && event.key === 'ArrowDown') {
       showDropdown = true;
+      return;
+    }
+    
+    if (!showDropdown && event.key === 'Enter') {
+      // If dropdown is closed and Enter is pressed, trigger search
+      if (onEnterKey) {
+        onEnterKey();
+      }
       return;
     }
     
@@ -89,6 +98,7 @@
         
       case 'Enter':
         event.preventDefault();
+        event.stopPropagation();  // Stop Enter from bubbling up and triggering search
         if (highlightedIndex >= 0 && highlightedIndex < totalItems) {
           selectChannel(filteredChannels[highlightedIndex].name);
         }

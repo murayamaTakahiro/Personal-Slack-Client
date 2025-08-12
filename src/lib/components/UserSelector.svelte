@@ -4,6 +4,7 @@
   import type { UserFavorite, SlackUser } from '../types/slack';
   
   export let value = '';
+  export let onEnterKey: (() => void) | undefined = undefined;
   
   const dispatch = createEventDispatcher();
   
@@ -127,8 +128,13 @@
   
   function handleKeydown(e: KeyboardEvent) {
     if (!showDropdown) {
-      if (e.key === 'ArrowDown' || e.key === 'Enter') {
+      if (e.key === 'ArrowDown') {
         showDropdown = true;
+      } else if (e.key === 'Enter') {
+        // If dropdown is closed and Enter is pressed, trigger search
+        if (onEnterKey) {
+          onEnterKey();
+        }
       }
       return;
     }
@@ -146,6 +152,7 @@
         break;
       case 'Enter':
         e.preventDefault();
+        e.stopPropagation();  // Stop Enter from bubbling up and triggering search
         if (items[selectedIndex]) {
           selectUser(items[selectedIndex]);
         }

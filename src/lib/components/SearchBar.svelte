@@ -203,6 +203,7 @@
             bind:this={channelSelectorComponent}
             bind:value={channel}
             {channels}
+            onEnterKey={handleSearch}
             on:change={(e) => {
               if (e.detail.channels) {
                 // Multi-select mode
@@ -220,6 +221,7 @@
           <UserSelector
             bind:this={userSelectorComponent}
             bind:value={userId}
+            onEnterKey={handleSearch}
             on:change={(e) => {
               userId = e.detail.userId || '';
               user = e.detail.userName || '';
@@ -234,6 +236,7 @@
           <input
             type="date"
             bind:value={fromDate}
+            on:keydown={handleKeydown}
           />
         </label>
         
@@ -242,6 +245,7 @@
           <input
             type="date"
             bind:value={toDate}
+            on:keydown={handleKeydown}
           />
         </label>
         
@@ -253,6 +257,7 @@
             min="10"
             max="10000"
             step="10"
+            on:keydown={handleKeydown}
           />
         </label>
       </div>
