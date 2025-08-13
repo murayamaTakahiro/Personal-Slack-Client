@@ -164,15 +164,85 @@
       allowInInput: false
     });
     
-    // New Search
+    // New Search - refreshes like workspace switching
     keyboardService.registerHandler('newSearch', {
-      action: () => {
+      action: async () => {
         if (!showSettings) {
-          searchParams.update(p => ({ ...p, query: '' }));
+          // Clear current state similar to workspace switching
           searchResults.set(null);
           selectedMessage.set(null);
-          if (searchBarElement) {
-            searchBarElement.focusSearchInput();
+          searchParams.update(p => ({ 
+            ...p, 
+            query: '', 
+            channels: [], 
+            users: [],
+            fromDate: undefined,
+            toDate: undefined 
+          }));
+          searchError.set(null);
+          searchLoading.set(false);
+          
+          // Clear channels and user cache before reloading
+          channels = [];
+          if (userService && userService.clearCache) {
+            userService.clearCache();
+          }
+          
+          // Show loading state
+          searchLoading.set(true);
+          
+          try {
+            // Reload current workspace data
+            if (useMultiWorkspace) {
+              const currentWorkspace = $activeWorkspace;
+              if (currentWorkspace) {
+                const wsToken = await workspaceStore.getActiveToken();
+                if (wsToken) {
+                  // Re-initialize backend with current token
+                  await updateTokenSecure(wsToken);
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                  
+                  const initialized = await initTokenFromStorage();
+                  if (initialized) {
+                    // Reload channels for current workspace
+                    await loadChannels();
+                    
+                    // Force UI update
+                    channels = [...channels];
+                    
+                    // Clear the search bar if it exists
+                    if (searchBarElement) {
+                      searchBarElement.clearChannelSelection();
+                      searchBarElement.focusSearchInput();
+                    }
+                    
+                    console.log(`Refreshed workspace: ${currentWorkspace.name} with ${channels.length} channels`);
+                    searchError.set(null);
+                  }
+                }
+              }
+            } else {
+              // Legacy single workspace mode
+              if (token) {
+                const initialized = await initTokenFromStorage();
+                if (initialized) {
+                  await loadChannels();
+                  channels = [...channels];
+                  
+                  if (searchBarElement) {
+                    searchBarElement.clearChannelSelection();
+                    searchBarElement.focusSearchInput();
+                  }
+                  
+                  searchError.set(null);
+                }
+              }
+            }
+          } catch (err) {
+            console.error('Failed to refresh workspace:', err);
+            searchError.set('Failed to refresh workspace. Please try again.');
+          } finally {
+            searchLoading.set(false);
           }
         }
       },
