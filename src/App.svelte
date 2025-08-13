@@ -32,7 +32,6 @@
   
   let channels: [string, string][] = [];
   let showSettings = false;
-  let showAdvancedSearch = false;
   let token = '';
   let maskedToken = '';
   let workspace = '';
@@ -289,15 +288,9 @@
     
     try {
       // First ensure the token is initialized in the backend
-      console.log('Initializing token from storage...');
       const tokenInitialized = await initTokenFromStorage();
-      if (!tokenInitialized) {
-        console.warn('No token found in storage, user may need to configure it');
-      }
       
-      console.log('Attempting to load thread from URL:', urlInput);
       const thread = await getThreadFromUrl(urlInput);
-      console.log('Thread loaded successfully:', thread);
       selectedMessage.set(thread.parent);
       urlInput = '';
     } catch (err) {

@@ -1,4 +1,4 @@
-import { writable, derived, get } from 'svelte/store';
+import { writable, derived } from 'svelte/store';
 
 interface ChannelInfo {
   id: string;
@@ -19,7 +19,7 @@ interface ChannelState {
 
 // Create the main store
 function createChannelStore() {
-  const { subscribe, update, set } = writable<ChannelState>({
+  const { subscribe, update } = writable<ChannelState>({
     allChannels: [],
     favorites: [],
     recentChannels: [],

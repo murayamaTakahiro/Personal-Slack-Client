@@ -67,10 +67,7 @@ export function updateTheme(theme: 'light' | 'dark' | 'auto') {
 export function updateKeyboardShortcuts(shortcuts: Partial<KeyboardShortcuts>) {
   settings.update(s => ({
     ...s,
-    keyboardShortcuts: {
-      ...s.keyboardShortcuts,
-      ...shortcuts
-    }
+    keyboardShortcuts: Object.assign({}, s.keyboardShortcuts, shortcuts) as KeyboardShortcuts
   }));
 }
 
