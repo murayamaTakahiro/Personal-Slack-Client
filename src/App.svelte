@@ -3,6 +3,7 @@
   import SearchBar from './lib/components/SearchBar.svelte';
   import ResultList from './lib/components/ResultList.svelte';
   import ThreadView from './lib/components/ThreadView.svelte';
+  import WorkspaceSwitcher from './lib/components/WorkspaceSwitcher.svelte';
   import { 
     searchResults, 
     searchLoading, 
@@ -29,12 +30,14 @@
   import { initKeyboardService, type KeyboardService } from './lib/services/keyboardService';
   import KeyboardSettings from './lib/components/KeyboardSettings.svelte';
   import KeyboardHelp from './lib/components/KeyboardHelp.svelte';
+  import { workspaceStore, activeWorkspace } from './lib/stores/workspaces';
   
   let channels: [string, string][] = [];
   let showSettings = false;
   let token = '';
   let maskedToken = '';
   let workspace = '';
+  let useMultiWorkspace = false; // Feature flag for multi-workspace mode
   let urlInput = '';
   let urlLoading = false;
   let keyboardService: KeyboardService;
@@ -67,29 +70,52 @@
     // Add global keyboard event listener
     document.addEventListener('keydown', handleGlobalKeydown);
     
-    // Load secure settings
-    const { token: savedToken, workspace: savedWorkspace } = await loadSecureSettings();
-    if (savedToken) {
-      token = savedToken;
-      maskedToken = maskTokenClient(savedToken);
-      
-      // Initialize token in backend
-      try {
-        const initialized = await initTokenFromStorage();
-        if (initialized) {
-          await loadChannels();
-        } else {
-          console.warn('Token found in frontend but not initialized in backend');
-        }
-      } catch (err) {
-        console.error('Failed to initialize token:', err);
-      }
+    // Check for multi-workspace mode preference
+    const multiWorkspaceEnabled = localStorage.getItem('multiWorkspaceEnabled');
+    if (multiWorkspaceEnabled === 'true') {
+      useMultiWorkspace = true;
+      await initializeMultiWorkspace();
     } else {
-      // No token saved, show a helpful message
-      searchError.set('Welcome! Please configure your Slack token in Settings to start searching.');
-    }
-    if (savedWorkspace) {
-      workspace = savedWorkspace;
+      // Legacy single workspace mode
+      const { token: savedToken, workspace: savedWorkspace } = await loadSecureSettings();
+      if (savedToken) {
+        // Check if we should migrate to multi-workspace
+        const existingWorkspaces = localStorage.getItem('workspaces');
+        if (!existingWorkspaces) {
+          // Offer migration to multi-workspace
+          if (confirm('Would you like to enable multi-workspace support? This will allow you to manage multiple Slack workspaces.')) {
+            useMultiWorkspace = true;
+            localStorage.setItem('multiWorkspaceEnabled', 'true');
+            await workspaceStore.migrateFromLegacy(savedToken, savedWorkspace || 'workspace');
+            await initializeMultiWorkspace();
+          } else {
+            // Continue with legacy mode
+            token = savedToken;
+            maskedToken = maskTokenClient(savedToken);
+            workspace = savedWorkspace || '';
+            
+            // Initialize token in backend
+            try {
+              const initialized = await initTokenFromStorage();
+              if (initialized) {
+                await loadChannels();
+              } else {
+                console.warn('Token found in frontend but not initialized in backend');
+              }
+            } catch (err) {
+              console.error('Failed to initialize token:', err);
+            }
+          }
+        } else {
+          // Already has workspaces, use multi-workspace mode
+          useMultiWorkspace = true;
+          localStorage.setItem('multiWorkspaceEnabled', 'true');
+          await initializeMultiWorkspace();
+        }
+      } else {
+        // No token saved, show a helpful message
+        searchError.set('Welcome! Please configure your Slack token in Settings to start searching.');
+      }
     }
   });
   
@@ -206,6 +232,63 @@
     });
   }
   
+  async function initializeMultiWorkspace() {
+    // Load workspaces
+    const currentWorkspace = $activeWorkspace;
+    
+    if (currentWorkspace) {
+      // Get token for active workspace
+      const wsToken = await workspaceStore.getActiveToken();
+      if (wsToken) {
+        token = wsToken;
+        maskedToken = maskTokenClient(wsToken);
+        workspace = currentWorkspace.domain;
+        
+        // Initialize token in backend
+        try {
+          const initialized = await initTokenFromStorage();
+          if (initialized) {
+            await loadChannels();
+          }
+        } catch (err) {
+          console.error('Failed to initialize token:', err);
+        }
+      }
+    } else {
+      // No active workspace
+      searchError.set('Welcome! Please add a workspace to start searching.');
+    }
+  }
+  
+  async function handleWorkspaceSwitched(event: CustomEvent) {
+    const workspace = event.detail;
+    
+    // Clear current state
+    searchResults.set(null);
+    selectedMessage.set(null);
+    searchParams.set({ query: '' });
+    channels = [];
+    
+    // Load new workspace
+    const wsToken = await workspaceStore.getActiveToken();
+    if (wsToken) {
+      token = wsToken;
+      maskedToken = maskTokenClient(wsToken);
+      
+      // Reinitialize with new token
+      try {
+        await updateTokenSecure(wsToken);
+        const initialized = await initTokenFromStorage();
+        if (initialized) {
+          await loadChannels();
+        }
+      } catch (err) {
+        console.error('Failed to switch workspace:', err);
+        searchError.set('Failed to switch workspace. Please check the token.');
+      }
+    }
+  }
+  
   async function handleSearch() {
     searchLoading.set(true);
     searchError.set(null);
@@ -319,6 +402,14 @@
 <div class="app">
   <header class="app-header">
     <h1>Slack Search Enhancer</h1>
+    
+    {#if useMultiWorkspace}
+      <WorkspaceSwitcher 
+        on:workspaceSwitched={handleWorkspaceSwitched}
+        on:workspaceAdded={() => loadChannels()}
+      />
+    {/if}
+    
     <button
       class="btn-settings"
       on:click={() => showSettings = !showSettings}
@@ -335,39 +426,86 @@
     <div class="settings-panel">
       <h2>Settings</h2>
       
-      <div class="setting-group">
-        <label>
-          Slack User Token (xoxp-...)
-          <input
-            type="password"
-            bind:value={token}
-            placeholder="xoxp-xxxxxxxxxxxx"
-          />
-        </label>
-        {#if maskedToken}
-          <p class="masked-token">Current token: {maskedToken}</p>
-        {/if}
-        <p class="help-text">
-          Get your token from: 
-          <a href="https://api.slack.com/authentication/token-types#user" target="_blank">
-            Slack API Documentation
-          </a>
-        </p>
-      </div>
-      
-      <div class="setting-group">
-        <label>
-          Workspace Name
-          <input
-            type="text"
-            bind:value={workspace}
-            placeholder="your-workspace"
-          />
-        </label>
-        <p class="help-text">
-          The name that appears in your Slack URL (workspace.slack.com)
-        </p>
-      </div>
+      {#if !useMultiWorkspace}
+        <div class="setting-group">
+          <label>
+            <input
+              type="checkbox"
+              on:change={(e) => {
+                if (e.target.checked) {
+                  if (confirm('Enable multi-workspace support? Your current workspace will be preserved.')) {
+                    useMultiWorkspace = true;
+                    localStorage.setItem('multiWorkspaceEnabled', 'true');
+                    if (token) {
+                      workspaceStore.migrateFromLegacy(token, workspace || 'workspace');
+                    }
+                    window.location.reload();
+                  } else {
+                    e.target.checked = false;
+                  }
+                }
+              }}
+            />
+            Enable Multi-Workspace Support
+          </label>
+          <p class="help-text">
+            Manage multiple Slack workspaces and switch between them easily
+          </p>
+        </div>
+        
+        <div class="setting-group">
+          <label>
+            Slack User Token (xoxp-...)
+            <input
+              type="password"
+              bind:value={token}
+              placeholder="xoxp-xxxxxxxxxxxx"
+            />
+          </label>
+          {#if maskedToken}
+            <p class="masked-token">Current token: {maskedToken}</p>
+          {/if}
+          <p class="help-text">
+            Get your token from: 
+            <a href="https://api.slack.com/authentication/token-types#user" target="_blank">
+              Slack API Documentation
+            </a>
+          </p>
+        </div>
+        
+        <div class="setting-group">
+          <label>
+            Workspace Name
+            <input
+              type="text"
+              bind:value={workspace}
+              placeholder="your-workspace"
+            />
+          </label>
+          <p class="help-text">
+            The name that appears in your Slack URL (workspace.slack.com)
+          </p>
+        </div>
+      {:else}
+        <div class="setting-group">
+          <p class="info-text">
+            <strong>Multi-Workspace Mode Active</strong><br/>
+            Use the workspace switcher in the header to manage workspaces.
+          </p>
+          <button
+            class="btn-secondary"
+            on:click={() => {
+              if (confirm('Disable multi-workspace support? This will keep your current active workspace only.')) {
+                localStorage.removeItem('multiWorkspaceEnabled');
+                useMultiWorkspace = false;
+                window.location.reload();
+              }
+            }}
+          >
+            Disable Multi-Workspace Mode
+          </button>
+        </div>
+      {/if}
       
       <KeyboardSettings />
       
@@ -502,12 +640,16 @@
   
   .app-header {
     display: flex;
-    justify-content: space-between;
+    gap: 1rem;
     align-items: center;
     padding: 1rem;
     background: var(--bg-secondary);
     border-radius: 8px;
     margin-bottom: 1rem;
+  }
+  
+  .app-header > :last-child {
+    margin-left: auto;
   }
   
   .app-header h1 {
@@ -567,6 +709,15 @@
     margin-top: 0.5rem;
     font-size: 0.875rem;
     color: var(--text-secondary);
+  }
+  
+  .info-text {
+    padding: 1rem;
+    background: var(--bg-hover);
+    border-radius: 6px;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
   }
   
   .help-text a {

@@ -2,23 +2,45 @@ import { invoke } from '@tauri-apps/api/core';
 
 /**
  * Securely save the Slack token using Tauri's encrypted storage
+ * @param token - The Slack API token
+ * @param workspaceId - Optional workspace ID for multi-workspace support
  */
-export async function saveTokenSecure(token: string): Promise<void> {
-  await invoke('save_token_secure', { token });
+export async function saveTokenSecure(token: string, workspaceId?: string): Promise<void> {
+  if (workspaceId) {
+    // Multi-workspace mode: store with workspace-specific key
+    await invoke('save_token_secure', { token, key: `token_${workspaceId}` });
+  } else {
+    // Legacy mode: store with default key
+    await invoke('save_token_secure', { token });
+  }
 }
 
 /**
  * Retrieve the securely stored Slack token
+ * @param workspaceId - Optional workspace ID for multi-workspace support
  */
-export async function getTokenSecure(): Promise<string | null> {
-  return await invoke('get_token_secure');
+export async function getTokenSecure(workspaceId?: string): Promise<string | null> {
+  if (workspaceId) {
+    // Multi-workspace mode: retrieve with workspace-specific key
+    return await invoke('get_token_secure', { key: `token_${workspaceId}` });
+  } else {
+    // Legacy mode: retrieve with default key
+    return await invoke('get_token_secure');
+  }
 }
 
 /**
  * Delete the stored token
+ * @param workspaceId - Optional workspace ID for multi-workspace support
  */
-export async function deleteTokenSecure(): Promise<void> {
-  await invoke('delete_token_secure');
+export async function deleteTokenSecure(workspaceId?: string): Promise<void> {
+  if (workspaceId) {
+    // Multi-workspace mode: delete with workspace-specific key
+    await invoke('delete_token_secure', { key: `token_${workspaceId}` });
+  } else {
+    // Legacy mode: delete with default key
+    await invoke('delete_token_secure');
+  }
 }
 
 /**

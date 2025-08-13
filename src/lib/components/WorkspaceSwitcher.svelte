@@ -1,0 +1,605 @@
+<script lang="ts">
+  import { onMount, createEventDispatcher } from 'svelte';
+  import { workspaceStore, activeWorkspace, sortedWorkspaces } from '../stores/workspaces';
+  import type { Workspace } from '../types/workspace';
+  import { maskTokenClient } from '../api/secure';
+  
+  const dispatch = createEventDispatcher();
+  
+  export let showAddWorkspace = false;
+  
+  let isOpen = false;
+  let addingWorkspace = false;
+  let newWorkspaceName = '';
+  let newWorkspaceDomain = '';
+  let newWorkspaceToken = '';
+  let newWorkspaceColor = '#4A90E2';
+  let switchingWorkspace = false;
+  
+  $: currentWorkspace = $activeWorkspace;
+  $: workspaceList = $sortedWorkspaces;
+  
+  const defaultColors = [
+    '#4A90E2', '#50C878', '#FFB84D', '#FF6B6B', 
+    '#9B59B6', '#1ABC9C', '#E74C3C', '#3498DB'
+  ];
+  
+  function toggleDropdown() {
+    isOpen = !isOpen;
+    if (!isOpen) {
+      addingWorkspace = false;
+      resetNewWorkspaceForm();
+    }
+  }
+  
+  function closeDropdown() {
+    isOpen = false;
+    addingWorkspace = false;
+    resetNewWorkspaceForm();
+  }
+  
+  async function switchToWorkspace(workspace: Workspace) {
+    if (workspace.id === currentWorkspace?.id) {
+      closeDropdown();
+      return;
+    }
+    
+    switchingWorkspace = true;
+    
+    try {
+      const success = await workspaceStore.switchWorkspace(workspace.id);
+      if (success) {
+        dispatch('workspaceSwitched', workspace);
+        closeDropdown();
+      } else {
+        alert('Failed to switch workspace. Please check the token.');
+      }
+    } catch (error) {
+      console.error('Error switching workspace:', error);
+      alert('Error switching workspace: ' + error.message);
+    } finally {
+      switchingWorkspace = false;
+    }
+  }
+  
+  function showAddWorkspaceForm() {
+    addingWorkspace = true;
+  }
+  
+  function resetNewWorkspaceForm() {
+    newWorkspaceName = '';
+    newWorkspaceDomain = '';
+    newWorkspaceToken = '';
+    newWorkspaceColor = defaultColors[workspaceList.length % defaultColors.length];
+  }
+  
+  async function addWorkspace() {
+    if (!newWorkspaceName || !newWorkspaceDomain || !newWorkspaceToken) {
+      alert('Please fill in all fields');
+      return;
+    }
+    
+    try {
+      const workspace = await workspaceStore.addWorkspace({
+        name: newWorkspaceName,
+        domain: newWorkspaceDomain,
+        token: newWorkspaceToken,
+        color: newWorkspaceColor
+      });
+      
+      // Automatically switch to the new workspace
+      await switchToWorkspace(workspace);
+      
+      resetNewWorkspaceForm();
+      addingWorkspace = false;
+      dispatch('workspaceAdded', workspace);
+    } catch (error) {
+      console.error('Error adding workspace:', error);
+      alert('Failed to add workspace: ' + error.message);
+    }
+  }
+  
+  async function deleteWorkspace(e: Event, workspace: Workspace) {
+    e.stopPropagation();
+    
+    if (!confirm(`Are you sure you want to delete "${workspace.name}"?`)) {
+      return;
+    }
+    
+    try {
+      await workspaceStore.deleteWorkspace(workspace.id);
+      
+      // If we deleted the active workspace, switch to another one
+      if (workspace.id === currentWorkspace?.id && workspaceList.length > 1) {
+        const otherWorkspace = workspaceList.find(ws => ws.id !== workspace.id);
+        if (otherWorkspace) {
+          await switchToWorkspace(otherWorkspace);
+        }
+      }
+      
+      dispatch('workspaceDeleted', workspace);
+    } catch (error) {
+      console.error('Error deleting workspace:', error);
+      alert('Failed to delete workspace: ' + error.message);
+    }
+  }
+  
+  function getWorkspaceInitials(workspace: Workspace): string {
+    return workspace.name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  }
+  
+  // Close dropdown when clicking outside
+  function handleClickOutside(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.workspace-switcher')) {
+      closeDropdown();
+    }
+  }
+  
+  onMount(() => {
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  });
+</script>
+
+<div class="workspace-switcher">
+  <button 
+    class="workspace-button"
+    class:active={isOpen}
+    on:click={toggleDropdown}
+    disabled={switchingWorkspace}
+  >
+    {#if currentWorkspace}
+      <div 
+        class="workspace-avatar"
+        style="background-color: {currentWorkspace.color || '#4A90E2'}"
+      >
+        {getWorkspaceInitials(currentWorkspace)}
+      </div>
+      <div class="workspace-info">
+        <span class="workspace-name">{currentWorkspace.name}</span>
+        <span class="workspace-domain">{currentWorkspace.domain}.slack.com</span>
+      </div>
+    {:else}
+      <div class="workspace-avatar empty">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="16"/>
+          <line x1="8" y1="12" x2="16" y2="12"/>
+        </svg>
+      </div>
+      <span class="workspace-name">Add Workspace</span>
+    {/if}
+    
+    <svg 
+      class="dropdown-arrow"
+      class:open={isOpen}
+      width="12" 
+      height="12" 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor"
+    >
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  </button>
+  
+  {#if isOpen}
+    <div class="workspace-dropdown">
+      {#if !addingWorkspace}
+        <div class="workspace-list">
+          {#each workspaceList as workspace}
+            <button
+              class="workspace-item"
+              class:active={workspace.id === currentWorkspace?.id}
+              on:click={() => switchToWorkspace(workspace)}
+            >
+              <div 
+                class="workspace-avatar small"
+                style="background-color: {workspace.color || '#4A90E2'}"
+              >
+                {getWorkspaceInitials(workspace)}
+              </div>
+              <div class="workspace-details">
+                <span class="workspace-name">{workspace.name}</span>
+                <span class="workspace-domain">{workspace.domain}.slack.com</span>
+              </div>
+              {#if workspace.id === currentWorkspace?.id}
+                <svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              {/if}
+              {#if workspaceList.length > 1}
+                <button
+                  class="delete-button"
+                  on:click={e => deleteWorkspace(e, workspace)}
+                  title="Delete workspace"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              {/if}
+            </button>
+          {/each}
+        </div>
+        
+        <div class="dropdown-divider"></div>
+        
+        <button class="add-workspace-button" on:click={showAddWorkspaceForm}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="16"/>
+            <line x1="8" y1="12" x2="16" y2="12"/>
+          </svg>
+          Add Workspace
+        </button>
+      {:else}
+        <div class="add-workspace-form">
+          <h3>Add New Workspace</h3>
+          
+          <div class="form-group">
+            <label>
+              Workspace Name
+              <input
+                type="text"
+                bind:value={newWorkspaceName}
+                placeholder="e.g., Work, Personal"
+                maxlength="50"
+              />
+            </label>
+          </div>
+          
+          <div class="form-group">
+            <label>
+              Workspace Domain
+              <div class="domain-input">
+                <input
+                  type="text"
+                  bind:value={newWorkspaceDomain}
+                  placeholder="mycompany"
+                  maxlength="50"
+                />
+                <span class="domain-suffix">.slack.com</span>
+              </div>
+            </label>
+          </div>
+          
+          <div class="form-group">
+            <label>
+              API Token
+              <input
+                type="password"
+                bind:value={newWorkspaceToken}
+                placeholder="xoxb-..."
+              />
+            </label>
+          </div>
+          
+          <div class="form-group">
+            <label>
+              Color
+              <div class="color-picker">
+                {#each defaultColors as color}
+                  <button
+                    class="color-option"
+                    class:selected={newWorkspaceColor === color}
+                    style="background-color: {color}"
+                    on:click={() => newWorkspaceColor = color}
+                  />
+                {/each}
+              </div>
+            </label>
+          </div>
+          
+          <div class="form-actions">
+            <button class="btn-cancel" on:click={() => addingWorkspace = false}>
+              Cancel
+            </button>
+            <button class="btn-add" on:click={addWorkspace}>
+              Add Workspace
+            </button>
+          </div>
+        </div>
+      {/if}
+    </div>
+  {/if}
+</div>
+
+<style>
+  .workspace-switcher {
+    position: relative;
+  }
+  
+  .workspace-button {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 200px;
+  }
+  
+  .workspace-button:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary);
+  }
+  
+  .workspace-button.active {
+    background: var(--bg-hover);
+    border-color: var(--primary);
+  }
+  
+  .workspace-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  .workspace-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: white;
+    flex-shrink: 0;
+  }
+  
+  .workspace-avatar.small {
+    width: 28px;
+    height: 28px;
+    font-size: 0.75rem;
+  }
+  
+  .workspace-avatar.empty {
+    background: var(--bg-hover);
+    color: var(--text-secondary);
+  }
+  
+  .workspace-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    flex: 1;
+  }
+  
+  .workspace-name {
+    font-weight: 500;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+  }
+  
+  .workspace-domain {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+  
+  .dropdown-arrow {
+    transition: transform 0.2s;
+    color: var(--text-secondary);
+  }
+  
+  .dropdown-arrow.open {
+    transform: rotate(180deg);
+  }
+  
+  .workspace-dropdown {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    right: 0;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    overflow: hidden;
+  }
+  
+  .workspace-list {
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  
+  .workspace-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    width: 100%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+    position: relative;
+  }
+  
+  .workspace-item:hover {
+    background: var(--bg-hover);
+  }
+  
+  .workspace-item.active {
+    background: var(--primary-bg);
+  }
+  
+  .workspace-details {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    flex: 1;
+  }
+  
+  .check-icon {
+    color: var(--primary);
+    flex-shrink: 0;
+  }
+  
+  .delete-button {
+    padding: 0.25rem;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 4px;
+    opacity: 0;
+    transition: all 0.2s;
+  }
+  
+  .workspace-item:hover .delete-button {
+    opacity: 1;
+  }
+  
+  .delete-button:hover {
+    background: var(--bg-hover);
+    color: var(--danger);
+  }
+  
+  .dropdown-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0.25rem 0;
+  }
+  
+  .add-workspace-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--primary);
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 0.875rem;
+  }
+  
+  .add-workspace-button:hover {
+    background: var(--bg-hover);
+  }
+  
+  .add-workspace-form {
+    padding: 1rem;
+  }
+  
+  .add-workspace-form h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    color: var(--text-primary);
+  }
+  
+  .form-group {
+    margin-bottom: 1rem;
+  }
+  
+  .form-group label {
+    display: block;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+  }
+  
+  .form-group input {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+  }
+  
+  .form-group input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+  
+  .domain-input {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  
+  .domain-input input {
+    flex: 1;
+  }
+  
+  .domain-suffix {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+  }
+  
+  .color-picker {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  
+  .color-option {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .color-option:hover {
+    transform: scale(1.1);
+  }
+  
+  .color-option.selected {
+    border-color: var(--text-primary);
+  }
+  
+  .form-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    margin-top: 1rem;
+  }
+  
+  .btn-cancel,
+  .btn-add {
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .btn-cancel {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+  }
+  
+  .btn-cancel:hover {
+    background: var(--bg-hover);
+  }
+  
+  .btn-add {
+    background: var(--primary);
+    border: none;
+    color: white;
+  }
+  
+  .btn-add:hover {
+    opacity: 0.9;
+  }
+</style>
