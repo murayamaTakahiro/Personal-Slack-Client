@@ -113,7 +113,7 @@
     aliasInput = '';
   }
   
-  function clearSelection() {
+  export function clearSelection() {
     value = '';
     searchQuery = '';
     dispatch('change', { userId: '', userName: '' });

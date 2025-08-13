@@ -93,6 +93,23 @@
     }
   }
   
+  export function clearChannelSelection() {
+    // Clear channel and user selections
+    channel = '';
+    user = '';
+    userId = '';
+    
+    // Clear the channel selector if it exists
+    if (channelSelectorComponent && channelSelectorComponent.clearSelection) {
+      channelSelectorComponent.clearSelection();
+    }
+    
+    // Clear the user selector if it exists
+    if (userSelectorComponent && userSelectorComponent.clearSelection) {
+      userSelectorComponent.clearSelection();
+    }
+  }
+  
   // Setup keyboard handlers
   onMount(() => {
     const keyboardService = getKeyboardService();

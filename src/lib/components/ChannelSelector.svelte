@@ -148,7 +148,7 @@
     channelStore.toggleSelectionMode();
   }
   
-  function clearSelection() {
+  export function clearSelection() {
     if (mode === 'multi') {
       channelStore.clearSelection();
     }

@@ -71,6 +71,9 @@
     // Add global keyboard event listener
     document.addEventListener('keydown', handleGlobalKeydown);
     
+    // Add workspace switch event listener
+    window.addEventListener('workspace-switched', handleWorkspaceSwitched);
+    
     // Check for multi-workspace mode preference
     const multiWorkspaceEnabled = localStorage.getItem('multiWorkspaceEnabled');
     if (multiWorkspaceEnabled === 'true') {
@@ -121,9 +124,12 @@
   });
   
   onDestroy(() => {
-    // Clean up keyboard event listener
+    // Clean up event listeners
     if (typeof document !== 'undefined') {
       document.removeEventListener('keydown', handleGlobalKeydown);
+    }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('workspace-switched', handleWorkspaceSwitched);
     }
   });
   
@@ -276,23 +282,36 @@
   }
   
   async function handleWorkspaceSwitched(event: CustomEvent) {
-    const workspace = event.detail;
+    const switchEvent = event.detail;
+    console.log('Workspace switch event received:', switchEvent);
     
-    // Clear current state including channels
+    // Clear current state including channels and search results
     searchResults.set(null);
     selectedMessage.set(null);
-    searchParams.set({ query: '' });
+    searchParams.update(p => ({ ...p, query: '', channels: [], users: [] }));
     searchError.set(null);
+    searchLoading.set(false);
     
     // Clear channels and user cache before loading new ones
     channels = [];
     userService.clearCache();
+    
+    // Get the active workspace after the switch
+    const currentWorkspace = $activeWorkspace;
+    if (!currentWorkspace) {
+      searchError.set('No active workspace selected.');
+      return;
+    }
+    
+    // Show loading state
+    searchLoading.set(true);
     
     // Load new workspace
     const wsToken = await workspaceStore.getActiveToken();
     if (wsToken) {
       token = wsToken;
       maskedToken = maskTokenClient(wsToken);
+      workspace = currentWorkspace.domain;
       
       // CRITICAL: Save token to default location for backend compatibility
       // The backend always reads from default key "slack_token"
@@ -302,7 +321,7 @@
         await updateTokenSecure(wsToken);
         
         // Log the token being set (masked for security)
-        console.log('Setting token for workspace:', workspace.name, 'Token:', maskTokenClient(wsToken));
+        console.log('Setting token for workspace:', currentWorkspace.name, 'Token:', maskTokenClient(wsToken));
         
         // Wait a bit to ensure the token is saved
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -311,13 +330,20 @@
         const initialized = await initTokenFromStorage();
         if (initialized) {
           console.log('Backend initialized with new token');
+          
           // Load new channels for the switched workspace
           await loadChannels();
           
           // Force UI update by reassigning channels
           channels = [...channels];
           
-          console.log(`Switched to workspace: ${workspace.name} with ${channels.length} channels`);
+          // Clear the search bar if it exists
+          if (searchBarElement) {
+            searchBarElement.clearChannelSelection();
+          }
+          
+          console.log(`Switched to workspace: ${currentWorkspace.name} with ${channels.length} channels`);
+          searchError.set(null);
         } else {
           console.error('Failed to initialize backend token');
           searchError.set('Failed to initialize token for the new workspace.');
@@ -325,9 +351,12 @@
       } catch (err) {
         console.error('Failed to switch workspace:', err);
         searchError.set('Failed to switch workspace. Please check the token.');
+      } finally {
+        searchLoading.set(false);
       }
     } else {
       searchError.set('No token found for the selected workspace.');
+      searchLoading.set(false);
     }
   }
   
