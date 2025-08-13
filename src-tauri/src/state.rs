@@ -1,11 +1,13 @@
 use crate::error::{AppError, AppResult};
-use crate::slack::SlackClient;
+use crate::slack::{SlackClient, SearchResult};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, error};
 use serde::{Serialize, Deserialize};
 use std::time::{SystemTime, UNIX_EPOCH, Duration};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct CachedUser {
@@ -20,10 +22,17 @@ pub struct CachedChannel {
 }
 
 #[derive(Clone)]
+pub struct CachedSearchResult {
+    pub result: SearchResult,
+    pub cached_at: u64,  // Unix timestamp
+}
+
+#[derive(Clone)]
 pub struct AppState {
     token: Arc<RwLock<Option<String>>>,
     user_cache: Arc<RwLock<HashMap<String, CachedUser>>>,
     channel_cache: Arc<RwLock<HashMap<String, CachedChannel>>>,
+    search_cache: Arc<RwLock<HashMap<u64, CachedSearchResult>>>,  // Hash of search params -> result
 }
 
 impl AppState {
@@ -32,6 +41,7 @@ impl AppState {
             token: Arc::new(RwLock::new(None)),
             user_cache: Arc::new(RwLock::new(HashMap::new())),
             channel_cache: Arc::new(RwLock::new(HashMap::new())),
+            search_cache: Arc::new(RwLock::new(HashMap::new())),
         }
     }
     
@@ -156,9 +166,85 @@ impl AppState {
         debug!("Clearing caches");
         let mut user_cache = self.user_cache.write().await;
         let mut channel_cache = self.channel_cache.write().await;
+        let mut search_cache = self.search_cache.write().await;
         user_cache.clear();
         channel_cache.clear();
+        search_cache.clear();
         info!("Caches cleared");
+    }
+    
+    fn hash_search_params(
+        query: &str,
+        channel: &Option<String>,
+        user: &Option<String>,
+        from_date: &Option<String>,
+        to_date: &Option<String>,
+        limit: &Option<usize>,
+    ) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        query.hash(&mut hasher);
+        channel.hash(&mut hasher);
+        user.hash(&mut hasher);
+        from_date.hash(&mut hasher);
+        to_date.hash(&mut hasher);
+        limit.hash(&mut hasher);
+        hasher.finish()
+    }
+    
+    pub async fn get_cached_search(
+        &self,
+        query: &str,
+        channel: &Option<String>,
+        user: &Option<String>,
+        from_date: &Option<String>,
+        to_date: &Option<String>,
+        limit: &Option<usize>,
+    ) -> Option<SearchResult> {
+        let cache_key = Self::hash_search_params(query, channel, user, from_date, to_date, limit);
+        let cache = self.search_cache.read().await;
+        
+        if let Some(cached) = cache.get(&cache_key) {
+            // Check if cache is still valid (5 minutes for search results)
+            const SEARCH_CACHE_DURATION_SECS: u64 = 300; // 5 minutes
+            let now = Self::current_timestamp();
+            if now - cached.cached_at < SEARCH_CACHE_DURATION_SECS {
+                info!("Search result cache hit for query: {}", query);
+                return Some(cached.result.clone());
+            }
+        }
+        None
+    }
+    
+    pub async fn cache_search_result(
+        &self,
+        query: &str,
+        channel: &Option<String>,
+        user: &Option<String>,
+        from_date: &Option<String>,
+        to_date: &Option<String>,
+        limit: &Option<usize>,
+        result: SearchResult,
+    ) {
+        let cache_key = Self::hash_search_params(query, channel, user, from_date, to_date, limit);
+        let mut cache = self.search_cache.write().await;
+        
+        // Keep cache size reasonable (max 50 searches)
+        if cache.len() >= 50 {
+            // Remove oldest entry
+            if let Some(oldest_key) = cache
+                .iter()
+                .min_by_key(|(_, v)| v.cached_at)
+                .map(|(k, _)| *k)
+            {
+                cache.remove(&oldest_key);
+            }
+        }
+        
+        cache.insert(cache_key, CachedSearchResult {
+            result,
+            cached_at: Self::current_timestamp(),
+        });
+        debug!("Cached search result for query: {}", query);
     }
 }
 

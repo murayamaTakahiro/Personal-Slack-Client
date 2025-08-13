@@ -112,7 +112,7 @@ pub async fn migrate_tokens(
     
     // Check if we have a token at the default key
     if let Some(value) = store.get("slack_token") {
-        if let Some(token) = value.as_str() {
+        if let Some(_token) = value.as_str() {
             info!("Found legacy token at default key, will keep for backward compatibility");
         }
     }

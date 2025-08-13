@@ -1,7 +1,7 @@
 use crate::error::AppResult;
 use crate::slack::{
     SlackClient, SearchRequest, SearchResult, Message, SlackMessage,
-    build_search_query, fetch_all_results, SlackUser, SlackUserInfo
+    build_search_query, fetch_all_results, SlackUser
 };
 use crate::state::AppState;
 use std::time::Instant;
@@ -9,6 +9,7 @@ use tauri::State;
 use tracing::{debug, info, error, warn};
 use futures::future::join_all;
 use std::sync::Arc;
+use std::collections::HashSet;
 
 #[tauri::command]
 pub async fn search_messages(
@@ -21,6 +22,19 @@ pub async fn search_messages(
     state: State<'_, AppState>,
 ) -> AppResult<SearchResult> {
     let start_time = Instant::now();
+    
+    // Check cache first
+    if let Some(cached_result) = state.get_cached_search(
+        &query,
+        &channel,
+        &user,
+        &from_date,
+        &to_date,
+        &limit,
+    ).await {
+        info!("Returning cached search result in {}ms", start_time.elapsed().as_millis());
+        return Ok(cached_result);
+    }
     
     // Get the Slack client from app state
     let client = state.get_client().await?;
@@ -199,6 +213,49 @@ pub async fn search_messages(
     let channel_cache = state.get_channel_cache().await;
     
     // Clone client for use in the loop
+    // Pre-fetch all unique users in parallel for better performance
+    let unique_user_ids: Vec<String> = slack_messages
+        .iter()
+        .filter_map(|msg| msg.user.as_ref())
+        .filter(|user_id| !user_cache.contains_key(*user_id))
+        .map(|s| s.to_string())
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+    
+    if !unique_user_ids.is_empty() {
+        info!("Pre-fetching {} unique users in parallel", unique_user_ids.len());
+        let user_fetch_futures = unique_user_ids.iter().map(|user_id| {
+            let client = Arc::clone(&client);
+            let user_id = user_id.clone();
+            async move {
+                match client.get_user_info(&user_id).await {
+                    Ok(user_info) => {
+                        let name = user_info.profile
+                            .as_ref()
+                            .and_then(|p| p.display_name.clone())
+                            .or_else(|| user_info.real_name.clone())
+                            .unwrap_or_else(|| user_info.name.clone());
+                        Some((user_id, name))
+                    }
+                    Err(e) => {
+                        error!("Failed to get user info for {}: {}", user_id, e);
+                        None
+                    }
+                }
+            }
+        });
+        
+        let user_results = join_all(user_fetch_futures).await;
+        for result in user_results {
+            if let Some((user_id, name)) = result {
+                state.cache_user(user_id, name).await;
+            }
+        }
+    }
+    
+    // Reload cache after batch update
+    let user_cache = state.get_user_cache().await;
     let client_for_loop = client.clone();
     
     // Convert Slack messages to our Message format
@@ -301,12 +358,25 @@ pub async fn search_messages(
         build_search_query(&search_request)
     };
     
-    Ok(SearchResult {
+    let result = SearchResult {
         messages,
         total,
         query: display_query,
         execution_time_ms,
-    })
+    };
+    
+    // Cache the result for future use
+    state.cache_search_result(
+        &query,
+        &channel,
+        &user,
+        &from_date,
+        &to_date,
+        &limit,
+        result.clone(),
+    ).await;
+    
+    Ok(result)
 }
 
 #[tauri::command]

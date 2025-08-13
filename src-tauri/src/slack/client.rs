@@ -12,8 +12,8 @@ use futures;
 use super::models::*;
 
 const SLACK_API_BASE: &str = "https://slack.com/api";
-const RATE_LIMIT_DELAY_MS: u64 = 100;
-const MAX_CONCURRENT_REQUESTS: usize = 3;  // Slack rate limit safety
+const RATE_LIMIT_DELAY_MS: u64 = 50;  // Reduced from 100ms for better performance
+const MAX_CONCURRENT_REQUESTS: usize = 5;  // Increased from 3 for better parallelism while staying safe
 
 #[derive(Clone)]
 pub struct SlackClient {

@@ -1,8 +1,8 @@
 use crate::error::AppResult;
-use tauri::{AppHandle, State};
+use tauri::AppHandle;
 use tauri_plugin_store::StoreExt;
 use serde_json::Value;
-use tracing::{info, error};
+use tracing::info;
 
 #[tauri::command]
 pub async fn save_favorite_channels(

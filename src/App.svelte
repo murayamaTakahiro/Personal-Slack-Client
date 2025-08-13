@@ -13,7 +13,6 @@
     addToHistory
   } from './lib/stores/search';
   import { 
-    secureSettings, 
     updateTokenSecure, 
     updateWorkspaceSecure, 
     loadSecureSettings 
