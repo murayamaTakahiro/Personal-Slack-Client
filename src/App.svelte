@@ -246,6 +246,12 @@
         
         // Initialize token in backend
         try {
+          // Important: Save token to the default location for backend compatibility
+          await updateTokenSecure(wsToken);
+          
+          // Wait a bit to ensure the token is saved
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
           const initialized = await initTokenFromStorage();
           if (initialized) {
             await loadChannels();
@@ -275,9 +281,16 @@
       token = wsToken;
       maskedToken = maskTokenClient(wsToken);
       
-      // Reinitialize with new token
+      // Important: Save token to the default location for backend compatibility
+      // The backend expects the token at the default key, not workspace-specific
       try {
+        // Update the token in the secure store's default location
         await updateTokenSecure(wsToken);
+        
+        // Wait a bit to ensure the token is saved
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Initialize the backend with the new token
         const initialized = await initTokenFromStorage();
         if (initialized) {
           await loadChannels();
@@ -370,8 +383,27 @@
     searchError.set(null);
     
     try {
+      // Ensure we have a token
+      if (!token) {
+        if (useMultiWorkspace) {
+          const wsToken = await workspaceStore.getActiveToken();
+          if (wsToken) {
+            token = wsToken;
+            await updateTokenSecure(wsToken);
+            await new Promise(resolve => setTimeout(resolve, 100));
+          } else {
+            throw new Error('No token available for current workspace');
+          }
+        } else {
+          throw new Error('No Slack token configured');
+        }
+      }
+      
       // First ensure the token is initialized in the backend
       const tokenInitialized = await initTokenFromStorage();
+      if (!tokenInitialized) {
+        throw new Error('Failed to initialize token in backend');
+      }
       
       const thread = await getThreadFromUrl(urlInput);
       selectedMessage.set(thread.parent);
