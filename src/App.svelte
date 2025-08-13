@@ -487,21 +487,33 @@
         
         <div class="setting-group">
           <label>
-            Slack User Token (xoxp-...)
+            Slack User Token (Required: xoxp-)
             <input
               type="password"
               bind:value={token}
               placeholder="xoxp-xxxxxxxxxxxx"
+              on:input={(e) => {
+                const value = e.target.value.trim();
+                if (value && !value.startsWith('xoxp-')) {
+                  if (value.startsWith('xoxb-')) {
+                    alert('⚠️ Bot tokens (xoxb-) are not supported.\n\nThis app requires a User Token (xoxp-) to search messages.\nBot tokens cannot access message history or search.\n\nPlease see SLACK_TOKEN_GUIDE.md for instructions on getting a User Token.');
+                  } else if (value.length > 10) {
+                    alert('⚠️ Invalid token format.\n\nUser tokens must start with "xoxp-".\n\nPlease see SLACK_TOKEN_GUIDE.md for instructions.');
+                  }
+                }
+              }}
             />
           </label>
           {#if maskedToken}
             <p class="masked-token">Current token: {maskedToken}</p>
           {/if}
+          <p class="help-text" style="color: var(--warning, orange); font-weight: bold;">
+            ⚠️ IMPORTANT: Must be a User Token (xoxp-), NOT a Bot Token (xoxb-)
+          </p>
           <p class="help-text">
-            Get your token from: 
-            <a href="https://api.slack.com/authentication/token-types#user" target="_blank">
-              Slack API Documentation
-            </a>
+            <a href="https://github.com/your-repo/slack-search-enhancer/blob/main/SLACK_TOKEN_GUIDE.md" target="_blank">
+              📖 Read the Token Setup Guide
+            </a> for detailed instructions
           </p>
         </div>
         
@@ -636,6 +648,7 @@
     --primary-hover: #357abd;
     --primary-bg: #e7f1fb;
     --error: #dc3545;
+    --warning: #ff9800;
   }
   
   :global(:root.dark) {
@@ -649,6 +662,7 @@
     --primary-hover: #357abd;
     --primary-bg: #1e3a5c;
     --error: #f56565;
+    --warning: #ffa726;
   }
   
   :global(*) {

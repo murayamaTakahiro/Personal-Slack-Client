@@ -286,13 +286,26 @@
           
           <div class="form-group">
             <label>
-              API Token
+              User Token (Required: xoxp-)
               <input
                 type="password"
                 bind:value={newWorkspaceToken}
-                placeholder="xoxb-..."
+                placeholder="xoxp-..."
+                on:input={(e) => {
+                  const value = e.target.value.trim();
+                  if (value && !value.startsWith('xoxp-')) {
+                    if (value.startsWith('xoxb-')) {
+                      alert('⚠️ Bot tokens (xoxb-) are not supported. Please use a User Token (xoxp-) instead. See SLACK_TOKEN_GUIDE.md for details.');
+                    } else if (value.length > 10) {
+                      alert('⚠️ Invalid token format. User tokens must start with "xoxp-". See SLACK_TOKEN_GUIDE.md for details.');
+                    }
+                  }
+                }}
               />
             </label>
+            <p class="help-text" style="color: var(--warning, orange);">
+              ⚠️ Must be a User Token (xoxp-), NOT a Bot Token (xoxb-)
+            </p>
           </div>
           
           <div class="form-group">
