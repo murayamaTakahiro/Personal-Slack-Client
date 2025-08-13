@@ -161,7 +161,7 @@
           searchBarElement.focusSearchInput();
         }
       },
-      allowInInput: false
+      allowInInput: true  // Allow from anywhere to provide quick navigation
     });
     
     // New Search - refreshes like workspace switching
@@ -246,7 +246,7 @@
           }
         }
       },
-      allowInInput: false
+      allowInInput: true  // Allow from anywhere to start fresh search
     });
     
     // Toggle Advanced Search
@@ -266,7 +266,7 @@
           resultListElement.focusList();
         }
       },
-      allowInInput: false
+      allowInInput: true  // Allow even when in input fields for better navigation
     });
     
     // Focus Thread
@@ -280,7 +280,7 @@
           }
         }
       },
-      allowInInput: false
+      allowInInput: true  // Allow even when in input fields for better navigation
     });
     
     // Focus URL Input
@@ -294,7 +294,7 @@
           }
         }
       },
-      allowInInput: false
+      allowInInput: true  // Allow even when in input fields for better navigation
     });
     
     // Toggle Channel Selector
@@ -304,7 +304,7 @@
           searchBarElement.toggleChannelSelector();
         }
       },
-      allowInInput: false
+      allowInInput: true  // Allow from anywhere for better UX
     });
   }
   

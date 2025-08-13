@@ -38,6 +38,10 @@
     if (messages.length > 0) {
       focusedIndex = 0;
       updateFocus();
+      // Focus the list container to enable keyboard navigation
+      if (listContainer) {
+        listContainer.focus();
+      }
     }
   }
   
@@ -66,21 +70,43 @@
   function handleKeyNavigation(direction: 'up' | 'down') {
     if (messages.length === 0) return;
     
-    if (direction === 'down') {
-      if (focusedIndex < messages.length - 1) {
-        focusedIndex++;
-      } else {
-        focusedIndex = 0; // Wrap to start
-      }
+    // Initialize focus if not set
+    if (focusedIndex === -1) {
+      focusedIndex = direction === 'down' ? 0 : messages.length - 1;
     } else {
-      if (focusedIndex > 0) {
-        focusedIndex--;
+      if (direction === 'down') {
+        if (focusedIndex < messages.length - 1) {
+          focusedIndex++;
+        } else {
+          focusedIndex = 0; // Wrap to start
+        }
       } else {
-        focusedIndex = messages.length - 1; // Wrap to end
+        if (focusedIndex > 0) {
+          focusedIndex--;
+        } else {
+          focusedIndex = messages.length - 1; // Wrap to end
+        }
       }
     }
     
     updateFocus();
+  }
+  
+  function handleKeyDown(event: KeyboardEvent) {
+    // Handle arrow keys when list has focus
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      handleKeyNavigation('down');
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      handleKeyNavigation('up');
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      if (focusedIndex >= 0 && focusedIndex < messages.length) {
+        const message = messages[focusedIndex];
+        selectedMessage.set(message);
+      }
+    }
   }
   
   onMount(() => {
@@ -184,7 +210,13 @@
         {/if}
       </h3>
     </div>
-    <div class="messages" bind:this={listContainer}>
+    <div 
+      class="messages" 
+      bind:this={listContainer}
+      tabindex="0"
+      role="list"
+      aria-label="Search results"
+      on:keydown={handleKeyDown}>
       {#each messages as message, index}
         <div bind:this={messageElements[index]}>
           <MessageItem 
@@ -266,6 +298,11 @@
     flex: 1;
     overflow-y: auto;
     padding: 0.5rem;
+    outline: none;
+  }
+  
+  .messages:focus {
+    box-shadow: inset 0 0 0 2px var(--primary);
   }
   
   .messages::-webkit-scrollbar {
