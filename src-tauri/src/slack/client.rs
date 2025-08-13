@@ -491,11 +491,20 @@ pub fn build_search_query(params: &SearchRequest) -> String {
         // by making multiple searches and combining results
     }
     
-    // Add user filter - remove @ if present
+    // Add user filter - handle both user IDs and usernames
     if let Some(user) = &params.user {
         let clean_user = user.trim_start_matches('@');
         if !clean_user.is_empty() {
-            query_parts.push(format!("from:{}", clean_user));
+            // Check if it's a user ID (starts with U and followed by alphanumeric)
+            if clean_user.starts_with('U') && clean_user.len() > 8 && clean_user.chars().skip(1).all(|c| c.is_alphanumeric()) {
+                // For user IDs, use the <@USERID> format
+                info!("Using user ID format for search: <@{}>", clean_user);
+                query_parts.push(format!("from:<@{}>", clean_user));
+            } else {
+                // For usernames, use the plain format
+                info!("Using username format for search: {}", clean_user);
+                query_parts.push(format!("from:{}", clean_user));
+            }
         }
     }
     
