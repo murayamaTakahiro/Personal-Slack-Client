@@ -287,7 +287,14 @@
     // Clear current state including channels and search results
     searchResults.set(null);
     selectedMessage.set(null);
-    searchParams.update(p => ({ ...p, query: '', channels: [], users: [] }));
+    searchParams.update(p => ({ 
+      ...p, 
+      query: '', 
+      channels: [], 
+      users: [],
+      fromDate: undefined,
+      toDate: undefined 
+    }));
     searchError.set(null);
     searchLoading.set(false);
     

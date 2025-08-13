@@ -93,11 +93,13 @@
     }
   }
   
-  export function clearChannelSelection() {
-    // Clear channel and user selections
+  export function clearAllFilters() {
+    // Clear all search filters
     channel = '';
     user = '';
     userId = '';
+    fromDate = '';
+    toDate = '';
     
     // Clear the channel selector if it exists
     if (channelSelectorComponent && channelSelectorComponent.clearSelection) {
@@ -108,6 +110,11 @@
     if (userSelectorComponent && userSelectorComponent.clearSelection) {
       userSelectorComponent.clearSelection();
     }
+  }
+  
+  // Keep the old function name for backward compatibility
+  export function clearChannelSelection() {
+    clearAllFilters();
   }
   
   // Setup keyboard handlers
