@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, createEventDispatcher } from 'svelte';
+  import { onDestroy, createEventDispatcher } from 'svelte';
   import { workspaceStore, activeWorkspace, sortedWorkspaces } from '../stores/workspaces';
   import type { Workspace } from '../types/workspace';
   import { maskTokenClient } from '../api/secure';
@@ -141,11 +141,22 @@
     }
   }
   
-  onMount(() => {
-    document.addEventListener('click', handleClickOutside);
-    return () => {
+  // Add event listener when dropdown opens, remove when closes
+  $: if (typeof window !== 'undefined') {
+    if (isOpen) {
+      // Add a small delay to prevent immediate closure
+      setTimeout(() => {
+        document.addEventListener('click', handleClickOutside);
+      }, 10);
+    } else {
       document.removeEventListener('click', handleClickOutside);
-    };
+    }
+  }
+  
+  onDestroy(() => {
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('click', handleClickOutside);
+    }
   });
 </script>
 
@@ -234,7 +245,7 @@
         
         <div class="dropdown-divider"></div>
         
-        <button class="add-workspace-button" on:click={showAddWorkspaceForm}>
+        <button class="add-workspace-button" on:click|stopPropagation={showAddWorkspaceForm}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="8" x2="12" y2="16"/>
