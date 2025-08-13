@@ -87,11 +87,14 @@
         color: newWorkspaceColor
       });
       
-      // Automatically switch to the new workspace
-      await switchToWorkspace(workspace);
-      
       resetNewWorkspaceForm();
       addingWorkspace = false;
+      
+      // Automatically switch to the new workspace
+      // This will trigger the workspaceSwitched event
+      await switchToWorkspace(workspace);
+      
+      // Also dispatch the workspaceAdded event
       dispatch('workspaceAdded', workspace);
     } catch (error) {
       console.error('Error adding workspace:', error);

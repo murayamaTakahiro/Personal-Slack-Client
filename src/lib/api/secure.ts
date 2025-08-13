@@ -25,7 +25,7 @@ export async function getTokenSecure(workspaceId?: string): Promise<string | nul
     return await invoke('get_token_secure', { key: `token_${workspaceId}` });
   } else {
     // Legacy mode: retrieve with default key
-    return await invoke('get_token_secure');
+    return await invoke('get_token_secure', {});
   }
 }
 
@@ -39,7 +39,7 @@ export async function deleteTokenSecure(workspaceId?: string): Promise<void> {
     await invoke('delete_token_secure', { key: `token_${workspaceId}` });
   } else {
     // Legacy mode: delete with default key
-    await invoke('delete_token_secure');
+    await invoke('delete_token_secure', {});
   }
 }
 

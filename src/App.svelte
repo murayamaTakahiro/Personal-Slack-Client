@@ -31,6 +31,7 @@
   import KeyboardSettings from './lib/components/KeyboardSettings.svelte';
   import KeyboardHelp from './lib/components/KeyboardHelp.svelte';
   import { workspaceStore, activeWorkspace } from './lib/stores/workspaces';
+  import { userService } from './lib/services/userService';
   
   let channels: [string, string][] = [];
   let showSettings = false;
@@ -246,15 +247,23 @@
         
         // Initialize token in backend
         try {
-          // Important: Save token to the default location for backend compatibility
+          // CRITICAL: Save token to default location for backend compatibility
+          // The backend always reads from default key "slack_token"
+          // This ensures the backend can access the current workspace's token
           await updateTokenSecure(wsToken);
+          
+          console.log('Saved token to default key for backend');
           
           // Wait a bit to ensure the token is saved
           await new Promise(resolve => setTimeout(resolve, 100));
           
           const initialized = await initTokenFromStorage();
           if (initialized) {
+            console.log('Backend initialized successfully');
             await loadChannels();
+            console.log('Initialized workspace:', currentWorkspace.name);
+          } else {
+            console.error('Failed to initialize backend with token');
           }
         } catch (err) {
           console.error('Failed to initialize token:', err);
@@ -269,11 +278,15 @@
   async function handleWorkspaceSwitched(event: CustomEvent) {
     const workspace = event.detail;
     
-    // Clear current state
+    // Clear current state including channels
     searchResults.set(null);
     selectedMessage.set(null);
     searchParams.set({ query: '' });
+    searchError.set(null);
+    
+    // Clear channels and user cache before loading new ones
     channels = [];
+    userService.clearCache();
     
     // Load new workspace
     const wsToken = await workspaceStore.getActiveToken();
@@ -281,11 +294,15 @@
       token = wsToken;
       maskedToken = maskTokenClient(wsToken);
       
-      // Important: Save token to the default location for backend compatibility
-      // The backend expects the token at the default key, not workspace-specific
+      // CRITICAL: Save token to default location for backend compatibility
+      // The backend always reads from default key "slack_token"
+      // This ensures the backend can access the current workspace's token
       try {
         // Update the token in the secure store's default location
         await updateTokenSecure(wsToken);
+        
+        // Log the token being set (masked for security)
+        console.log('Setting token for workspace:', workspace.name, 'Token:', maskTokenClient(wsToken));
         
         // Wait a bit to ensure the token is saved
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -293,12 +310,24 @@
         // Initialize the backend with the new token
         const initialized = await initTokenFromStorage();
         if (initialized) {
+          console.log('Backend initialized with new token');
+          // Load new channels for the switched workspace
           await loadChannels();
+          
+          // Force UI update by reassigning channels
+          channels = [...channels];
+          
+          console.log(`Switched to workspace: ${workspace.name} with ${channels.length} channels`);
+        } else {
+          console.error('Failed to initialize backend token');
+          searchError.set('Failed to initialize token for the new workspace.');
         }
       } catch (err) {
         console.error('Failed to switch workspace:', err);
         searchError.set('Failed to switch workspace. Please check the token.');
       }
+    } else {
+      searchError.set('No token found for the selected workspace.');
     }
   }
   
@@ -344,9 +373,20 @@
   
   async function loadChannels() {
     try {
-      channels = await getUserChannels();
+      // Clear existing channels first
+      channels = [];
+      
+      // Get new channels for current workspace
+      const newChannels = await getUserChannels();
+      
+      // Update channels and force reactivity
+      channels = newChannels || [];
+      
+      console.log(`Loaded ${channels.length} channels for workspace`);
     } catch (err) {
       console.error('Failed to load channels:', err);
+      channels = [];
+      searchError.set('Failed to load channels. Please check your token permissions.');
     }
   }
   
@@ -438,7 +478,7 @@
     {#if useMultiWorkspace}
       <WorkspaceSwitcher 
         on:workspaceSwitched={handleWorkspaceSwitched}
-        on:workspaceAdded={() => loadChannels()}
+        on:workspaceAdded={handleWorkspaceSwitched}
       />
     {/if}
     
