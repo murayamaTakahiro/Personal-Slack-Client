@@ -2,6 +2,7 @@
   import type { Message } from '../types/slack';
   import { openInSlack } from '../api/slack';
   import { createEventDispatcher } from 'svelte';
+  import { activeWorkspace } from '../stores/workspaces';
   
   export let message: Message;
   export let selected = false;
@@ -19,10 +20,27 @@
     return text.substring(0, maxLength) + '...';
   }
   
+  function generateSlackUrl(): string {
+    // Generate correct Slack URL using current workspace domain
+    const workspace = $activeWorkspace;
+    if (!workspace) {
+      // Fallback to original permalink if no workspace is active
+      return message.permalink;
+    }
+    
+    // Extract channel ID and message timestamp from the message
+    const channelId = message.channel;
+    const messageTs = message.ts.replace('.', '');
+    
+    // Generate the correct URL format for the current workspace
+    return `https://${workspace.domain}.slack.com/archives/${channelId}/p${messageTs}`;
+  }
+  
   async function handleOpenInSlack(e: MouseEvent) {
     e.stopPropagation();
     try {
-      await openInSlack(message.permalink);
+      const url = generateSlackUrl();
+      await openInSlack(url);
     } catch (error) {
       console.error('Failed to open in Slack:', error);
     }

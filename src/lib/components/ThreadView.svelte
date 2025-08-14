@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import type { ThreadMessages, Message } from '../types/slack';
   import { getThread, openInSlack } from '../api/slack';
+  import { activeWorkspace } from '../stores/workspaces';
   
   export let message: Message | null = null;
   
@@ -39,9 +40,26 @@
     return date.toLocaleString();
   }
   
-  async function handleOpenInSlack(permalink: string) {
+  function generateSlackUrl(message: Message): string {
+    // Generate correct Slack URL using current workspace domain
+    const workspace = $activeWorkspace;
+    if (!workspace) {
+      // Fallback to original permalink if no workspace is active
+      return message.permalink;
+    }
+    
+    // Extract channel ID and message timestamp from the message
+    const channelId = message.channel;
+    const messageTs = message.ts.replace('.', '');
+    
+    // Generate the correct URL format for the current workspace
+    return `https://${workspace.domain}.slack.com/archives/${channelId}/p${messageTs}`;
+  }
+  
+  async function handleOpenInSlack(messageToOpen: Message) {
     try {
-      await openInSlack(permalink);
+      const url = generateSlackUrl(messageToOpen);
+      await openInSlack(url);
     } catch (error) {
       console.error('Failed to open in Slack:', error);
     }
@@ -95,7 +113,7 @@
         event.preventDefault();
         if (selectedIndex >= 0 && selectedIndex < totalMessages) {
           const selectedMsg = messages[selectedIndex].message;
-          handleOpenInSlack(selectedMsg.permalink);
+          handleOpenInSlack(selectedMsg);
         }
         break;
       case 'Home':
@@ -131,7 +149,7 @@
   function handleMessageKeyDown(event: KeyboardEvent, index: number, messageData: Message) {
     if (event.key === 'Enter') {
       event.preventDefault();
-      handleOpenInSlack(messageData.permalink);
+      handleOpenInSlack(messageData);
     }
   }
   
@@ -205,7 +223,7 @@
       </div>
       <button
         class="btn-open-thread"
-        on:click={() => thread && handleOpenInSlack(thread.parent.permalink)}
+        on:click={() => thread && handleOpenInSlack(thread.parent)}
       >
         Open in Slack
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -273,7 +291,7 @@
         </div>
         <button
           class="btn-open-thread"
-          on:click={() => handleOpenInSlack(message.permalink)}
+          on:click={() => handleOpenInSlack(message)}
         >
           Open in Slack
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
