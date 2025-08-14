@@ -52,8 +52,16 @@
     const channelId = message.channel;
     const messageTs = message.ts.replace('.', '');
     
-    // Generate the correct URL format for the current workspace
-    return `https://${workspace.domain}.slack.com/archives/${channelId}/p${messageTs}`;
+    // Check if this is a thread reply
+    if (message.threadTs && message.threadTs !== message.ts) {
+      // This is a reply in a thread - generate URL that opens the thread view
+      const threadTs = message.threadTs.replace('.', '');
+      // Include thread_ts parameter to open in thread view with the specific message highlighted
+      return `https://${workspace.domain}.slack.com/archives/${channelId}/p${threadTs}?thread_ts=${message.threadTs}&cid=${channelId}`;
+    } else {
+      // This is a thread parent or standalone message
+      return `https://${workspace.domain}.slack.com/archives/${channelId}/p${messageTs}`;
+    }
   }
   
   async function handleOpenInSlack(messageToOpen: Message) {
