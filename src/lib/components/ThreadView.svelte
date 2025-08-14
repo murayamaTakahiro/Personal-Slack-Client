@@ -67,20 +67,29 @@
     switch (event.key) {
       case 'ArrowDown':
         event.preventDefault();
-        if (selectedIndex < totalMessages - 1) {
+        if (selectedIndex === -1) {
+          // Initialize selection
+          selectedIndex = 0;
+        } else if (selectedIndex < totalMessages - 1) {
           selectedIndex = selectedIndex + 1;
-          focusMessage(selectedIndex);
+        } else {
+          // Wrap to start
+          selectedIndex = 0;
         }
+        focusMessage(selectedIndex);
         break;
       case 'ArrowUp':
         event.preventDefault();
-        if (selectedIndex > 0) {
+        if (selectedIndex === -1) {
+          // Initialize selection at end
+          selectedIndex = totalMessages - 1;
+        } else if (selectedIndex > 0) {
           selectedIndex = selectedIndex - 1;
-          focusMessage(selectedIndex);
-        } else if (selectedIndex === -1 && totalMessages > 0) {
-          selectedIndex = 0;
-          focusMessage(selectedIndex);
+        } else {
+          // Wrap to end
+          selectedIndex = totalMessages - 1;
         }
+        focusMessage(selectedIndex);
         break;
       case 'Enter':
         event.preventDefault();
@@ -126,6 +135,18 @@
     }
   }
   
+  // Export function to be called when Ctrl+2 is pressed
+  export function focusThreadView() {
+    if (threadViewElement) {
+      threadViewElement.focus();
+      // Select first message if none selected
+      if (thread && selectedIndex === -1) {
+        selectedIndex = 0;
+        focusMessage(0);
+      }
+    }
+  }
+  
   onMount(() => {
     // Set initial focus when thread loads
     if (thread && getAllMessages().length > 0) {
@@ -143,9 +164,18 @@
       }
     }, 100);
   }
+  
+  // Handle focus event
+  function handleFocus() {
+    // Select first message when thread view receives focus
+    if (thread && selectedIndex === -1) {
+      selectedIndex = 0;
+      focusMessage(0);
+    }
+  }
 </script>
 
-<div class="thread-view" tabindex="-1" bind:this={threadViewElement} on:keydown={handleKeyDown} role="region" aria-label="Thread messages">
+<div class="thread-view" tabindex="-1" bind:this={threadViewElement} on:keydown={handleKeyDown} on:focus={handleFocus} role="region" aria-label="Thread messages">
   {#if !message}
     <div class="empty">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" opacity="0.3">
@@ -281,6 +311,11 @@
     background: var(--bg-secondary);
     border-radius: 8px;
     overflow: hidden;
+    outline: none;
+  }
+  
+  .thread-view:focus {
+    box-shadow: inset 0 0 0 2px var(--primary);
   }
   
   .empty,

@@ -274,9 +274,11 @@
       action: () => {
         if (!showSettings && $selectedMessage) {
           // Focus the thread view component
-          const threadView = document.querySelector('.thread-view');
+          const threadView = document.querySelector('.thread-view') as HTMLElement;
           if (threadView) {
-            (threadView as HTMLElement).focus();
+            threadView.focus();
+            // Trigger a focus event to ensure the component handles it properly
+            threadView.dispatchEvent(new Event('focus'));
           }
         }
       },

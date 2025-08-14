@@ -75,3 +75,27 @@ Enhanced the ResultList component with proper keyboard navigation:
 - Added `on:keydown` handler to the messages container
 - Set `tabindex="0"` to make the container focusable
 - Added CSS for focus state visibility
+
+## Thread View Navigation Improvements (2025-08-13)
+
+### Enhancement
+Enhanced the ThreadView component with improved keyboard navigation similar to ResultList improvements.
+
+### Features Added
+1. **Improved Arrow Key Navigation** - Arrow keys now wrap around when reaching the end/start of messages
+2. **Focus Event Handler** - Added `handleFocus` function to select first message when thread view receives focus
+3. **Visual Focus Indicator** - Added blue border when thread view has focus (same as results list)
+4. **Better Ctrl+2 Integration** - Focus event is properly triggered to ensure first message selection
+
+### How it Works
+- **Ctrl+2** - Focuses the thread view and selects the first message in the thread
+- **Arrow Down/Up** - Navigate through thread messages (with wrap-around)
+- **Enter** - Open selected message in Slack
+- **Home/End** - Jump to first/last message in thread
+- **Visual feedback** - Blue border shows when thread has focus, highlighted message shows current selection
+
+### Technical Details
+- Added `on:focus` event handler to ThreadView component
+- Improved `handleKeyDown` with wrap-around navigation
+- Added visual focus state with CSS box-shadow
+- Modified App.svelte to dispatch focus event for proper initialization
