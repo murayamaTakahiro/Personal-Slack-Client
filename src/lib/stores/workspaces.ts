@@ -9,8 +9,7 @@ import type {
 import { 
   saveTokenSecure, 
   getTokenSecure, 
-  deleteTokenSecure,
-  maskTokenClient
+  deleteTokenSecure
 } from '../api/secure';
 // Simple UUID v4 generator
 function uuidv4(): string {
@@ -128,9 +127,7 @@ function createWorkspaceStore() {
       };
       
       // Save token securely (using workspace ID as key)
-      console.log(`Saving token for new workspace ${workspace.name} with ID: ${workspace.id}`);
       await saveTokenSecure(params.token, workspace.id);
-      console.log(`Token saved successfully for workspace ${workspace.id}`);
       
       // Verify the token was saved correctly
       const savedToken = await getTokenSecure(workspace.id);
@@ -138,7 +135,6 @@ function createWorkspaceStore() {
         console.error(`Failed to verify token for workspace ${workspace.id}`);
         throw new Error('Failed to save workspace token');
       }
-      console.log(`Token verified for workspace ${workspace.id}`);
       
       // Initialize workspace data
       const workspaceData: WorkspaceData = {
@@ -263,11 +259,9 @@ function createWorkspaceStore() {
     async getActiveToken(): Promise<string | null> {
       const state = get({ subscribe });
       if (!state.activeWorkspaceId) {
-        console.log('No active workspace ID');
         return null;
       }
       const token = await getTokenSecure(state.activeWorkspaceId);
-      console.log(`Getting token for workspace ${state.activeWorkspaceId}:`, token ? maskTokenClient(token) : 'null');
       return token;
     },
     
@@ -345,13 +339,10 @@ function createWorkspaceStore() {
      * Re-save token for workspace (for migration/fixing)
      */
     async resaveWorkspaceToken(id: string, token: string): Promise<void> {
-      console.log(`Re-saving token for workspace ${id}`);
       await saveTokenSecure(token, id);
       
       // Also save to default key for backend compatibility
       await saveTokenSecure(token);
-      
-      console.log(`Token re-saved for workspace ${id}`);
     },
     
     /**

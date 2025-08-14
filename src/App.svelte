@@ -216,7 +216,6 @@
                       searchBarElement.focusSearchInput();
                     }
                     
-                    console.log(`Refreshed workspace: ${currentWorkspace.name} with ${channels.length} channels`);
                     searchError.set(null);
                   }
                 }
@@ -329,16 +328,12 @@
           // This ensures the backend can access the current workspace's token
           await updateTokenSecure(wsToken);
           
-          console.log('Saved token to default key for backend');
-          
           // Wait a bit to ensure the token is saved
           await new Promise(resolve => setTimeout(resolve, 100));
           
           const initialized = await initTokenFromStorage();
           if (initialized) {
-            console.log('Backend initialized successfully');
             await loadChannels();
-            console.log('Initialized workspace:', currentWorkspace.name);
           } else {
             console.error('Failed to initialize backend with token');
           }
@@ -354,7 +349,6 @@
   
   async function handleWorkspaceSwitched(event: CustomEvent) {
     const switchEvent = event.detail;
-    console.log('Workspace switch event received:', switchEvent);
     
     // Clear current state including channels and search results
     searchResults.set(null);
@@ -398,17 +392,12 @@
         // Update the token in the secure store's default location
         await updateTokenSecure(wsToken);
         
-        // Log the token being set (masked for security)
-        console.log('Setting token for workspace:', currentWorkspace.name, 'Token:', maskTokenClient(wsToken));
-        
         // Wait a bit to ensure the token is saved
         await new Promise(resolve => setTimeout(resolve, 100));
         
         // Initialize the backend with the new token
         const initialized = await initTokenFromStorage();
         if (initialized) {
-          console.log('Backend initialized with new token');
-          
           // Load new channels for the switched workspace
           await loadChannels();
           
@@ -420,7 +409,6 @@
             searchBarElement.clearChannelSelection();
           }
           
-          console.log(`Switched to workspace: ${currentWorkspace.name} with ${channels.length} channels`);
           searchError.set(null);
         } else {
           console.error('Failed to initialize backend token');

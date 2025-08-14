@@ -14,8 +14,11 @@
     "windows": [
       {
         "title": "slack-search-enhancer",
-        "width": 800,
-        "height": 600
+        "width": 1200,
+        "height": 800,
+        "maximized": true,
+        "resizable": true,
+        "fullscreen": false
       }
     ],
     "security": {

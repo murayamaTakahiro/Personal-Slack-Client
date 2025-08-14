@@ -4,6 +4,7 @@ mod slack;
 mod state;
 
 use state::AppState;
+use tauri::Manager;
 use tracing_subscriber;
 use tracing_subscriber::fmt;
 use tracing_subscriber::layer::SubscriberExt;
@@ -36,6 +37,15 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .manage(AppState::new())
+        .setup(|app| {
+            // Get the main window and maximize it on startup
+            if let Some(window) = app.get_webview_window("main") {
+                window.maximize().unwrap_or_else(|e| {
+                    tracing::warn!("Failed to maximize window: {}", e);
+                });
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::auth::save_token_secure,
             commands::auth::get_token_secure,
