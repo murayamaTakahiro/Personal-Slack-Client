@@ -1,0 +1,159 @@
+{
+  "// 説明": "このファイルをconfig.jsonとしてコピーして使用してください",
+  "// reactionMappings": "数字キー(1-9)に割り当てる絵文字リアクション",
+  "reactionMappings": [
+    {
+      "shortcut": 1,
+      "emoji": "thumbsup",
+      "display": "👍",
+      "// comment": "emoji: Slack絵文字名（:thumbsup:の:を除いた部分）, display: 表示用の絵文字"
+    },
+    {
+      "shortcut": 2,
+      "emoji": "arigataya",
+      "display": "🤲"
+    },
+    {
+      "shortcut": 3,
+      "emoji": "kakuninshimasu",
+      "display": "🆔"
+    },
+    {
+      "shortcut": 4,
+      "emoji": "tada",
+      "display": "🎉"
+    },
+    {
+      "shortcut": 5,
+      "emoji": "eyes",
+      "display": "👀"
+    },
+    {
+      "shortcut": 6,
+      "emoji": "rocket",
+      "display": "🚀"
+    },
+    {
+      "shortcut": 7,
+      "emoji": "white_check_mark",
+      "display": "✅"
+    },
+    {
+      "shortcut": 8,
+      "emoji": "thinking_face",
+      "display": "🤔"
+    },
+    {
+      "shortcut": 9,
+      "emoji": "-1",
+      "display": "👎"
+    }
+  ],
+  "// よく使う絵文字の例": "設定画面で選択できる絵文字候補（現在未使用）",
+  "additionalEmojis": [
+    {
+      "name": "+1",
+      "display": "👍"
+    },
+    {
+      "name": "heart",
+      "display": "❤️"
+    },
+    {
+      "name": "smile",
+      "display": "😄"
+    },
+    {
+      "name": "tada",
+      "display": "🎉"
+    },
+    {
+      "name": "eyes",
+      "display": "👀"
+    },
+    {
+      "name": "rocket",
+      "display": "🚀"
+    },
+    {
+      "name": "white_check_mark",
+      "display": "✅"
+    },
+    {
+      "name": "thinking_face",
+      "display": "🤔"
+    },
+    {
+      "name": "-1",
+      "display": "👎"
+    },
+    {
+      "name": "clap",
+      "display": "👏"
+    },
+    {
+      "name": "fire",
+      "display": "🔥"
+    },
+    {
+      "name": "star",
+      "display": "⭐"
+    },
+    {
+      "name": "wave",
+      "display": "👋"
+    },
+    {
+      "name": "pray",
+      "display": "🙏"
+    },
+    {
+      "name": "100",
+      "display": "💯"
+    },
+    {
+      "name": "joy",
+      "display": "😂"
+    },
+    {
+      "name": "sob",
+      "display": "😭"
+    },
+    {
+      "name": "heart_eyes",
+      "display": "😍"
+    },
+    {
+      "name": "raised_hands",
+      "display": "🙌"
+    },
+    {
+      "name": "arigataya",
+      "display": "🙏"
+    },
+    {
+      "name": "kakuninshimasu",
+      "display": "確認"
+    },
+    {
+      "name": "ohayougozaimasu",
+      "display": "☀️"
+    },
+    {
+      "name": "sasuga2",
+      "display": "拍手"
+    },
+    {
+      "name": "otsukareamadesu",
+      "display": "お疲れ様でした"
+    },
+    {
+      "name": "tasikani",
+      "display": "たしかに"
+    },
+    {
+      "name": "tasukarimasu",
+      "display": "助かります!"
+    }
+  ]
+}

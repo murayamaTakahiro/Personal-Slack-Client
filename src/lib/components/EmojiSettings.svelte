@@ -1,10 +1,10 @@
 <script lang="ts">
   import { reactionMappings, DEFAULT_REACTION_MAPPINGS } from '../services/reactionService';
-  import { settings, updateSettings } from '../stores/settings';
+  import { updateSettings } from '../stores/settings';
   import type { ReactionMapping } from '../types/slack';
-  import { get } from 'svelte/store';
   
-  let mappings: ReactionMapping[] = [...get(reactionMappings)];
+  // Use DEFAULT_REACTION_MAPPINGS directly as the single source of truth
+  let mappings: ReactionMapping[] = [...DEFAULT_REACTION_MAPPINGS];
   let editingIndex: number | null = null;
   let newEmoji = '';
   
@@ -29,7 +29,15 @@
     { name: 'joy', display: '😂' },
     { name: 'sob', display: '😭' },
     { name: 'heart_eyes', display: '😍' },
-    { name: 'raised_hands', display: '🙌' }
+    { name: 'raised_hands', display: '🙌' },
+    // Additional emojis from screenshot
+    { name: 'arigataya', display: '🙏' },
+    { name: 'kakuninshimasu', display: '確認' },
+    { name: 'ohayougozaimasu', display: '☀️' },
+    { name: 'sasuga2', display: '拍手' },
+    { name: 'otsukareamadesu', display: 'お疲れ様でした' },
+    { name: 'tasikani', display: 'たしかに' },
+    { name: 'tasukarimasu', display: '助かります!' }
   ];
   
   function startEditing(index: number) {
@@ -67,16 +75,25 @@
     cancelEditing();
   }
   
-  function resetToDefaults() {
+  async function resetToDefaults() {
+    // Since we're using direct code modification, just reload the defaults
     mappings = [...DEFAULT_REACTION_MAPPINGS];
-    saveSettings();
+    // Update the store to trigger any dependent UI updates
+    reactionMappings.set(mappings);
+  }
+  
+  async function reloadConfig() {
+    // Reload the current DEFAULT_REACTION_MAPPINGS after code edit
+    mappings = [...DEFAULT_REACTION_MAPPINGS];
+    reactionMappings.set(mappings);
+    console.log('[EmojiSettings] Reloaded DEFAULT_REACTION_MAPPINGS from reactionService.ts');
   }
   
   async function saveSettings() {
-    reactionMappings.set(mappings);
-    await updateSettings({
-      reactionMappings: mappings
-    });
+    // Since we're using direct code modification, this is now a no-op
+    // The user should edit reactionService.ts directly
+    console.log('[EmojiSettings] Note: To persist changes, edit DEFAULT_REACTION_MAPPINGS in reactionService.ts');
+    alert('注意: 永続的な変更はsrc/lib/services/reactionService.tsのDEFAULT_REACTION_MAPPINGSを直接編集してください');
   }
   
   function handleKeydown(event: KeyboardEvent, index: number) {
@@ -93,13 +110,23 @@
 <div class="emoji-settings">
   <div class="header">
     <h3>絵文字リアクション設定</h3>
-    <button class="reset-button" on:click={resetToDefaults}>
-      デフォルトに戻す
-    </button>
+    <div class="header-buttons">
+      <button class="reload-button" on:click={reloadConfig}>
+        設定を再読み込み
+      </button>
+      <button class="reset-button" on:click={resetToDefaults}>
+        デフォルトに戻す
+      </button>
+    </div>
+  </div>
+  
+  <div class="config-notice">
+    <p>⚠️ 設定は <code>src/lib/services/reactionService.ts</code> の <code>DEFAULT_REACTION_MAPPINGS</code> で管理されています</p>
+    <p>詳細は <a href="/EMOJI_CONFIG_SIMPLE.md" target="_blank">EMOJI_CONFIG_SIMPLE.md</a> を参照してください</p>
   </div>
   
   <p class="description">
-    数字キー（1〜9）で追加・削除できる絵文字をカスタマイズできます
+    数字キー（1〜9）で追加・削除できる絵文字（現在の設定を表示）
   </p>
   
   <div class="mappings-list">
@@ -175,7 +202,12 @@
     color: var(--text-primary);
   }
   
-  .reset-button {
+  .header-buttons {
+    display: flex;
+    gap: 8px;
+  }
+  
+  .reset-button, .reload-button {
     padding: 8px 16px;
     background: var(--button-secondary);
     color: var(--text-primary);
@@ -185,14 +217,53 @@
     font-size: 14px;
   }
   
-  .reset-button:hover {
+  .reset-button:hover, .reload-button:hover {
     background: var(--button-secondary-hover);
+  }
+  
+  .reload-button {
+    background: var(--primary, #0066cc);
+    color: white;
+    border: none;
+  }
+  
+  .reload-button:hover {
+    background: var(--primary-hover, #0052a3);
   }
   
   .description {
     color: var(--text-secondary);
     margin-bottom: 24px;
     font-size: 14px;
+  }
+  
+  .config-notice {
+    background: var(--bg-hover, #f0f0f0);
+    border: 1px solid var(--border, #ddd);
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 20px;
+    font-size: 14px;
+  }
+  
+  .config-notice p {
+    margin: 4px 0;
+  }
+  
+  .config-notice code {
+    background: var(--bg-primary, #fff);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+  }
+  
+  .config-notice a {
+    color: var(--primary, #0066cc);
+    text-decoration: none;
+  }
+  
+  .config-notice a:hover {
+    text-decoration: underline;
   }
   
   .mappings-list {

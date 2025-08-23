@@ -1,0 +1,79 @@
+{
+  "reactionMappings": [
+    {
+      "shortcut": 1,
+      "emoji": "thumbsup",
+      "display": "👍"
+    },
+    {
+      "shortcut": 2,
+      "emoji": "arigataya",
+      "display": "🤲"
+    },
+    {
+      "shortcut": 3,
+      "emoji": "kakuninshimasu",
+      "display": "🆔"
+    },
+    {
+      "shortcut": 4,
+      "emoji": "tada",
+      "display": "🎉"
+    },
+    {
+      "shortcut": 5,
+      "emoji": "eyes",
+      "display": "👀"
+    },
+    {
+      "shortcut": 6,
+      "emoji": "rocket",
+      "display": "🚀"
+    },
+    {
+      "shortcut": 7,
+      "emoji": "white_check_mark",
+      "display": "✅"
+    },
+    {
+      "shortcut": 8,
+      "emoji": "thinking_face",
+      "display": "🤔"
+    },
+    {
+      "shortcut": 9,
+      "emoji": "-1",
+      "display": "👎"
+    }
+  ],
+  "additionalEmojis": [
+    {
+      "name": "arigataya",
+      "display": "🙏"
+    },
+    {
+      "name": "kakuninshimasu",
+      "display": "確認"
+    },
+    {
+      "name": "ohayougozaimasu",
+      "display": "☀️"
+    },
+    {
+      "name": "sasuga2",
+      "display": "拍手"
+    },
+    {
+      "name": "otsukareamadesu",
+      "display": "お疲れ様でした"
+    },
+    {
+      "name": "tasikani",
+      "display": "たしかに"
+    },
+    {
+      "name": "tasukarimasu",
+      "display": "助かります!"
+    }
+  ]
+}

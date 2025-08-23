@@ -17,7 +17,7 @@
     updateWorkspaceSecure, 
     loadSecureSettings 
   } from './lib/stores/secureSettings';
-  import { settings } from './lib/stores/settings';
+  import { settings, initializeSettings } from './lib/stores/settings';
   import { maskTokenClient } from './lib/api/secure';
   import { 
     searchMessages, 
@@ -32,7 +32,8 @@
   import EmojiSettings from './lib/components/EmojiSettings.svelte';
   import { workspaceStore, activeWorkspace } from './lib/stores/workspaces';
   import { userService } from './lib/services/userService';
-  import { reactionService } from './lib/services/reactionService';
+  import { reactionService, initializeReactionMappings } from './lib/services/reactionService';
+  import { initializeConfig, watchConfigFile } from './lib/services/configService';
   
   let channels: [string, string][] = [];
   let showSettings = false;
@@ -48,8 +49,13 @@
   let showKeyboardHelp = false;
   
   onMount(async () => {
+    // Simple initialization - just use DEFAULT_REACTION_MAPPINGS
+    console.log('[App] Starting with DEFAULT_REACTION_MAPPINGS from reactionService.ts');
+    
+    // Initialize settings from persistent store
+    const currentSettings = await initializeSettings();
+    
     // Initialize keyboard service
-    const currentSettings = $settings;
     keyboardService = initKeyboardService(currentSettings.keyboardShortcuts || {
       executeSearch: 'Enter',
       toggleAdvancedSearch: 'Ctrl+Shift+F',
@@ -76,12 +82,9 @@
       reaction9: '9'
     });
     
-    // Initialize reaction service with settings
-    if (currentSettings.reactionMappings && currentSettings.reactionMappings.length > 0) {
-      reactionService.loadMappings(currentSettings.reactionMappings);
-    } else {
-      reactionService.resetToDefaults();
-    }
+    // The reaction service already loads mappings from localStorage
+    // No need to load them again here unless we want to ensure sync
+    // between settings store and reaction service store
     
     // Register keyboard handlers
     setupKeyboardHandlers();
@@ -521,6 +524,11 @@
       await updateTokenSecure(token);
       await updateWorkspaceSecure(workspace);
       maskedToken = maskTokenClient(token);
+      
+      // The settings store automatically saves to localStorage
+      // The keyboard shortcuts and emoji mappings are already saved
+      // through their respective components (KeyboardSettings and EmojiSettings)
+      // which call updateSettings() directly
       
       await loadChannels();
       showSettings = false;

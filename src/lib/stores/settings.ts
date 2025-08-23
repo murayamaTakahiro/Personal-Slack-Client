@@ -1,6 +1,7 @@
-import { writable } from 'svelte/store';
+import { writable, get } from 'svelte/store';
 import type { AppSettings, KeyboardShortcuts, ReactionMapping } from '../types/slack';
 import { DEFAULT_REACTION_MAPPINGS } from '../services/reactionService';
+import { saveToStore, loadFromStore, isTauri } from './persistentStore';
 
 // Default keyboard shortcuts
 const defaultKeyboardShortcuts: KeyboardShortcuts = {
@@ -37,26 +38,53 @@ const defaultSettings: AppSettings = {
   reactionMappings: DEFAULT_REACTION_MAPPINGS
 };
 
-// Load settings from localStorage
-const storedSettings = localStorage.getItem('appSettings');
-const initialSettings: AppSettings = storedSettings 
-  ? { 
-      ...defaultSettings, 
-      ...JSON.parse(storedSettings),
-      keyboardShortcuts: {
-        ...defaultKeyboardShortcuts,
-        ...(JSON.parse(storedSettings).keyboardShortcuts || {})
-      },
-      reactionMappings: JSON.parse(storedSettings).reactionMappings || DEFAULT_REACTION_MAPPINGS
-    }
-  : defaultSettings;
+// Initialize settings with default values
+let initialSettings: AppSettings = defaultSettings;
+let isInitialized = false;
 
 // Settings store
 export const settings = writable<AppSettings>(initialSettings);
 
-// Subscribe to settings changes and save to localStorage
-settings.subscribe(value => {
-  localStorage.setItem('appSettings', JSON.stringify(value));
+// Load settings asynchronously
+export async function initializeSettings() {
+  console.log('[Settings] Initializing settings...');
+  const loadedSettings = await loadFromStore<Partial<AppSettings>>('appSettings', {});
+  console.log('[Settings] Loaded settings:', loadedSettings);
+  
+  const mergedSettings: AppSettings = {
+    ...defaultSettings,
+    ...loadedSettings,
+    keyboardShortcuts: {
+      ...defaultKeyboardShortcuts,
+      ...(loadedSettings.keyboardShortcuts || {})
+    },
+    reactionMappings: loadedSettings.reactionMappings || DEFAULT_REACTION_MAPPINGS
+  };
+  
+  console.log('[Settings] Merged settings:', mergedSettings);
+  settings.set(mergedSettings);
+  
+  // Mark as initialized after setting the loaded values
+  isInitialized = true;
+  
+  return mergedSettings;
+}
+
+// Subscribe to settings changes and save persistently
+settings.subscribe(async value => {
+  // Skip saving during initialization
+  if (!isInitialized) {
+    console.log('[Settings] Skipping save - not initialized yet');
+    return;
+  }
+  
+  console.log('[Settings] Settings changed, saving:', value);
+  try {
+    await saveToStore('appSettings', value);
+    console.log('[Settings] Settings saved successfully');
+  } catch (error) {
+    console.error('[Settings] Failed to save settings:', error);
+  }
 });
 
 // Helper functions
