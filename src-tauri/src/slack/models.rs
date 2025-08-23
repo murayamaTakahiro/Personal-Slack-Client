@@ -201,3 +201,23 @@ pub struct SlackUsersListResponse {
     pub error: Option<String>,
     pub response_metadata: Option<SlackResponseMetadata>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlackReaction {
+    pub name: String,
+    pub count: u32,
+    pub users: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReactionRequest {
+    pub channel: String,
+    pub timestamp: String,
+    pub emoji: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReactionResponse {
+    pub ok: bool,
+    pub error: Option<String>,
+}

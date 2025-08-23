@@ -1,3 +1,15 @@
+export interface EmojiReaction {
+  name: string;
+  count: number;
+  users: string[];
+}
+
+export interface ReactionMapping {
+  shortcut: number; // 1-9
+  emoji: string;    // emoji name without colons (e.g., "thumbsup", "heart")
+  display: string;  // display emoji character (e.g., "👍", "❤️")
+}
+
 export interface SearchParams {
   query: string;
   channel?: string;
@@ -18,6 +30,7 @@ export interface Message {
   permalink: string;
   isThreadParent: boolean;
   replyCount?: number;
+  reactions?: EmojiReaction[];
 }
 
 export interface ThreadMessages {
@@ -78,6 +91,16 @@ export interface KeyboardShortcuts {
   openResult: string;
   clearSearch: string;
   toggleChannelSelector: string;
+  openReactionPicker?: string;
+  reaction1?: string;
+  reaction2?: string;
+  reaction3?: string;
+  reaction4?: string;
+  reaction5?: string;
+  reaction6?: string;
+  reaction7?: string;
+  reaction8?: string;
+  reaction9?: string;
 }
 
 export interface AppSettings {
@@ -87,6 +110,7 @@ export interface AppSettings {
   theme: 'light' | 'dark' | 'auto';
   keyboardShortcuts?: KeyboardShortcuts;
   userFavorites?: UserFavorite[];
+  reactionMappings?: ReactionMapping[];
 }
 
 export interface SearchHistory {

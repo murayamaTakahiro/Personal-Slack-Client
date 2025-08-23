@@ -461,6 +461,114 @@ impl SlackClient {
         
         Ok(result.ok)
     }
+
+    pub async fn add_reaction(&self, channel: &str, timestamp: &str, emoji: &str) -> Result<()> {
+        self.rate_limiter.acquire().await;
+        
+        let url = format!("{}/reactions.add", SLACK_API_BASE);
+        let params = serde_json::json!({
+            "channel": channel,
+            "timestamp": timestamp,
+            "name": emoji
+        });
+        
+        let response = self.client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.token))
+            .json(&params)
+            .send()
+            .await?;
+        
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(anyhow::anyhow!("Failed to add reaction: {}", error_text));
+        }
+        
+        let result: serde_json::Value = response.json().await?;
+        if let Some(ok) = result.get("ok").and_then(|v| v.as_bool()) {
+            if !ok {
+                let error_msg = result.get("error")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown error");
+                return Err(anyhow::anyhow!("Slack API error: {}", error_msg));
+            }
+        }
+        
+        Ok(())
+    }
+    
+    pub async fn remove_reaction(&self, channel: &str, timestamp: &str, emoji: &str) -> Result<()> {
+        self.rate_limiter.acquire().await;
+        
+        let url = format!("{}/reactions.remove", SLACK_API_BASE);
+        let params = serde_json::json!({
+            "channel": channel,
+            "timestamp": timestamp,
+            "name": emoji
+        });
+        
+        let response = self.client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.token))
+            .json(&params)
+            .send()
+            .await?;
+        
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(anyhow::anyhow!("Failed to remove reaction: {}", error_text));
+        }
+        
+        let result: serde_json::Value = response.json().await?;
+        if let Some(ok) = result.get("ok").and_then(|v| v.as_bool()) {
+            if !ok {
+                let error_msg = result.get("error")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown error");
+                return Err(anyhow::anyhow!("Slack API error: {}", error_msg));
+            }
+        }
+        
+        Ok(())
+    }
+    
+    pub async fn get_reactions(&self, channel: &str, timestamp: &str) -> Result<Vec<SlackReaction>> {
+        self.rate_limiter.acquire().await;
+        
+        let url = format!("{}/reactions.get", SLACK_API_BASE);
+        let response = self.client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", self.token))
+            .query(&[
+                ("channel", channel),
+                ("timestamp", timestamp),
+                ("full", "true")
+            ])
+            .send()
+            .await?;
+        
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(anyhow::anyhow!("Failed to get reactions: {}", error_text));
+        }
+        
+        let result: serde_json::Value = response.json().await?;
+        if let Some(ok) = result.get("ok").and_then(|v| v.as_bool()) {
+            if !ok {
+                let error_msg = result.get("error")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown error");
+                return Err(anyhow::anyhow!("Slack API error: {}", error_msg));
+            }
+        }
+        
+        let reactions = result.get("message")
+            .and_then(|msg| msg.get("reactions"))
+            .and_then(|r| serde_json::from_value::<Vec<SlackReaction>>(r.clone()).ok())
+            .unwrap_or_default();
+        
+        Ok(reactions)
+    }
 }
 
 // Helper functions for building search queries

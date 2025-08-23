@@ -1,13 +1,22 @@
 <script lang="ts">
-  import type { Message } from '../types/slack';
+  import type { Message, EmojiReaction } from '../types/slack';
   import { openInSlack } from '../api/slack';
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import { activeWorkspace } from '../stores/workspaces';
+  import { reactionService, reactionMappings } from '../services/reactionService';
+  import { getKeyboardService } from '../services/keyboardService';
   
   export let message: Message;
   export let selected = false;
+  export let enableReactions = true;
   
   const dispatch = createEventDispatcher();
+  
+  let reactions: EmojiReaction[] = message.reactions || [];
+  let showReactionPicker = false;
+  let reactionPickerPosition = { x: 0, y: 0 };
+  
+  $: mappings = $reactionMappings;
   
   function formatTimestamp(ts: string) {
     const timestamp = parseFloat(ts) * 1000;
@@ -57,6 +66,72 @@
   function handleClick() {
     dispatch('click');
   }
+  
+  async function handleReactionClick(emoji: string) {
+    if (!enableReactions) return;
+    
+    try {
+      await reactionService.toggleReaction(message.channel, message.ts, emoji, reactions);
+      // Refresh reactions
+      reactions = await reactionService.getReactions(message.channel, message.ts);
+    } catch (error) {
+      console.error('Failed to toggle reaction:', error);
+    }
+  }
+  
+  async function handleQuickReaction(shortcut: number) {
+    if (!enableReactions || !selected) return;
+    
+    try {
+      await reactionService.addReactionByShortcut(message.channel, message.ts, shortcut, reactions);
+      // Refresh reactions
+      reactions = await reactionService.getReactions(message.channel, message.ts);
+    } catch (error) {
+      console.error('Failed to add reaction:', error);
+    }
+  }
+  
+  function openReactionPicker(event: MouseEvent) {
+    if (!enableReactions) return;
+    
+    event.stopPropagation();
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    reactionPickerPosition = {
+      x: rect.left,
+      y: rect.bottom + 5
+    };
+    showReactionPicker = true;
+  }
+  
+  function closeReactionPicker() {
+    showReactionPicker = false;
+  }
+  
+  // Register keyboard shortcuts when selected
+  $: if (selected && enableReactions) {
+    const keyboardService = getKeyboardService();
+    if (keyboardService) {
+      // Register number keys 1-9 for reactions
+      for (let i = 1; i <= 9; i++) {
+        keyboardService.registerHandler(`reaction${i}` as any, {
+          action: () => handleQuickReaction(i),
+          allowInInput: false
+        });
+      }
+    }
+  }
+  
+  onMount(() => {
+    return () => {
+      // Cleanup keyboard handlers
+      const keyboardService = getKeyboardService();
+      if (keyboardService) {
+        for (let i = 1; i <= 9; i++) {
+          keyboardService.unregisterHandler(`reaction${i}` as any);
+        }
+      }
+    };
+  });
 </script>
 
 <button
@@ -94,12 +169,54 @@
           <line x1="10" y1="14" x2="21" y2="3"/>
         </svg>
       </button>
+      
+      {#if enableReactions}
+        <button
+          class="btn-reaction"
+          on:click={openReactionPicker}
+          title="Add reaction"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+            <line x1="9" y1="9" x2="9.01" y2="9"/>
+            <line x1="15" y1="9" x2="15.01" y2="9"/>
+          </svg>
+        </button>
+      {/if}
     </div>
   </div>
+  
+  {#if reactions && reactions.length > 0}
+    <div class="reactions">
+      {#each reactions as reaction}
+        <button
+          class="reaction-badge"
+          class:user-reacted={reaction.users.includes(message.user)}
+          on:click|stopPropagation={() => handleReactionClick(reaction.name)}
+          title={`${reaction.users.length} reaction${reaction.users.length > 1 ? 's' : ''}`}
+        >
+          <span class="reaction-emoji">{reaction.name}</span>
+          <span class="reaction-count">{reaction.count}</span>
+        </button>
+      {/each}
+    </div>
+  {/if}
   
   <div class="message-content">
     {truncateText(message.text)}
   </div>
+  
+  {#if selected && enableReactions}
+    <div class="reaction-shortcuts">
+      {#each mappings.slice(0, 9) as mapping}
+        <span class="shortcut-hint">
+          <kbd>{mapping.shortcut}</kbd>
+          <span>{mapping.display}</span>
+        </span>
+      {/each}
+    </div>
+  {/if}
 </button>
 
 <style>
@@ -196,5 +313,84 @@
     line-height: 1.5;
     white-space: pre-wrap;
     word-break: break-word;
+  }
+  
+  .btn-reaction {
+    padding: 0.25rem;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  
+  .btn-reaction:hover {
+    background: var(--bg-hover);
+    color: var(--primary);
+  }
+  
+  .reactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+  }
+  
+  .reaction-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.375rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .reaction-badge:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary);
+  }
+  
+  .reaction-badge.user-reacted {
+    background: var(--primary-bg);
+    border-color: var(--primary);
+  }
+  
+  .reaction-emoji {
+    font-size: 1rem;
+  }
+  
+  .reaction-count {
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+  
+  .reaction-shortcuts {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding: 0.25rem 0;
+    border-top: 1px solid var(--border);
+  }
+  
+  .shortcut-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+  
+  .shortcut-hint kbd {
+    padding: 0.125rem 0.25rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 0.75rem;
   }
 </style>

@@ -1,5 +1,6 @@
 import { writable } from 'svelte/store';
-import type { AppSettings, KeyboardShortcuts } from '../types/slack';
+import type { AppSettings, KeyboardShortcuts, ReactionMapping } from '../types/slack';
+import { DEFAULT_REACTION_MAPPINGS } from '../services/reactionService';
 
 // Default keyboard shortcuts
 const defaultKeyboardShortcuts: KeyboardShortcuts = {
@@ -15,14 +16,25 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   prevResult: 'ArrowUp',
   openResult: 'Enter',
   clearSearch: 'Escape',
-  toggleChannelSelector: 'Ctrl+L'
+  toggleChannelSelector: 'Ctrl+L',
+  openReactionPicker: 'r',
+  reaction1: '1',
+  reaction2: '2',
+  reaction3: '3',
+  reaction4: '4',
+  reaction5: '5',
+  reaction6: '6',
+  reaction7: '7',
+  reaction8: '8',
+  reaction9: '9'
 };
 
 // Default settings
 const defaultSettings: AppSettings = {
   maxResults: 1000,
   theme: 'auto',
-  keyboardShortcuts: defaultKeyboardShortcuts
+  keyboardShortcuts: defaultKeyboardShortcuts,
+  reactionMappings: DEFAULT_REACTION_MAPPINGS
 };
 
 // Load settings from localStorage
@@ -34,7 +46,8 @@ const initialSettings: AppSettings = storedSettings
       keyboardShortcuts: {
         ...defaultKeyboardShortcuts,
         ...(JSON.parse(storedSettings).keyboardShortcuts || {})
-      }
+      },
+      reactionMappings: JSON.parse(storedSettings).reactionMappings || DEFAULT_REACTION_MAPPINGS
     }
   : defaultSettings;
 
