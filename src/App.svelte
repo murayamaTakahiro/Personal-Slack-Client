@@ -610,9 +610,12 @@
   
   {#if showSettings}
     <div class="settings-panel">
-      <h2>Settings</h2>
+      <div class="settings-header">
+        <h2>Settings</h2>
+      </div>
       
-      {#if !useMultiWorkspace}
+      <div class="settings-content">
+        {#if !useMultiWorkspace}
         <div class="setting-group">
           <label>
             <input
@@ -705,9 +708,10 @@
         </div>
       {/if}
       
-      <KeyboardSettings />
-      
-      <EmojiSettings />
+        <KeyboardSettings />
+        
+        <EmojiSettings />
+      </div>
       
       <div class="settings-actions">
         <button class="btn-secondary" on:click={() => showSettings = false}>
@@ -880,11 +884,49 @@
   .settings-panel {
     background: var(--bg-secondary);
     border-radius: 8px;
-    padding: 2rem;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
   }
   
-  .settings-panel h2 {
-    margin-bottom: 1.5rem;
+  .settings-header {
+    padding: 2rem 2rem 1rem 2rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-radius: 8px 8px 0 0;
+  }
+  
+  .settings-header h2 {
+    margin: 0;
+  }
+  
+  .settings-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem 2rem;
+    max-height: calc(90vh - 180px);
+  }
+  
+  .settings-content::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .settings-content::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+    border-radius: 4px;
+  }
+  
+  .settings-content::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+  }
+  
+  .settings-content::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
   }
   
   .setting-group {
@@ -945,7 +987,12 @@
     display: flex;
     gap: 1rem;
     justify-content: flex-end;
-    margin-top: 2rem;
+    padding: 1.5rem 2rem 2rem 2rem;
+    border-top: 1px solid var(--border);
+    background: var(--bg-secondary);
+    position: sticky;
+    bottom: 0;
+    border-radius: 0 0 8px 8px;
   }
   
   .url-input-section {
