@@ -83,8 +83,10 @@
     if (!enableReactions || !selected) return;
     
     try {
-      await reactionService.addReactionByShortcut(message.channel, message.ts, shortcut, reactions);
-      // Refresh reactions
+      // Get fresh reactions before toggling to ensure accurate state
+      const currentReactions = await reactionService.getReactions(message.channel, message.ts);
+      await reactionService.addReactionByShortcut(message.channel, message.ts, shortcut, currentReactions);
+      // Refresh reactions after toggling
       reactions = await reactionService.getReactions(message.channel, message.ts);
     } catch (error) {
       console.error('Failed to add reaction:', error);

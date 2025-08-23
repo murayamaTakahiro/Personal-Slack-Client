@@ -31,6 +31,7 @@
   import KeyboardHelp from './lib/components/KeyboardHelp.svelte';
   import { workspaceStore, activeWorkspace } from './lib/stores/workspaces';
   import { userService } from './lib/services/userService';
+  import { reactionService } from './lib/services/reactionService';
   
   let channels: [string, string][] = [];
   let showSettings = false;
@@ -61,8 +62,22 @@
       prevResult: 'ArrowUp',
       openResult: 'Enter',
       clearSearch: 'Escape',
-      toggleChannelSelector: 'Ctrl+L'
+      toggleChannelSelector: 'Ctrl+L',
+      openReactionPicker: 'r',
+      reaction1: '1',
+      reaction2: '2',
+      reaction3: '3',
+      reaction4: '4',
+      reaction5: '5',
+      reaction6: '6',
+      reaction7: '7',
+      reaction8: '8',
+      reaction9: '9'
     });
+    
+    // Initialize reaction service
+    // Always use default mappings to ensure +1 and -1 work correctly
+    reactionService.resetToDefaults();
     
     // Register keyboard handlers
     setupKeyboardHandlers();

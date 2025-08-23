@@ -4,7 +4,7 @@ import { get, writable } from 'svelte/store';
 
 // Default emoji mappings
 export const DEFAULT_REACTION_MAPPINGS: ReactionMapping[] = [
-  { shortcut: 1, emoji: '+1', display: '👍' },  // Slack uses +1 instead of thumbsup
+  { shortcut: 1, emoji: '+1', display: '👍' },  // Try using +1 for both add and remove
   { shortcut: 2, emoji: 'heart', display: '❤️' },
   { shortcut: 3, emoji: 'smile', display: '😄' },
   { shortcut: 4, emoji: 'tada', display: '🎉' },
@@ -12,7 +12,7 @@ export const DEFAULT_REACTION_MAPPINGS: ReactionMapping[] = [
   { shortcut: 6, emoji: 'rocket', display: '🚀' },
   { shortcut: 7, emoji: 'white_check_mark', display: '✅' },
   { shortcut: 8, emoji: 'thinking_face', display: '🤔' },
-  { shortcut: 9, emoji: '-1', display: '👎' },  // Slack uses -1 instead of thumbsdown
+  { shortcut: 9, emoji: '-1', display: '👎' },  // Try using -1 for both add and remove
 ];
 
 // Store for reaction mappings
@@ -102,15 +102,23 @@ export class ReactionService {
     emoji: string,
     currentReactions?: EmojiReaction[]
   ): Promise<void> {
-    // Check if reaction already exists
-    const hasReaction = currentReactions?.some(r => r.name === emoji) || false;
+    // Normalize emoji name (remove colons)
+    const emojiName = emoji.replace(/^:/, '').replace(/:$/, '');
     
-    console.log(`Toggle reaction: ${emoji}, hasReaction: ${hasReaction}`, currentReactions);
+    // Slack API quirk: Returns 'thumbsup' but accepts '+1' for operations
+    // Check for both variations
+    const hasReaction = currentReactions?.some(r => {
+      const reactionName = r.name.replace(/^:/, '').replace(/:$/, '');
+      // Check if reaction matches directly OR if it's the thumbsup/+1 case
+      return reactionName === emojiName || 
+             (emojiName === '+1' && reactionName === 'thumbsup') ||
+             (emojiName === '-1' && reactionName === 'thumbsdown');
+    }) || false;
     
     if (hasReaction) {
-      await this.removeReaction(channel, timestamp, emoji);
+      await this.removeReaction(channel, timestamp, emojiName);
     } else {
-      await this.addReaction(channel, timestamp, emoji);
+      await this.addReaction(channel, timestamp, emojiName);
     }
   }
   
