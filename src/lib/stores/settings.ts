@@ -99,6 +99,10 @@ export function getKeyboardShortcuts(): KeyboardShortcuts {
   return shortcuts;
 }
 
+export function updateSettings(updates: Partial<AppSettings>) {
+  settings.update(s => ({ ...s, ...updates }));
+}
+
 // Apply theme to document
 function applyTheme(theme: 'light' | 'dark' | 'auto') {
   const root = document.documentElement;

@@ -29,6 +29,7 @@
   import { initKeyboardService, type KeyboardService } from './lib/services/keyboardService';
   import KeyboardSettings from './lib/components/KeyboardSettings.svelte';
   import KeyboardHelp from './lib/components/KeyboardHelp.svelte';
+  import EmojiSettings from './lib/components/EmojiSettings.svelte';
   import { workspaceStore, activeWorkspace } from './lib/stores/workspaces';
   import { userService } from './lib/services/userService';
   import { reactionService } from './lib/services/reactionService';
@@ -75,9 +76,12 @@
       reaction9: '9'
     });
     
-    // Initialize reaction service
-    // Always use default mappings to ensure +1 and -1 work correctly
-    reactionService.resetToDefaults();
+    // Initialize reaction service with settings
+    if (currentSettings.reactionMappings && currentSettings.reactionMappings.length > 0) {
+      reactionService.loadMappings(currentSettings.reactionMappings);
+    } else {
+      reactionService.resetToDefaults();
+    }
     
     // Register keyboard handlers
     setupKeyboardHandlers();
@@ -702,6 +706,8 @@
       {/if}
       
       <KeyboardSettings />
+      
+      <EmojiSettings />
       
       <div class="settings-actions">
         <button class="btn-secondary" on:click={() => showSettings = false}>
