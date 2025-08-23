@@ -107,8 +107,11 @@
     showReactionPicker = false;
   }
   
+  // Track if handlers are registered to avoid duplication
+  let handlersRegistered = false;
+  
   // Register keyboard shortcuts when selected
-  $: if (selected && enableReactions) {
+  $: if (selected && enableReactions && !handlersRegistered) {
     const keyboardService = getKeyboardService();
     if (keyboardService) {
       // Register number keys 1-9 for reactions
@@ -118,17 +121,30 @@
           allowInInput: false
         });
       }
+      handlersRegistered = true;
+    }
+  } else if (!selected && handlersRegistered) {
+    // Unregister when deselected
+    const keyboardService = getKeyboardService();
+    if (keyboardService) {
+      for (let i = 1; i <= 9; i++) {
+        keyboardService.unregisterHandler(`reaction${i}` as any);
+      }
+      handlersRegistered = false;
     }
   }
   
   onMount(() => {
     return () => {
-      // Cleanup keyboard handlers
-      const keyboardService = getKeyboardService();
-      if (keyboardService) {
-        for (let i = 1; i <= 9; i++) {
-          keyboardService.unregisterHandler(`reaction${i}` as any);
+      // Cleanup keyboard handlers on unmount
+      if (handlersRegistered) {
+        const keyboardService = getKeyboardService();
+        if (keyboardService) {
+          for (let i = 1; i <= 9; i++) {
+            keyboardService.unregisterHandler(`reaction${i}` as any);
+          }
         }
+        handlersRegistered = false;
       }
     };
   });
