@@ -9,6 +9,7 @@
   export let message: Message;
   export let selected = false;
   export let enableReactions = true;
+  export let showChannelBadge = false;
   
   const dispatch = createEventDispatcher();
   
@@ -161,7 +162,11 @@
     <div class="message-meta">
       <span class="user-name">{message.userName}</span>
       <span class="separator">•</span>
-      <span class="channel-name">#{message.channelName}</span>
+      {#if showChannelBadge}
+        <span class="channel-badge">#{message.channelName}</span>
+      {:else}
+        <span class="channel-name">#{message.channelName}</span>
+      {/if}
       <span class="separator">•</span>
       <span class="timestamp">{formatTimestamp(message.ts)}</span>
     </div>
@@ -282,6 +287,18 @@
   
   .channel-name {
     color: var(--primary);
+  }
+  
+  .channel-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    background: var(--primary-bg);
+    border: 1px solid var(--primary);
+    border-radius: 12px;
+    color: var(--primary);
+    font-size: 0.75rem;
+    font-weight: 500;
   }
   
   .timestamp {

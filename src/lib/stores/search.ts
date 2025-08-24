@@ -6,6 +6,7 @@ export const searchQuery = writable<string>('');
 export const searchResults = writable<SearchResult | null>(null);
 export const searchLoading = writable<boolean>(false);
 export const searchError = writable<string | null>(null);
+export const searchProgress = writable<{ current: number; total: number; channel?: string } | null>(null);
 
 // Search parameters
 export const searchParams = writable<SearchParams>({

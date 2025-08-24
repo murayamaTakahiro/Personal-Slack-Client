@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { searchQuery, searchParams, searchLoading } from '../stores/search';
+  import { searchQuery, searchParams, searchLoading, searchProgress } from '../stores/search';
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import ChannelSelector from './ChannelSelector.svelte';
   import UserSelector from './UserSelector.svelte';
@@ -41,15 +41,23 @@
         cleanChannel = cleanChannel.substring(1);
       }
       
-      searchParams.set({
+      console.log('Channel value in SearchBar handleSearch:', channel);
+      console.log('Clean channel:', cleanChannel);
+      
+      if (!cleanChannel) {
+        console.warn('No channel selected despite UI showing selection!');
+      }
+      
+      const params = {
         query: $searchQuery.trim() || undefined,  // Make query optional
         channel: cleanChannel || undefined,
         user: resolvedUserId || undefined,
         fromDate: fromDate ? new Date(fromDate) : undefined,
         toDate: toDate ? new Date(toDate) : undefined,
         limit
-      });
-      dispatch('search');
+      };
+      searchParams.set(params);
+      dispatch('search', params);
     }
   }
   
@@ -73,6 +81,14 @@
     fromDate = '';
     toDate = '';
     limit = 100;
+    // Also clear the ChannelSelector component
+    if (channelSelectorComponent) {
+      channelSelectorComponent.clearSelection();
+    }
+    // Also clear the UserSelector component
+    if (userSelectorComponent) {
+      userSelectorComponent.clearSelection();
+    }
   }
   
   // Exported methods for keyboard shortcuts
@@ -184,12 +200,25 @@
       class="btn-primary"
     >
       {#if $searchLoading}
-        Searching...
+        {#if $searchProgress}
+          Searching {$searchProgress.channel || ''} ({$searchProgress.current}/{$searchProgress.total})
+        {:else}
+          Searching...
+        {/if}
       {:else}
         Search
       {/if}
     </button>
   </div>
+  
+  {#if $searchLoading && $searchProgress && $searchProgress.total > 1}
+    <div class="progress-bar">
+      <div class="progress-fill" style="width: {($searchProgress.current / $searchProgress.total) * 100}%"></div>
+      <div class="progress-text">
+        チャンネル検索中: {$searchProgress.channel || 'Loading...'} ({$searchProgress.current}/{$searchProgress.total})
+      </div>
+    </div>
+  {/if}
   
   {#if showAdvanced}
     <div class="search-advanced">
@@ -225,17 +254,21 @@
           Channel:
           <ChannelSelector 
             bind:this={channelSelectorComponent}
-            bind:value={channel}
+            value={channel}
             {channels}
             onEnterKey={handleSearch}
             on:change={(e) => {
-              if (e.detail.channels) {
-                // Multi-select mode
+              // Always use e.detail.channel if available (for both single and multi-select)
+              if (e.detail.channel !== undefined) {
+                channel = e.detail.channel;
+              } else if (e.detail.channels) {
+                // Fallback for multi-select mode (legacy)
                 channel = e.detail.channels.join(',');
               } else {
-                // Single select mode
-                channel = e.detail.channel || '';
+                channel = '';
               }
+              console.log('Channel changed to:', channel);
+              console.log('Event detail:', e.detail);
             }}
           />
         </label>
@@ -495,5 +528,50 @@
     gap: 0.25rem;
     color: var(--text-secondary);
     font-size: 0.875rem;
+  }
+  
+  .progress-bar {
+    position: relative;
+    width: 100%;
+    height: 24px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+  }
+  
+  .progress-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary) 0%, var(--primary-hover) 100%);
+    transition: width 0.3s ease;
+    animation: shimmer 1.5s infinite;
+  }
+  
+  @keyframes shimmer {
+    0% {
+      opacity: 0.8;
+    }
+    50% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0.8;
+    }
+  }
+  
+  .progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.75rem;
+    color: var(--text-primary);
+    font-weight: 500;
+    z-index: 1;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   }
 </style>

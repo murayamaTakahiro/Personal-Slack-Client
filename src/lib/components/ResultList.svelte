@@ -29,6 +29,9 @@
     $searchParams.toDate
   );
   
+  // Check if multiple channels are selected
+  $: isMultiChannel = $searchParams?.channel?.includes(',');
+  
   // Reset focus when messages change
   $: if (messages) {
     focusedIndex = -1;
@@ -224,6 +227,7 @@
             on:click={() => handleMessageClick(message)}
             selected={$selectedMessage?.ts === message.ts}
             focused={focusedIndex === index}
+            showChannelBadge={isMultiChannel}
           />
         </div>
       {/each}

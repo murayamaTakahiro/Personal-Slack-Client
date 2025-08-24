@@ -448,7 +448,7 @@
     }
   }
   
-  async function handleSearch() {
+  async function handleSearch(event?: CustomEvent) {
     searchLoading.set(true);
     searchError.set(null);
     
@@ -460,7 +460,9 @@
         return;
       }
       
-      const params = $searchParams;
+      // Use params from event if available, otherwise from store
+      const params = event?.detail || $searchParams;
+      console.log('Search params being sent:', params);
       const result = await searchMessages(params);
       searchResults.set(result);
       // Only add to history if there was a query

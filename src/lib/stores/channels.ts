@@ -8,6 +8,12 @@ interface ChannelInfo {
   useCount: number;
 }
 
+interface ChannelGroup {
+  name: string;
+  channels: string[]; // Channel names
+  icon?: string;
+}
+
 interface ChannelState {
   allChannels: ChannelInfo[];
   favorites: string[]; // Channel IDs
@@ -15,6 +21,7 @@ interface ChannelState {
   searchHistory: string[]; // Channel names
   selectedChannels: string[]; // Currently selected channel names for multi-select
   selectionMode: 'single' | 'multi';
+  channelGroups: ChannelGroup[];
 }
 
 // Create the main store
@@ -25,7 +32,8 @@ function createChannelStore() {
     recentChannels: [],
     searchHistory: [],
     selectedChannels: [],
-    selectionMode: 'single'
+    selectionMode: 'single',
+    channelGroups: []
   });
 
   return {
@@ -35,6 +43,7 @@ function createChannelStore() {
     async initChannels(channels: [string, string][]) {
       const favorites = await loadFavorites();
       const recentChannels = await loadRecentChannels();
+      const channelGroups = await loadChannelGroups();
       
       update(state => ({
         ...state,
@@ -45,7 +54,8 @@ function createChannelStore() {
           useCount: 0
         })),
         favorites,
-        recentChannels
+        recentChannels,
+        channelGroups
       }));
     },
     
@@ -161,6 +171,77 @@ function createChannelStore() {
           selectionMode: 'multi'
         };
       });
+    },
+    
+    // Select multiple channels at once
+    selectMultipleChannels(channelNames: string[]) {
+      update(state => ({
+        ...state,
+        selectedChannels: channelNames,
+        selectionMode: 'multi'
+      }));
+    },
+    
+    // Save current selection as a channel group
+    async saveChannelGroup(name: string, icon?: string) {
+      update(state => {
+        const newGroup: ChannelGroup = {
+          name,
+          channels: [...state.selectedChannels],
+          icon
+        };
+        
+        const groups = [...state.channelGroups.filter(g => g.name !== name), newGroup];
+        saveChannelGroups(groups);
+        
+        return {
+          ...state,
+          channelGroups: groups
+        };
+      });
+    },
+    
+    // Load a channel group
+    loadChannelGroup(groupName: string) {
+      update(state => {
+        const group = state.channelGroups.find(g => g.name === groupName);
+        if (group) {
+          return {
+            ...state,
+            selectedChannels: group.channels,
+            selectionMode: 'multi'
+          };
+        }
+        return state;
+      });
+    },
+    
+    // Delete a channel group
+    async deleteChannelGroup(groupName: string) {
+      update(state => {
+        const groups = state.channelGroups.filter(g => g.name !== groupName);
+        saveChannelGroups(groups);
+        return {
+          ...state,
+          channelGroups: groups
+        };
+      });
+    },
+    
+    // Select recent channels
+    selectRecentChannels(limit: number = 5) {
+      update(state => {
+        const recentChannelNames = state.recentChannels
+          .slice(0, limit)
+          .map(id => state.allChannels.find(ch => ch.id === id)?.name)
+          .filter(Boolean) as string[];
+        
+        return {
+          ...state,
+          selectedChannels: recentChannelNames,
+          selectionMode: 'multi'
+        };
+      });
     }
   };
 }
@@ -186,6 +267,15 @@ async function loadRecentChannels(): Promise<string[]> {
 async function saveRecentChannels(recent: string[]): Promise<void> {
   // Use localStorage
   localStorage.setItem('recent_channels', JSON.stringify(recent));
+}
+
+async function loadChannelGroups(): Promise<ChannelGroup[]> {
+  const stored = localStorage.getItem('channel_groups');
+  return stored ? JSON.parse(stored) : [];
+}
+
+async function saveChannelGroups(groups: ChannelGroup[]): Promise<void> {
+  localStorage.setItem('channel_groups', JSON.stringify(groups));
 }
 
 export const channelStore = createChannelStore();
@@ -214,4 +304,9 @@ export const sortedChannels = derived(
       return a.name.localeCompare(b.name);
     });
   }
+);
+
+export const channelGroups = derived(
+  channelStore,
+  $store => $store.channelGroups
 );

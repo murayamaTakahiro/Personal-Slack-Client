@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, createEventDispatcher } from 'svelte';
-  import { channelStore, favoriteChannels, recentChannelsList, sortedChannels } from '../stores/channels';
+  import { channelStore, favoriteChannels, recentChannelsList, sortedChannels, channelGroups } from '../stores/channels';
   
   export let value = '';  // Currently selected channel(s)
   export let channels: [string, string][] = [];
@@ -47,8 +47,36 @@
       }
     }
     
+    // Global keyboard shortcuts
+    function handleGlobalKeydown(event: KeyboardEvent) {
+      // Ctrl+M or Cmd+M to toggle multi-select mode
+      if ((event.ctrlKey || event.metaKey) && event.key === 'm') {
+        event.preventDefault();
+        toggleMode();
+        return;
+      }
+      
+      // Ctrl+A or Cmd+A to select all channels when in multi-select mode
+      if ((event.ctrlKey || event.metaKey) && event.key === 'a' && mode === 'multi' && showDropdown) {
+        event.preventDefault();
+        selectAllChannels();
+        return;
+      }
+      
+      // Ctrl+Shift+F or Cmd+Shift+F to select all favorites
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'F') {
+        event.preventDefault();
+        selectAllFavorites();
+        return;
+      }
+    }
+    
     document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+    document.addEventListener('keydown', handleGlobalKeydown);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener('keydown', handleGlobalKeydown);
+    };
   });
   
   function handleInputFocus() {
@@ -130,6 +158,13 @@
   function selectChannel(channelName: string) {
     if (mode === 'multi') {
       channelStore.toggleChannelSelection(channelName);
+      // Update display immediately for better UX
+      const updatedChannels = selectedChannels.includes(channelName)
+        ? selectedChannels.filter(ch => ch !== channelName)
+        : [...selectedChannels, channelName];
+      searchInput = updatedChannels.length > 0 
+        ? `${updatedChannels.length} channel${updatedChannels.length !== 1 ? 's' : ''} selected`
+        : '';
     } else {
       value = channelName;
       searchInput = channelName;
@@ -154,27 +189,43 @@
     }
     value = '';
     searchInput = '';
-    dispatch('change', { channel: '' });
+    dispatch('change', { channel: '', channels: [] });
   }
   
   function selectAllFavorites() {
     channelStore.selectAllFavorites();
-    // Apply the selection immediately for better UX
-    if (mode === 'multi') {
-      setTimeout(() => {
-        // Give the store time to update
+    // Wait for store update then apply
+    setTimeout(() => {
+      if (mode === 'multi' && selectedChannels.length > 0) {
         applyMultiSelect();
-      }, 100);
+      }
+    }, 50);
+  }
+  
+  function selectAllChannels() {
+    if (mode === 'multi') {
+      const allChannelNames = filteredChannels.map(ch => ch.name);
+      channelStore.selectMultipleChannels(allChannelNames);
+      setTimeout(() => {
+        applyMultiSelect();
+      }, 50);
     }
   }
   
   function applyMultiSelect() {
-    value = selectedChannels.join(',');
+    const channelString = selectedChannels.join(',');
+    value = channelString;
     searchInput = selectedChannels.length > 0 
       ? `${selectedChannels.length} channel${selectedChannels.length !== 1 ? 's' : ''} selected`
       : '';
     showDropdown = false;
-    dispatch('change', { channels: selectedChannels });
+    console.log('Applying multi-select with channels:', selectedChannels);
+    console.log('Channel string:', channelString);
+    // Dispatch both formats for compatibility
+    dispatch('change', { 
+      channels: selectedChannels,
+      channel: channelString  // Add this for SearchBar compatibility
+    });
   }
   
   // Update search input when value changes externally
@@ -221,15 +272,24 @@
         on:click={toggleMode}
         class="mode-toggle"
         class:active={mode === 'multi'}
-        title={mode === 'multi' ? 'Switch to single select' : 'Switch to multi-select'}
+        class:pulse={mode === 'single' && channels.length > 1}
+        title={mode === 'multi' 
+          ? 'マルチ選択モード: 複数のチャンネルを選択して一括検索できます (クリックでシングル選択に切替)' 
+          : 'シングル選択モード: 1つのチャンネルのみ選択可能 (クリックでマルチ選択に切替)'}
+        aria-label={mode === 'multi' ? 'Switch to single select' : 'Switch to multi-select'}
       >
         {#if mode === 'multi'}
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <rect x="3" y="3" width="7" height="7"/>
-            <rect x="14" y="3" width="7" height="7"/>
-            <rect x="3" y="14" width="7" height="7"/>
-            <rect x="14" y="14" width="7" height="7"/>
-          </svg>
+          <div class="button-content">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <rect x="3" y="3" width="7" height="7"/>
+              <rect x="14" y="3" width="7" height="7"/>
+              <rect x="3" y="14" width="7" height="7"/>
+              <rect x="14" y="14" width="7" height="7"/>
+            </svg>
+            {#if selectedChannels.length > 0}
+              <span class="badge">{selectedChannels.length}</span>
+            {/if}
+          </div>
         {:else}
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <rect x="3" y="3" width="18" height="18" rx="2"/>
@@ -241,12 +301,37 @@
         <button
           on:click={selectAllFavorites}
           class="select-favorites"
-          title="Select all favorite channels"
+          title="お気に入りチャンネルを全選択 (Ctrl+Shift+F)"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
           </svg>
         </button>
+      {/if}
+      
+      <button
+        on:click={() => channelStore.selectRecentChannels(5)}
+        class="select-recent"
+        title="最近使用した5チャンネルを選択"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+      </button>
+      
+      {#if $channelGroups.length > 0}
+        <div class="channel-groups">
+          {#each $channelGroups as group}
+            <button
+              on:click={() => channelStore.loadChannelGroup(group.name)}
+              class="group-btn"
+              title={`グループ "${group.name}" を読み込み`}
+            >
+              {group.icon || '📁'} {group.name}
+            </button>
+          {/each}
+        </div>
       {/if}
     </div>
   </div>
@@ -446,7 +531,8 @@
   }
   
   .mode-toggle,
-  .select-favorites {
+  .select-favorites,
+  .select-recent {
     padding: 0.5rem;
     background: transparent;
     border: 1px solid var(--border);
@@ -460,15 +546,80 @@
   }
   
   .mode-toggle:hover,
-  .select-favorites:hover {
+  .select-favorites:hover,
+  .select-recent:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
+  }
+  
+  .channel-groups {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+  }
+  
+  .group-btn {
+    padding: 0.25rem 0.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    transition: all 0.2s;
+  }
+  
+  .group-btn:hover {
+    background: var(--primary-bg);
+    border-color: var(--primary);
+    color: var(--primary);
   }
   
   .mode-toggle.active {
     background: var(--primary-bg);
     border-color: var(--primary);
     color: var(--primary);
+  }
+  
+  .mode-toggle.pulse {
+    animation: pulse 2s ease-in-out infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+      border-color: var(--primary);
+    }
+  }
+  
+  .button-content {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: var(--primary);
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: bold;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   }
   
   .selected-channels {
