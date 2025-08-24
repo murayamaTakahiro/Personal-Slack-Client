@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, createEventDispatcher } from 'svelte';
   import { channelStore, favoriteChannels, recentChannelsList, sortedChannels, channelGroups } from '../stores/channels';
+  import { realtimeStore } from '../stores/realtime';
   
   export let value = '';  // Currently selected channel(s)
   export let channels: [string, string][] = [];
@@ -324,6 +325,34 @@
           {/each}
         </div>
       {/if}
+      
+      {#if mode === 'multi' && selectedChannels.length > 0}
+        <button
+          on:click={() => {
+            if ($realtimeStore.isEnabled) {
+              realtimeStore.setEnabled(false);
+            } else {
+              realtimeStore.setEnabled(true);
+              dispatch('enableRealtime');
+            }
+          }}
+          class="realtime-toggle {$realtimeStore.isEnabled ? 'active' : ''}"
+          title={$realtimeStore.isEnabled ? 'リアルタイムモードを停止' : 'リアルタイムモード: 選択したチャンネルの今日の投稿を定期的に取得'}
+        >
+          {#if $realtimeStore.isEnabled}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <rect x="9" y="9" width="6" height="6" rx="1"/>
+            </svg>
+            <span class="realtime-label">STOP</span>
+          {:else}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="3" fill="currentColor"/>
+            </svg>
+            <span class="realtime-label">LIVE</span>
+          {/if}
+        </button>
+      {/if}
     </div>
   </div>
   
@@ -530,7 +559,8 @@
   
   .mode-toggle,
   .select-favorites,
-  .select-recent {
+  .select-recent,
+  .realtime-toggle {
     padding: 0.5rem;
     background: transparent;
     border: 1px solid var(--border);
@@ -545,9 +575,42 @@
   
   .mode-toggle:hover,
   .select-favorites:hover,
-  .select-recent:hover {
+  .select-recent:hover,
+  .realtime-toggle:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
+  }
+  
+  .realtime-toggle {
+    gap: 0.25rem;
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .realtime-toggle.active {
+    background: #ff4444;
+    border-color: #ff4444;
+    color: white;
+    animation: pulse-live 2s ease-in-out infinite;
+  }
+  
+  .realtime-toggle.active:hover {
+    background: #cc0000;
+    border-color: #cc0000;
+  }
+  
+  .realtime-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+  
+  @keyframes pulse-live {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.8;
+    }
   }
   
   .channel-groups {

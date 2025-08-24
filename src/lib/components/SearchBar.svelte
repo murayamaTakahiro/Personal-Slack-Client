@@ -5,6 +5,7 @@
   import UserSelector from './UserSelector.svelte';
   import { getKeyboardService } from '../services/keyboardService';
   import { userService } from '../services/userService';
+  import { realtimeStore } from '../stores/realtime';
   
   export let channels: [string, string][] = [];
   export let showAdvanced = false;
@@ -22,7 +23,17 @@
   let channelSelectorComponent: ChannelSelector;
   let userSelectorComponent: UserSelector;
   
-  async function handleSearch() {
+  async function handleSearch(isRealtimeUpdate: boolean = false) {
+    // If realtime mode is enabled and this is a realtime update, auto-set today's date
+    if ($realtimeStore.isEnabled && isRealtimeUpdate) {
+      const today = new Date().toISOString().split('T')[0];
+      fromDate = today;
+      // Don't set toDate - we want all messages from today onward
+      toDate = '';
+      // Clear query for realtime mode to focus on channel-based filtering
+      searchQuery.set('');
+    }
+    
     // Check if we have either a query or at least one filter
     const hasFilters = channel || userId || fromDate || toDate;
     const hasQuery = $searchQuery.trim();
@@ -43,6 +54,7 @@
       
       console.log('Channel value in SearchBar handleSearch:', channel);
       console.log('Clean channel:', cleanChannel);
+      console.log('Realtime mode:', $realtimeStore.isEnabled);
       
       if (!cleanChannel) {
         console.warn('No channel selected despite UI showing selection!');
@@ -54,11 +66,17 @@
         user: resolvedUserId || undefined,
         fromDate: fromDate ? new Date(fromDate) : undefined,
         toDate: toDate ? new Date(toDate) : undefined,
-        limit
+        limit,
+        isRealtimeUpdate // Pass this flag through
       };
       searchParams.set(params);
       dispatch('search', params);
     }
+  }
+  
+  // Export for external triggering (from App.svelte for realtime updates)
+  export function triggerRealtimeSearch() {
+    handleSearch(true);
   }
   
   function handleKeydown(e: KeyboardEvent) {
@@ -269,6 +287,10 @@
               }
               console.log('Channel changed to:', channel);
               console.log('Event detail:', e.detail);
+            }}
+            on:enableRealtime={() => {
+              // When realtime mode is enabled, trigger an immediate search
+              triggerRealtimeSearch();
             }}
           />
         </label>

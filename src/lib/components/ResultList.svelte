@@ -48,6 +48,12 @@
     }
   }
   
+  export function scrollToTop() {
+    if (listContainer) {
+      listContainer.scrollTop = 0;
+    }
+  }
+  
   function updateFocus() {
     if (focusedIndex >= 0 && focusedIndex < messages.length) {
       const message = messages[focusedIndex];

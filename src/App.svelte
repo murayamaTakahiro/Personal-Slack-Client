@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
   import SearchBar from './lib/components/SearchBar.svelte';
   import ResultList from './lib/components/ResultList.svelte';
   import ThreadView from './lib/components/ThreadView.svelte';
@@ -30,10 +31,12 @@
   import KeyboardSettings from './lib/components/KeyboardSettings.svelte';
   import KeyboardHelp from './lib/components/KeyboardHelp.svelte';
   import EmojiSettings from './lib/components/EmojiSettings.svelte';
+  import RealtimeSettings from './lib/components/RealtimeSettings.svelte';
   import { workspaceStore, activeWorkspace } from './lib/stores/workspaces';
   import { userService } from './lib/services/userService';
   import { reactionService, initializeReactionMappings } from './lib/services/reactionService';
   import { initializeConfig, watchConfigFile } from './lib/services/configService';
+  import { realtimeStore, timeUntilUpdate, formattedLastUpdate } from './lib/stores/realtime';
   
   let channels: [string, string][] = [];
   let showSettings = false;
@@ -47,6 +50,10 @@
   let searchBarElement: SearchBar;
   let resultListElement: ResultList;
   let showKeyboardHelp = false;
+  let realtimeInterval: NodeJS.Timeout | null = null;
+  let previousMessageIds = new Set<string>();
+  let unsubscribeRealtime: (() => void) | null = null;
+  let unsubscribeSearchResults: (() => void) | null = null;
   
   onMount(async () => {
     // Simple initialization - just use DEFAULT_REACTION_MAPPINGS
@@ -54,6 +61,46 @@
     
     // Initialize settings from persistent store
     const currentSettings = await initializeSettings();
+    
+    // Setup realtime updates subscription
+    unsubscribeRealtime = realtimeStore.subscribe(state => {
+      if (state.isEnabled) {
+        startRealtimeUpdates();
+      } else {
+        stopRealtimeUpdates();
+      }
+    });
+    
+    // Subscribe to search results to detect new messages
+    unsubscribeSearchResults = searchResults.subscribe(results => {
+      const state = get(realtimeStore);
+      if (!results || !state.isEnabled) return;
+      
+      // Calculate new messages
+      const newMessages = results.messages.filter(m => !previousMessageIds.has(m.id));
+      
+      if (newMessages.length > 0) {
+        console.log(`Found ${newMessages.length} new messages`);
+        
+        // Show notification if enabled
+        if (state.showNotifications && 'Notification' in window) {
+          if (Notification.permission === 'granted') {
+            new Notification('New Slack Messages', {
+              body: `${newMessages.length} new message${newMessages.length > 1 ? 's' : ''} in monitored channels`,
+              icon: '/slack-icon.png'
+            });
+          } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission();
+          }
+        }
+        
+        // Auto-scroll if enabled
+        if (state.autoScroll && resultListElement) {
+          // Scroll to top to show new messages
+          resultListElement.scrollToTop();
+        }
+      }
+    });
     
     // Initialize keyboard service
     keyboardService = initKeyboardService(currentSettings.keyboardShortcuts || {
@@ -151,6 +198,15 @@
     }
     if (typeof window !== 'undefined') {
       window.removeEventListener('workspace-switched', handleWorkspaceSwitched);
+    }
+    // Clean up realtime updates
+    stopRealtimeUpdates();
+    // Unsubscribe from stores
+    if (unsubscribeRealtime) {
+      unsubscribeRealtime();
+    }
+    if (unsubscribeSearchResults) {
+      unsubscribeSearchResults();
     }
   });
   
@@ -540,6 +596,46 @@
     }
   }
   
+  function startRealtimeUpdates() {
+    if (realtimeInterval) return; // Already running
+    
+    const state = get(realtimeStore);
+    console.log('Starting realtime updates, interval:', state.updateInterval);
+    
+    // Run immediately on start
+    performRealtimeUpdate();
+    
+    // Then set up interval
+    realtimeInterval = setInterval(() => {
+      performRealtimeUpdate();
+    }, state.updateInterval * 1000);
+  }
+  
+  function stopRealtimeUpdates() {
+    if (realtimeInterval) {
+      clearInterval(realtimeInterval);
+      realtimeInterval = null;
+      console.log('Stopped realtime updates');
+    }
+  }
+  
+  async function performRealtimeUpdate() {
+    if (!searchBarElement) return;
+    
+    console.log('Performing realtime update');
+    
+    // Store current message IDs before update
+    if ($searchResults?.messages) {
+      previousMessageIds = new Set($searchResults.messages.map(m => m.id));
+    }
+    
+    // Trigger realtime search
+    searchBarElement.triggerRealtimeSearch();
+    
+    // Record the update
+    realtimeStore.recordUpdate();
+  }
+  
   async function handleUrlPaste() {
     if (!urlInput.trim()) return;
     
@@ -598,6 +694,18 @@
 <div class="app">
   <header class="app-header">
     <h1>Slack Search Enhancer</h1>
+    
+    {#if $realtimeStore.isEnabled}
+      <div class="realtime-indicator">
+        <span class="live-badge">LIVE</span>
+        {#if $formattedLastUpdate}
+          <span class="last-update">Updated: {$formattedLastUpdate}</span>
+        {/if}
+        {#if $timeUntilUpdate !== null}
+          <span class="next-update">Next in: {$timeUntilUpdate}s</span>
+        {/if}
+      </div>
+    {/if}
     
     {#if useMultiWorkspace}
       <WorkspaceSwitcher 
@@ -721,6 +829,8 @@
         <KeyboardSettings />
         
         <EmojiSettings />
+        
+        <RealtimeSettings />
       </div>
       
       <div class="settings-actions">
@@ -871,6 +981,44 @@
   .app-header h1 {
     font-size: 1.5rem;
     font-weight: 600;
+  }
+  
+  .realtime-indicator {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem 1rem;
+    background: rgba(255, 68, 68, 0.1);
+    border: 1px solid #ff4444;
+    border-radius: 6px;
+    font-size: 0.875rem;
+  }
+  
+  .live-badge {
+    padding: 0.25rem 0.5rem;
+    background: #ff4444;
+    color: white;
+    border-radius: 4px;
+    font-weight: 600;
+    animation: pulse-live 2s ease-in-out infinite;
+  }
+  
+  @keyframes pulse-live {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+  
+  .last-update {
+    color: var(--text-secondary);
+  }
+  
+  .next-update {
+    color: var(--text-secondary);
+    font-family: monospace;
   }
   
   .btn-settings {
