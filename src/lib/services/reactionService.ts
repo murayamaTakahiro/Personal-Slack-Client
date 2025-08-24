@@ -5,14 +5,14 @@ import { loadFromStore } from '../stores/persistentStore';
 
 // Default emoji mappings - EDIT THIS TO CUSTOMIZE YOUR EMOJIS
 export const DEFAULT_REACTION_MAPPINGS: ReactionMapping[] = [
-  { shortcut: 1, emoji: 'thumbsup', display: '👍' },
+  { shortcut: 1, emoji: '+1', display: '👍' },
   { shortcut: 2, emoji: 'arigataya', display: '🙏' },
   { shortcut: 3, emoji: 'kakuninshimasu', display: 'kakunin' },
-  { shortcut: 4, emoji: 'ohayougozaimasu', display: '☀️' },
+  { shortcut: 4, emoji: 'eyes', display: '👀' },
   { shortcut: 5, emoji: 'sasuga2', display: 'sasuga' },
-  { shortcut: 6, emoji: 'otsukareamadesu', display: 'otsukare' },
-  { shortcut: 7, emoji: 'tasikani', display: 'tasikani' },
-  { shortcut: 8, emoji: 'tasukarimasu', display: 'tasukaru' },
+  { shortcut: 6, emoji: 'tada', display: '🎉' },
+  { shortcut: 7, emoji: 'tasukarimasu', display: 'tasukaru' },
+  { shortcut: 8, emoji: 'otsukaresamadesu', display: 'otsukare' },
   { shortcut: 9, emoji: 'ohayougozaimasu', display: 'oha' },
 ];
 
