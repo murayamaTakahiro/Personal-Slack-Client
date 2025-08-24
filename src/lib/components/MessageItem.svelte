@@ -17,6 +17,9 @@
   let showReactionPicker = false;
   let reactionPickerPosition = { x: 0, y: 0 };
   
+  // Update reactions when message prop changes (for realtime mode)
+  $: reactions = message.reactions || [];
+  
   $: mappings = $reactionMappings;
   
   function formatTimestamp(ts: string) {

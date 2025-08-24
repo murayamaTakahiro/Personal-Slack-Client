@@ -542,7 +542,7 @@
         // Merge new messages with existing ones
         const existingMessages = $searchResults.messages;
         const newMessages = result.messages.filter(msg => 
-          !previousMessageIds.has(msg.ts)
+          !previousMessageIds.has(msg.id)
         );
         
         if (newMessages.length > 0) {
@@ -569,6 +569,13 @@
       }
       
       searchResults.set(result);
+      
+      // Update previousMessageIds after setting results for non-realtime searches
+      if (!params.isRealtimeUpdate && $realtimeStore.isEnabled) {
+        previousMessageIds = new Set(result.messages.map(m => m.id));
+        realtimeStore.updateMessageIds(previousMessageIds);
+      }
+      
       // Only add to history if there was a query
       if (params.query) {
         addToHistory(params.query, result.messages.length);
@@ -650,8 +657,8 @@
     const state = get(realtimeStore);
     console.log('Starting realtime updates, interval:', state.updateInterval);
     
-    // Run immediately on start
-    performRealtimeUpdate();
+    // Don't run immediately - wait for first interval
+    // This prevents duplicate on initial search
     
     // Then set up interval
     realtimeInterval = setInterval(() => {
@@ -675,7 +682,7 @@
     // Store current message IDs before update
     const currentMessages = $searchResults?.messages || [];
     if (currentMessages.length > 0) {
-      previousMessageIds = new Set(currentMessages.map(m => m.ts));
+      previousMessageIds = new Set(currentMessages.map(m => m.id));
       // Update the store with existing message IDs
       realtimeStore.updateMessageIds(previousMessageIds);
     }
