@@ -55,10 +55,5 @@ impl From<tauri_plugin_store::Error> for AppError {
     }
 }
 
-impl AppError {
-    pub fn from_anyhow(err: anyhow::Error) -> Self {
-        AppError::Unknown(err.to_string())
-    }
-}
 
 pub type AppResult<T> = Result<T, AppError>;
