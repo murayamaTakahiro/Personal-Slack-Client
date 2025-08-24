@@ -19,21 +19,26 @@ pub async fn search_messages(
     from_date: Option<String>,
     to_date: Option<String>,
     limit: Option<usize>,
+    force_refresh: Option<bool>,  // Add this parameter
     state: State<'_, AppState>,
 ) -> AppResult<SearchResult> {
     let start_time = Instant::now();
     
-    // Check cache first
-    if let Some(cached_result) = state.get_cached_search(
-        &query,
-        &channel,
-        &user,
-        &from_date,
-        &to_date,
-        &limit,
-    ).await {
-        info!("Returning cached search result in {}ms", start_time.elapsed().as_millis());
-        return Ok(cached_result);
+    // Check cache first (skip if force_refresh is true)
+    if !force_refresh.unwrap_or(false) {
+        if let Some(cached_result) = state.get_cached_search(
+            &query,
+            &channel,
+            &user,
+            &from_date,
+            &to_date,
+            &limit,
+        ).await {
+            info!("Returning cached search result in {}ms", start_time.elapsed().as_millis());
+            return Ok(cached_result);
+        }
+    } else {
+        info!("Force refresh enabled, skipping cache");
     }
     
     // Get the Slack client from app state
@@ -365,16 +370,18 @@ pub async fn search_messages(
         execution_time_ms,
     };
     
-    // Cache the result for future use
-    state.cache_search_result(
-        &query,
-        &channel,
-        &user,
-        &from_date,
-        &to_date,
-        &limit,
-        result.clone(),
-    ).await;
+    // Cache the result for future use (skip if force_refresh was used)
+    if !force_refresh.unwrap_or(false) {
+        state.cache_search_result(
+            &query,
+            &channel,
+            &user,
+            &from_date,
+            &to_date,
+            &limit,
+            result.clone(),
+        ).await;
+    }
     
     Ok(result)
 }

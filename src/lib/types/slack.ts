@@ -17,6 +17,7 @@ export interface SearchParams {
   fromDate?: Date;
   toDate?: Date;
   limit?: number;
+  isRealtimeUpdate?: boolean;
 }
 
 export interface Message {

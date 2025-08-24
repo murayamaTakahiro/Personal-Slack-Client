@@ -13,7 +13,8 @@ export async function searchMessages(params: SearchParams): Promise<SearchResult
     user: params.user,
     fromDate: params.fromDate?.toISOString(),
     toDate: params.toDate?.toISOString(),
-    limit: params.limit
+    limit: params.limit,
+    forceRefresh: params.isRealtimeUpdate || false  // Add force refresh for realtime updates
   });
 }
 
