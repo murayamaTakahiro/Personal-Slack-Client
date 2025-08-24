@@ -102,6 +102,12 @@
   }
   
   function handleKeyDown(event: KeyboardEvent) {
+    // Check if thread view has focus - if so, don't handle navigation here
+    const threadViewElement = document.querySelector('.thread-view');
+    if (threadViewElement && threadViewElement.contains(document.activeElement)) {
+      return; // Let thread view handle its own navigation
+    }
+    
     // Handle arrow keys when list has focus
     if (event.key === 'ArrowDown') {
       event.preventDefault();

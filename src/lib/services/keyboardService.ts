@@ -113,6 +113,15 @@ export class KeyboardService {
                      target.tagName === 'TEXTAREA' || 
                      target.contentEditable === 'true';
 
+    // Check if thread view has focus - if so, let it handle its own navigation
+    const threadViewElement = document.querySelector('.thread-view');
+    if (threadViewElement && threadViewElement.contains(target)) {
+      // Don't handle arrow keys when thread view has focus
+      if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+        return false;
+      }
+    }
+
     // Check each registered handler
     for (const [shortcutKey, handler] of this.handlers.entries()) {
       const shortcut = this.shortcuts[shortcutKey as keyof KeyboardShortcuts];

@@ -201,7 +201,7 @@
   }
 </script>
 
-<div class="thread-view" tabindex="-1" bind:this={threadViewElement} on:keydown={handleKeyDown} on:focus={handleFocus} role="region" aria-label="Thread messages">
+<div class="thread-view" tabindex="0" bind:this={threadViewElement} on:keydown={handleKeyDown} on:focus={handleFocus} role="region" aria-label="Thread messages">
   {#if !message}
     <div class="empty">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" opacity="0.3">
