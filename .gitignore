@@ -37,3 +37,6 @@ Thumbs.db
 
 # Rust
 Cargo.lock
+
+# Serena cache
+.serena/cache/

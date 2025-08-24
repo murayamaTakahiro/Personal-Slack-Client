@@ -403,8 +403,7 @@
     font-size: 0.875rem;
   }
   
-  .filter-row input,
-  .filter-row select {
+  .filter-row input {
     padding: 0.5rem;
     border: 1px solid var(--border);
     border-radius: 4px;

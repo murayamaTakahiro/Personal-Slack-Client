@@ -6,7 +6,7 @@
   
   const dispatch = createEventDispatcher();
   
-  export let showAddWorkspace = false;
+  let showAddWorkspace = false;
   
   let isOpen = false;
   let addingWorkspace = false;

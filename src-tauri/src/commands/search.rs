@@ -9,7 +9,6 @@ use tauri::State;
 use tracing::{debug, info, error, warn};
 use futures::future::join_all;
 use std::sync::Arc;
-use std::collections::HashSet;
 
 #[tauri::command]
 pub async fn search_messages(

@@ -1072,11 +1072,6 @@
     color: var(--text-secondary);
   }
   
-  .next-update {
-    color: var(--text-secondary);
-    font-family: monospace;
-  }
-  
   .btn-settings {
     display: flex;
     align-items: center;

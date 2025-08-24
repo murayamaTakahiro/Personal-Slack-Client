@@ -463,7 +463,7 @@ impl SlackClient {
     }
 
     pub async fn add_reaction(&self, channel: &str, timestamp: &str, emoji: &str) -> Result<()> {
-        self.rate_limiter.acquire().await;
+        let _ = self.rate_limiter.acquire().await;
         
         let url = format!("{}/reactions.add", SLACK_API_BASE);
         let params = serde_json::json!({
@@ -498,7 +498,7 @@ impl SlackClient {
     }
     
     pub async fn remove_reaction(&self, channel: &str, timestamp: &str, emoji: &str) -> Result<()> {
-        self.rate_limiter.acquire().await;
+        let _ = self.rate_limiter.acquire().await;
         
         let url = format!("{}/reactions.remove", SLACK_API_BASE);
         let params = serde_json::json!({
@@ -533,7 +533,7 @@ impl SlackClient {
     }
     
     pub async fn get_reactions(&self, channel: &str, timestamp: &str) -> Result<Vec<SlackReaction>> {
-        self.rate_limiter.acquire().await;
+        let _ = self.rate_limiter.acquire().await;
         
         let url = format!("{}/reactions.get", SLACK_API_BASE);
         let response = self.client
