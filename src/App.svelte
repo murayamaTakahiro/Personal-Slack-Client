@@ -62,6 +62,11 @@
     // Initialize settings from persistent store
     const currentSettings = await initializeSettings();
     
+    // Request notification permission if needed
+    if ('Notification' in window && Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
+    
     // Setup realtime updates subscription
     unsubscribeRealtime = realtimeStore.subscribe(state => {
       if (state.isEnabled) {
@@ -519,7 +524,50 @@
       // Use params from event if available, otherwise from store
       const params = event?.detail || $searchParams;
       console.log('Search params being sent:', params);
+      
+      // For realtime incremental updates, get last timestamp
+      if (params.isRealtimeUpdate && $realtimeStore.isEnabled) {
+        const lastTimestamp = realtimeStore.getLastSearchTimestamp();
+        if (lastTimestamp) {
+          // Set from date to just after the last message timestamp
+          const lastDate = new Date(parseFloat(lastTimestamp) * 1000);
+          params.fromDate = new Date(lastDate.getTime() + 1000); // Add 1 second to avoid duplicates
+        }
+      }
+      
       const result = await searchMessages(params);
+      
+      // Handle incremental updates
+      if (params.isRealtimeUpdate && $realtimeStore.isEnabled && $searchResults?.messages) {
+        // Merge new messages with existing ones
+        const existingMessages = $searchResults.messages;
+        const newMessages = result.messages.filter(msg => 
+          !previousMessageIds.has(msg.ts)
+        );
+        
+        if (newMessages.length > 0) {
+          // Combine and sort messages by timestamp (newest first)
+          const allMessages = [...newMessages, ...existingMessages];
+          allMessages.sort((a, b) => parseFloat(b.ts) - parseFloat(a.ts));
+          
+          // Update the result with merged messages
+          result.messages = allMessages;
+          result.total = allMessages.length;
+          
+          // Update last search timestamp to the newest message
+          const newestTimestamp = newMessages[0].ts;
+          realtimeStore.recordUpdate(newMessages.length, newestTimestamp);
+          
+          // Show notification for new messages
+          if ($realtimeStore.showNotifications && newMessages.length > 0) {
+            showNotification(`${newMessages.length} new message${newMessages.length > 1 ? 's' : ''}`);
+          }
+        } else {
+          // No new messages, just record the update
+          realtimeStore.recordUpdate(0);
+        }
+      }
+      
       searchResults.set(result);
       // Only add to history if there was a query
       if (params.query) {
@@ -625,15 +673,26 @@
     console.log('Performing realtime update');
     
     // Store current message IDs before update
-    if ($searchResults?.messages) {
-      previousMessageIds = new Set($searchResults.messages.map(m => m.id));
+    const currentMessages = $searchResults?.messages || [];
+    if (currentMessages.length > 0) {
+      previousMessageIds = new Set(currentMessages.map(m => m.ts));
+      // Update the store with existing message IDs
+      realtimeStore.updateMessageIds(previousMessageIds);
     }
     
-    // Trigger realtime search
+    // Trigger realtime search with incremental flag
     searchBarElement.triggerRealtimeSearch();
     
-    // Record the update
-    realtimeStore.recordUpdate();
+    // Will record update after search completes with new message count
+  }
+  
+  function showNotification(message: string) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('Slack Search Enhancer', {
+        body: message,
+        icon: '/icon.png'
+      });
+    }
   }
   
   async function handleUrlPaste() {
@@ -700,9 +759,6 @@
         <span class="live-badge">LIVE</span>
         {#if $formattedLastUpdate}
           <span class="last-update">Updated: {$formattedLastUpdate}</span>
-        {/if}
-        {#if $timeUntilUpdate !== null}
-          <span class="next-update">Next in: {$timeUntilUpdate}s</span>
         {/if}
       </div>
     {/if}

@@ -9,6 +9,8 @@ export interface RealtimeState {
   autoScroll: boolean;
   showNotifications: boolean;
   messageCount: number;
+  lastSearchTimestamp: string | null; // Store the timestamp of the last searched message
+  existingMessageIds: Set<string>; // Track existing message IDs to detect new ones
 }
 
 const defaultState: RealtimeState = {
@@ -18,7 +20,9 @@ const defaultState: RealtimeState = {
   nextUpdateTime: null,
   autoScroll: true,
   showNotifications: false,
-  messageCount: 0
+  messageCount: 0,
+  lastSearchTimestamp: null,
+  existingMessageIds: new Set()
 };
 
 // Load settings from localStorage
@@ -77,7 +81,9 @@ function createRealtimeStore() {
         isEnabled: enabled,
         lastUpdateTime: enabled ? new Date() : null,
         nextUpdateTime: enabled ? new Date(Date.now() + state.updateInterval * 1000) : null,
-        messageCount: enabled ? 0 : state.messageCount
+        messageCount: enabled ? 0 : state.messageCount,
+        lastSearchTimestamp: enabled ? state.lastSearchTimestamp : null,
+        existingMessageIds: enabled ? state.existingMessageIds : new Set()
       }));
     },
     
@@ -100,13 +106,32 @@ function createRealtimeStore() {
     /**
      * Record that an update just happened
      */
-    recordUpdate(newMessageCount: number = 0) {
+    recordUpdate(newMessageCount: number = 0, lastMessageTimestamp: string | null = null) {
       update(state => ({
         ...state,
         lastUpdateTime: new Date(),
         nextUpdateTime: state.isEnabled ? new Date(Date.now() + state.updateInterval * 1000) : null,
-        messageCount: state.messageCount + newMessageCount
+        messageCount: state.messageCount + newMessageCount,
+        lastSearchTimestamp: lastMessageTimestamp || state.lastSearchTimestamp
       }));
+    },
+    
+    /**
+     * Update existing message IDs for incremental updates
+     */
+    updateMessageIds(messageIds: Set<string>) {
+      update(state => ({
+        ...state,
+        existingMessageIds: messageIds
+      }));
+    },
+    
+    /**
+     * Get the timestamp for incremental search
+     */
+    getLastSearchTimestamp(): string | null {
+      const state = get(realtimeStore);
+      return state.lastSearchTimestamp;
     },
     
     /**
