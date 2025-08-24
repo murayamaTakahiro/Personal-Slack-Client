@@ -158,13 +158,8 @@
   function selectChannel(channelName: string) {
     if (mode === 'multi') {
       channelStore.toggleChannelSelection(channelName);
-      // Update display immediately for better UX
-      const updatedChannels = selectedChannels.includes(channelName)
-        ? selectedChannels.filter(ch => ch !== channelName)
-        : [...selectedChannels, channelName];
-      searchInput = updatedChannels.length > 0 
-        ? `${updatedChannels.length} channel${updatedChannels.length !== 1 ? 's' : ''} selected`
-        : '';
+      // Keep dropdown open in multi-select mode so user can see Apply Selection button
+      // Don't update searchInput to keep it clear for further searching
     } else {
       value = channelName;
       searchInput = channelName;
@@ -215,9 +210,8 @@
   function applyMultiSelect() {
     const channelString = selectedChannels.join(',');
     value = channelString;
-    searchInput = selectedChannels.length > 0 
-      ? `${selectedChannels.length} channel${selectedChannels.length !== 1 ? 's' : ''} selected`
-      : '';
+    // Clear search input to allow further searching
+    searchInput = '';
     showDropdown = false;
     console.log('Applying multi-select with channels:', selectedChannels);
     console.log('Channel string:', channelString);
@@ -228,11 +222,8 @@
     });
   }
   
-  // Update search input when value changes externally
-  $: if (value && value.includes(',')) {
-    const channels = value.split(',').filter(Boolean);
-    searchInput = `${channels.length} channel${channels.length !== 1 ? 's' : ''} selected`;
-  }
+  // Don't update search input when value changes externally to keep it clear for searching
+  // This was causing the issue where the input field was populated with "X channels selected"
 </script>
 
 <div class="channel-selector">
@@ -246,7 +237,7 @@
         on:keydown={handleInputKeydown}
         placeholder={mode === 'multi' 
           ? (selectedChannels.length > 0 
-            ? `${selectedChannels.length} channel${selectedChannels.length !== 1 ? 's' : ''} selected - click to modify`
+            ? `Search to add more (${selectedChannels.length} selected)`
             : 'Search channels (multi-select)') 
           : 'Search or select a channel'}
         class="channel-input"
@@ -350,6 +341,13 @@
           </button>
         </span>
       {/each}
+      <button
+        on:click={applyMultiSelect}
+        class="apply-btn-inline"
+        title="Apply selected channels to search"
+      >
+        Apply ({selectedChannels.length})
+      </button>
     </div>
   {/if}
   
@@ -659,6 +657,23 @@
     line-height: 1;
     padding: 0;
     margin-left: 0.25rem;
+  }
+  
+  .apply-btn-inline {
+    padding: 0.25rem 0.75rem;
+    background: var(--primary);
+    border: none;
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-left: auto;
+    transition: background 0.2s;
+  }
+  
+  .apply-btn-inline:hover {
+    background: var(--primary-hover);
   }
   
   .channel-dropdown {
