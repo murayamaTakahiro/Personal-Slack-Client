@@ -82,6 +82,7 @@ fn convert_message_id_to_ts(message_id: &str) -> Result<String> {
 /// Convert timestamp to p-format message ID
 /// 
 /// Example: 1234567890.123456 -> p1234567890123456
+#[allow(dead_code)]
 pub fn convert_ts_to_message_id(ts: &str) -> Result<String> {
     let parts: Vec<&str> = ts.split('.').collect();
     if parts.len() != 2 {
@@ -94,6 +95,7 @@ pub fn convert_ts_to_message_id(ts: &str) -> Result<String> {
 /// Extract channel name from a Slack channel mention
 /// 
 /// Example: #general -> general, <#C1234567890|general> -> general
+#[allow(dead_code)]
 pub fn extract_channel_name(text: &str) -> Option<String> {
     // Handle simple channel name
     if text.starts_with('#') {
@@ -110,6 +112,7 @@ pub fn extract_channel_name(text: &str) -> Option<String> {
 /// Extract user name from a Slack user mention
 /// 
 /// Example: @user -> user, <@U1234567890> -> U1234567890
+#[allow(dead_code)]
 pub fn extract_user_name(text: &str) -> Option<String> {
     // Handle simple user name
     if text.starts_with('@') {
@@ -124,6 +127,7 @@ pub fn extract_user_name(text: &str) -> Option<String> {
 }
 
 /// Build a Slack archive URL from components
+#[allow(dead_code)]
 pub fn build_slack_url(workspace: &str, channel_id: &str, message_ts: &str, thread_ts: Option<&str>) -> String {
     let message_id = convert_ts_to_message_id(message_ts).unwrap_or_else(|_| format!("p{}", message_ts.replace('.', "")));
     

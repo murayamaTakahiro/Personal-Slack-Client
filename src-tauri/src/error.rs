@@ -55,18 +55,9 @@ impl From<tauri_plugin_store::Error> for AppError {
     }
 }
 
-// Convert AppError to a format suitable for Tauri commands
 impl AppError {
-    pub fn to_string(&self) -> String {
-        match self {
-            AppError::ApiError(msg) => format!("API Error: {}", msg),
-            AppError::NetworkError(msg) => format!("Network Error: {}", msg),
-            AppError::AuthError(msg) => format!("Authentication Error: {}", msg),
-            AppError::ParseError(msg) => format!("Parse Error: {}", msg),
-            AppError::ConfigError(msg) => format!("Configuration Error: {}", msg),
-            AppError::StorageError(msg) => format!("Storage Error: {}", msg),
-            AppError::Unknown(msg) => format!("Error: {}", msg),
-        }
+    pub fn from_anyhow(err: anyhow::Error) -> Self {
+        AppError::Unknown(err.to_string())
     }
 }
 

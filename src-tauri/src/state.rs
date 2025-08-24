@@ -161,17 +161,6 @@ impl AppState {
         }
         result
     }
-
-    pub async fn clear_caches(&self) {
-        debug!("Clearing caches");
-        let mut user_cache = self.user_cache.write().await;
-        let mut channel_cache = self.channel_cache.write().await;
-        let mut search_cache = self.search_cache.write().await;
-        user_cache.clear();
-        channel_cache.clear();
-        search_cache.clear();
-        info!("Caches cleared");
-    }
     
     fn hash_search_params(
         query: &str,

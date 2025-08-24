@@ -75,6 +75,7 @@ pub struct SlackChannel {
 
 // Slack API Response structures
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct SlackSearchResponse {
     pub ok: bool,
     pub query: Option<String>,
@@ -84,6 +85,7 @@ pub struct SlackSearchResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct SlackSearchMessages {
     pub total: usize,
     pub pagination: SlackPagination,
@@ -92,6 +94,7 @@ pub struct SlackSearchMessages {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct SlackPagination {
     pub total_count: usize,
     pub page: usize,
@@ -102,6 +105,7 @@ pub struct SlackPagination {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct SlackPaging {
     pub count: usize,
     pub total: usize,
@@ -128,6 +132,7 @@ pub struct SlackChannelInfo {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct SlackConversationsRepliesResponse {
     pub ok: bool,
     pub messages: Option<Vec<SlackReplyMessage>>,
@@ -136,6 +141,7 @@ pub struct SlackConversationsRepliesResponse {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub struct SlackReplyMessage {
     pub ts: String,
     pub thread_ts: Option<String>,
@@ -163,6 +169,7 @@ pub struct SlackUserInfo {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub struct SlackUserProfile {
     pub display_name: Option<String>,
     pub real_name: Option<String>,
@@ -179,6 +186,7 @@ pub struct SlackConversationsListResponse {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub struct SlackConversation {
     pub id: String,
     pub name: Option<String>,
