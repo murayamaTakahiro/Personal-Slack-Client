@@ -85,11 +85,31 @@
             key: 'toggleAdvancedSearch', 
             description: 'Toggle Advanced Search',
             shortcut: shortcuts.toggleAdvancedSearch || 'Ctrl+Shift+F'
+          }
+        ]
+      },
+      {
+        name: 'Channel Selection',
+        shortcuts: [
+          { 
+            key: 'toggleMultiSelectMode', 
+            description: 'Toggle Multi-Select Mode',
+            shortcut: 'Ctrl+M'
           },
           { 
-            key: 'toggleChannelSelector', 
-            description: 'Toggle Channel Selector',
-            shortcut: shortcuts.toggleChannelSelector || 'Ctrl+L'
+            key: 'selectRecentChannels', 
+            description: 'Select Recent Channels',
+            shortcut: 'Ctrl+R'
+          },
+          { 
+            key: 'toggleLiveMode', 
+            description: 'Toggle LIVE Mode',
+            shortcut: 'Ctrl+L'
+          },
+          { 
+            key: 'applySelectedChannels', 
+            description: 'Apply Selected Channels',
+            shortcut: 'Ctrl+Shift+A'
           }
         ]
       },

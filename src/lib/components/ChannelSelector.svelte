@@ -57,17 +57,26 @@
         return;
       }
       
-      // Ctrl+A or Cmd+A to select all channels when in multi-select mode
-      if ((event.ctrlKey || event.metaKey) && event.key === 'a' && mode === 'multi' && showDropdown) {
+      // Ctrl+R or Cmd+R to select recent channels
+      if ((event.ctrlKey || event.metaKey) && event.key === 'r' && !event.shiftKey) {
         event.preventDefault();
-        selectAllChannels();
+        selectRecentChannels();
         return;
       }
       
-      // Ctrl+Shift+F or Cmd+Shift+F to select all favorites
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'F') {
+      // Ctrl+L or Cmd+L to toggle LIVE mode
+      if ((event.ctrlKey || event.metaKey) && event.key === 'l') {
         event.preventDefault();
-        selectAllFavorites();
+        toggleLiveMode();
+        return;
+      }
+      
+      // Ctrl+Shift+A or Cmd+Shift+A to apply selected channels
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === 'A' || event.key === 'a')) {
+        event.preventDefault();
+        if (mode === 'multi' && selectedChannels.length > 0) {
+          applyMultiSelect();
+        }
         return;
       }
     }
@@ -208,6 +217,27 @@
     }
   }
   
+  function selectRecentChannels() {
+    channelStore.selectRecentChannels(5);
+    // Wait for store update then apply
+    setTimeout(() => {
+      if (mode === 'multi' && selectedChannels.length > 0) {
+        applyMultiSelect();
+      }
+    }, 50);
+  }
+  
+  function toggleLiveMode() {
+    if (mode === 'multi' && selectedChannels.length > 0) {
+      if ($realtimeStore.isEnabled) {
+        realtimeStore.setEnabled(false);
+      } else {
+        realtimeStore.setEnabled(true);
+        dispatch('enableRealtime');
+      }
+    }
+  }
+  
   function applyMultiSelect() {
     const channelString = selectedChannels.join(',');
     value = channelString;
@@ -266,8 +296,8 @@
         class:active={mode === 'multi'}
         class:pulse={mode === 'single' && channels.length > 1}
         title={mode === 'multi' 
-          ? 'マルチ選択モード: 複数のチャンネルを選択して一括検索できます (クリックでシングル選択に切替)' 
-          : 'シングル選択モード: 1つのチャンネルのみ選択可能 (クリックでマルチ選択に切替)'}
+          ? 'マルチ選択モード: 複数のチャンネルを選択して一括検索できます (Ctrl+M でシングル選択に切替)' 
+          : 'シングル選択モード: 1つのチャンネルのみ選択可能 (Ctrl+M でマルチ選択に切替)'}
         aria-label={mode === 'multi' ? 'Switch to single select' : 'Switch to multi-select'}
       >
         {#if mode === 'multi'}
@@ -293,7 +323,7 @@
         <button
           on:click={selectAllFavorites}
           class="select-favorites"
-          title="お気に入りチャンネルを全選択 (Ctrl+Shift+F)"
+          title="お気に入りチャンネルを全選択"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
@@ -304,7 +334,7 @@
       <button
         on:click={() => channelStore.selectRecentChannels(5)}
         class="select-recent"
-        title="最近使用した5チャンネルを選択"
+        title="最近使用した5チャンネルを選択 (Ctrl+R)"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <circle cx="12" cy="12" r="10"/>
@@ -337,7 +367,7 @@
             }
           }}
           class="realtime-toggle {$realtimeStore.isEnabled ? 'active' : ''}"
-          title={$realtimeStore.isEnabled ? 'リアルタイムモードを停止' : 'リアルタイムモード: 選択したチャンネルの今日の投稿を定期的に取得'}
+          title={$realtimeStore.isEnabled ? 'リアルタイムモードを停止 (Ctrl+L)' : 'リアルタイムモード: 選択したチャンネルの今日の投稿を定期的に取得 (Ctrl+L)'}
         >
           {#if $realtimeStore.isEnabled}
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -373,7 +403,7 @@
       <button
         on:click={applyMultiSelect}
         class="apply-btn-inline"
-        title="Apply selected channels to search"
+        title="Apply selected channels to search (Ctrl+Shift+A)"
       >
         Apply ({selectedChannels.length})
       </button>
@@ -486,7 +516,7 @@
             on:click={applyMultiSelect}
             class="apply-btn"
           >
-            Apply Selection ({selectedChannels.length} channel{selectedChannels.length !== 1 ? 's' : ''})
+            Apply Selection ({selectedChannels.length} channel{selectedChannels.length !== 1 ? 's' : ''}) (Ctrl+Shift+A)
           </button>
         </div>
       {/if}
