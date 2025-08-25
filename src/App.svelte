@@ -449,6 +449,10 @@
     searchError.set(null);
     searchLoading.set(false);
     
+    // Reset realtime mode when switching workspaces
+    realtimeStore.setEnabled(false);
+    stopRealtimeUpdates();
+    
     // Clear channels and user cache before loading new ones
     channels = [];
     channelStore.reset(); // Reset the channel store state
