@@ -619,6 +619,9 @@
       // Update channels and force reactivity
       channels = newChannels || [];
       
+      // Initialize channel store with workspace-specific data (favorites, recent channels, etc.)
+      await channelStore.initChannels(channels);
+      
       console.log(`Loaded ${channels.length} channels for workspace`);
     } catch (err) {
       console.error('Failed to load channels:', err);

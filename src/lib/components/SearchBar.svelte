@@ -6,6 +6,7 @@
   import { getKeyboardService } from '../services/keyboardService';
   import { userService } from '../services/userService';
   import { realtimeStore } from '../stores/realtime';
+  import { channelStore } from '../stores/channels';
   
   export let channels: [string, string][] = [];
   export let showAdvanced = false;
@@ -58,6 +59,17 @@
       
       if (!cleanChannel) {
         console.warn('No channel selected despite UI showing selection!');
+      }
+      
+      // Record channel usage for recent channels tracking
+      if (cleanChannel) {
+        // For multi-channel mode, channel might be comma-separated
+        const channelList = cleanChannel.split(',').map(ch => ch.trim());
+        channelList.forEach(ch => {
+          if (ch) {
+            channelStore.addToRecent(ch);
+          }
+        });
       }
       
       const params = {
