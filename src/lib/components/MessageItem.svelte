@@ -5,6 +5,7 @@
   import { activeWorkspace } from '../stores/workspaces';
   import { reactionService, reactionMappings } from '../services/reactionService';
   import { getKeyboardService } from '../services/keyboardService';
+  import ReactionPicker from './ReactionPicker.svelte';
   
   export let message: Message;
   export let selected = false;
@@ -111,6 +112,21 @@
   
   function closeReactionPicker() {
     showReactionPicker = false;
+  }
+  
+  async function handleEmojiSelect(event: CustomEvent<{emoji: string}>) {
+    const { emoji } = event.detail;
+    showReactionPicker = false;
+    
+    if (!enableReactions) return;
+    
+    try {
+      await reactionService.toggleReaction(message.channel, message.ts, emoji, reactions);
+      // Refresh reactions
+      reactions = await reactionService.getReactions(message.channel, message.ts);
+    } catch (error) {
+      console.error('Failed to toggle reaction:', error);
+    }
   }
   
   // Track if handlers are registered to avoid duplication
@@ -244,6 +260,14 @@
     </div>
   {/if}
 </button>
+
+{#if showReactionPicker}
+  <ReactionPicker
+    position={reactionPickerPosition}
+    on:select={handleEmojiSelect}
+    on:close={closeReactionPicker}
+  />
+{/if}
 
 <style>
   .message-item {
