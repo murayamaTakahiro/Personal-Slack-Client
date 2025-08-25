@@ -37,7 +37,17 @@
     prevResult: 'Previous Result',
     openResult: 'Open Selected Result',
     clearSearch: 'Clear Search',
-    toggleChannelSelector: 'Toggle Channel Selector'
+    toggleChannelSelector: 'Toggle Channel Selector',
+    openReactionPicker: 'Open Reaction Picker',
+    reaction1: 'Quick Reaction 1',
+    reaction2: 'Quick Reaction 2',
+    reaction3: 'Quick Reaction 3',
+    reaction4: 'Quick Reaction 4',
+    reaction5: 'Quick Reaction 5',
+    reaction6: 'Quick Reaction 6',
+    reaction7: 'Quick Reaction 7',
+    reaction8: 'Quick Reaction 8',
+    reaction9: 'Quick Reaction 9'
   };
   
   onMount(() => {

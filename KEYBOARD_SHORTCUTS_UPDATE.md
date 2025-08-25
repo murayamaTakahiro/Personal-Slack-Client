@@ -1,5 +1,28 @@
 # Keyboard Shortcuts Update
 
+## Reaction Shortcuts Addition (2025-08-25)
+
+### New Shortcuts Added
+Added keyboard shortcuts for quick emoji reactions on messages:
+
+- **R** - Open reaction picker (when a message is selected)
+- **1-9** - Quick reactions 1-9 (customizable through Emoji Settings)
+
+### How it Works
+1. Select a message in the results list or thread view
+2. Press **R** to open the reaction picker, or
+3. Press **1-9** to quickly add one of your configured reactions
+
+### Customization
+- Quick reactions can be customized in Settings > Emoji Settings
+- Each number key (1-9) can be mapped to any emoji
+- Default mappings include common reactions like 👍, ❤️, 😂, etc.
+
+### Benefits
+- Fast emoji reactions without using the mouse
+- Customizable quick reaction shortcuts
+- Consistent with Slack's native keyboard shortcuts
+
 ## Ctrl+N Enhancement (2025-08-13)
 
 ### Previous Behavior
