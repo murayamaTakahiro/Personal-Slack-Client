@@ -108,14 +108,8 @@
       return; // Let thread view handle its own navigation
     }
     
-    // Handle arrow keys when list has focus
-    if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      handleKeyNavigation('down');
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      handleKeyNavigation('up');
-    } else if (event.key === 'Enter') {
+    // Only handle Enter key directly - arrow keys are handled by keyboard service
+    if (event.key === 'Enter') {
       event.preventDefault();
       if (focusedIndex >= 0 && focusedIndex < messages.length) {
         const message = messages[focusedIndex];
