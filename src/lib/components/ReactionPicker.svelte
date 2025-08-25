@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { reactionMappings, recentReactions } from '../services/reactionService';
   import type { ReactionMapping } from '../types/slack';
   
@@ -11,6 +11,7 @@
   let searchQuery = '';
   let selectedIndex = 0;
   let pickerElement: HTMLDivElement;
+  let emojiButtons: HTMLButtonElement[] = [];
   
   $: mappings = $reactionMappings;
   $: recent = $recentReactions.slice(0, 5);
@@ -29,11 +30,29 @@
     { emoji: 'sparkles', display: '✨' },
   ];
   
-  $: filteredEmojis = searchQuery 
+  // Combine all available emojis for filtering
+  $: allEmojis = searchQuery 
     ? [...mappings, ...additionalEmojis].filter(e => 
         e.emoji.includes(searchQuery.toLowerCase())
       )
-    : [...mappings, ...additionalEmojis];
+    : recent.length > 0 
+      ? [...recent.map(e => ({ emoji: e, display: e })), ...mappings, ...additionalEmojis]
+      : [...mappings, ...additionalEmojis];
+  
+  $: filteredEmojis = allEmojis;
+  
+  // Keep selectedIndex within bounds when filtered results change
+  $: if (selectedIndex >= filteredEmojis.length) {
+    selectedIndex = Math.max(0, filteredEmojis.length - 1);
+  }
+  
+  // Auto-scroll to selected emoji
+  $: if (emojiButtons[selectedIndex]) {
+    emojiButtons[selectedIndex].scrollIntoView({ 
+      block: 'nearest', 
+      behavior: 'smooth' 
+    });
+  }
   
   function selectEmoji(emoji: string) {
     dispatch('select', { emoji });
@@ -45,20 +64,47 @@
   }
   
   function handleKeydown(event: KeyboardEvent) {
+    // Don't handle keydown if search input has focus and it's a character key
+    if (event.target === pickerElement?.querySelector('input') && 
+        !['Escape', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+      return;
+    }
+    
     switch (event.key) {
       case 'Escape':
+        event.preventDefault();
         close();
         break;
       case 'Enter':
+        event.preventDefault();
         if (filteredEmojis[selectedIndex]) {
-          selectEmoji(filteredEmojis[selectedIndex].emoji);
+          const emoji = 'display' in filteredEmojis[selectedIndex] 
+            ? filteredEmojis[selectedIndex].emoji 
+            : filteredEmojis[selectedIndex];
+          selectEmoji(emoji);
         }
         break;
       case 'ArrowUp':
         event.preventDefault();
-        selectedIndex = Math.max(0, selectedIndex - 1);
+        if (selectedIndex > 5) {
+          selectedIndex -= 6; // Move up one row (6 columns)
+        } else {
+          selectedIndex = 0; // Stay at top
+        }
         break;
       case 'ArrowDown':
+        event.preventDefault();
+        if (selectedIndex + 6 < filteredEmojis.length) {
+          selectedIndex += 6; // Move down one row (6 columns)
+        } else {
+          selectedIndex = filteredEmojis.length - 1; // Go to last item
+        }
+        break;
+      case 'ArrowLeft':
+        event.preventDefault();
+        selectedIndex = Math.max(0, selectedIndex - 1);
+        break;
+      case 'ArrowRight':
         event.preventDefault();
         selectedIndex = Math.min(filteredEmojis.length - 1, selectedIndex + 1);
         break;
@@ -71,6 +117,7 @@
       case '7':
       case '8':
       case '9':
+        event.preventDefault();
         const num = parseInt(event.key);
         const mapping = mappings.find(m => m.shortcut === num);
         if (mapping) {
@@ -87,12 +134,13 @@
   }
   
   onMount(() => {
-    // Focus search input
-    const input = pickerElement?.querySelector('input');
-    input?.focus();
+    // Focus the picker element itself for keyboard events
+    pickerElement?.focus();
     
     // Add click outside listener
-    document.addEventListener('click', handleClickOutside);
+    setTimeout(() => {
+      document.addEventListener('click', handleClickOutside);
+    }, 0);
     
     return () => {
       document.removeEventListener('click', handleClickOutside);
@@ -105,56 +153,73 @@
   style="left: {x}px; top: {y}px;"
   bind:this={pickerElement}
   on:keydown={handleKeydown}
+  tabindex="-1"
+  role="dialog"
+  aria-label="Emoji picker"
 >
   <div class="picker-header">
     <input
       type="text"
       placeholder="Search emoji..."
       bind:value={searchQuery}
-      on:keydown|stopPropagation
+      on:input={() => selectedIndex = 0}
     />
+    <div class="navigation-hint">
+      Use ↑↓←→ to navigate, Enter to select, Esc to close
+    </div>
   </div>
   
-  {#if recent.length > 0 && !searchQuery}
+  <div class="picker-body">
+    {#if recent.length > 0 && !searchQuery}
+      <div class="picker-section">
+        <div class="section-title">Recent</div>
+        <div class="emoji-grid">
+          {#each recent.slice(0, 6) as emoji, index}
+            <button
+              bind:this={emojiButtons[index]}
+              class="emoji-button"
+              class:selected={index === selectedIndex}
+              on:click={() => selectEmoji(emoji)}
+              on:mouseenter={() => selectedIndex = index}
+              title={emoji}
+              tabindex="-1"
+            >
+              <span class="emoji">{emoji}</span>
+            </button>
+          {/each}
+        </div>
+      </div>
+    {/if}
+    
     <div class="picker-section">
-      <div class="section-title">Recent</div>
+      <div class="section-title">
+        {searchQuery ? 'Search Results' : 'Quick Reactions'}
+      </div>
       <div class="emoji-grid">
-        {#each recent as emoji}
+        {#each filteredEmojis as item, index}
+          {@const startIndex = recent.length > 0 && !searchQuery ? 6 : 0}
+          {@const actualIndex = startIndex + index}
           <button
+            bind:this={emojiButtons[actualIndex]}
             class="emoji-button"
-            on:click={() => selectEmoji(emoji)}
-            title={emoji}
+            class:selected={actualIndex === selectedIndex}
+            on:click={() => selectEmoji('display' in item ? item.emoji : item)}
+            on:mouseenter={() => selectedIndex = actualIndex}
+            title={'display' in item ? item.emoji : item}
+            tabindex="-1"
           >
-            {emoji}
+            {#if 'shortcut' in item && item.shortcut}
+              <span class="shortcut">{item.shortcut}</span>
+            {/if}
+            <span class="emoji">{'display' in item ? item.display : item}</span>
           </button>
         {/each}
       </div>
     </div>
-  {/if}
-  
-  <div class="picker-section">
-    <div class="section-title">
-      {searchQuery ? 'Search Results' : 'Quick Reactions (1-9)'}
-    </div>
-    <div class="emoji-grid">
-      {#each filteredEmojis as item, index}
-        <button
-          class="emoji-button"
-          class:selected={index === selectedIndex}
-          on:click={() => selectEmoji(item.emoji)}
-          title={item.emoji}
-        >
-          {#if 'shortcut' in item}
-            <span class="shortcut">{item.shortcut}</span>
-          {/if}
-          <span class="emoji">{item.display}</span>
-        </button>
-      {/each}
-    </div>
   </div>
   
   <div class="picker-footer">
-    <span class="hint">Use number keys 1-9 for quick selection</span>
+    <span class="hint">Press 1-9 for quick reactions</span>
   </div>
 </div>
 
@@ -163,97 +228,168 @@
     position: fixed;
     background: var(--bg-primary);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    z-index: 1000;
-    min-width: 280px;
-    max-width: 320px;
-    max-height: 400px;
-    overflow-y: auto;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    z-index: 10000;
+    width: 420px;
+    max-height: 500px;
+    display: flex;
+    flex-direction: column;
+    outline: none;
+  }
+  
+  .reaction-picker:focus {
+    border-color: var(--primary);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), 0 0 0 2px var(--primary-bg);
   }
   
   .picker-header {
-    padding: 0.75rem;
+    padding: 1rem;
     border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
   }
   
   .picker-header input {
     width: 100%;
-    padding: 0.5rem;
+    padding: 0.625rem;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
-    border-radius: 4px;
+    border-radius: 6px;
     color: var(--text-primary);
-    font-size: 0.875rem;
+    font-size: 0.9375rem;
   }
   
   .picker-header input:focus {
     outline: none;
     border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-bg);
+  }
+  
+  .navigation-hint {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+  
+  .picker-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem 0;
   }
   
   .picker-section {
-    padding: 0.75rem;
+    padding: 0.5rem 1rem;
+  }
+  
+  .picker-section + .picker-section {
+    border-top: 1px solid var(--border);
+    margin-top: 0.5rem;
+    padding-top: 1rem;
   }
   
   .section-title {
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
     text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
   
   .emoji-grid {
     display: grid;
     grid-template-columns: repeat(6, 1fr);
-    gap: 0.25rem;
+    gap: 0.375rem;
   }
   
   .emoji-button {
     position: relative;
-    padding: 0.5rem;
+    width: 56px;
+    height: 56px;
+    padding: 0;
     background: transparent;
-    border: 1px solid transparent;
-    border-radius: 4px;
+    border: 2px solid transparent;
+    border-radius: 8px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s ease;
     display: flex;
     align-items: center;
     justify-content: center;
+    outline: none;
   }
   
   .emoji-button:hover {
     background: var(--bg-hover);
     border-color: var(--border);
+    transform: scale(1.05);
   }
   
   .emoji-button.selected {
     background: var(--primary-bg);
     border-color: var(--primary);
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .emoji-button:active {
+    transform: scale(0.95);
   }
   
   .emoji-button .shortcut {
     position: absolute;
-    top: 2px;
-    left: 4px;
-    font-size: 0.625rem;
-    font-weight: 600;
-    color: var(--text-secondary);
+    top: 4px;
+    left: 6px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--primary);
+    background: var(--bg-primary);
+    padding: 1px 3px;
+    border-radius: 3px;
+    line-height: 1;
+  }
+  
+  .emoji-button.selected .shortcut {
+    background: var(--primary);
+    color: white;
   }
   
   .emoji-button .emoji {
-    font-size: 1.25rem;
+    font-size: 1.75rem;
+    line-height: 1;
   }
   
   .picker-footer {
-    padding: 0.5rem 0.75rem;
+    padding: 0.75rem 1rem;
     border-top: 1px solid var(--border);
     background: var(--bg-secondary);
+    border-radius: 0 0 12px 12px;
+    flex-shrink: 0;
   }
   
   .hint {
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     color: var(--text-secondary);
+    display: block;
+    text-align: center;
+  }
+  
+  /* Scrollbar styling */
+  .picker-body::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .picker-body::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 4px;
+  }
+  
+  .picker-body::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+  }
+  
+  .picker-body::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
   }
 </style>
