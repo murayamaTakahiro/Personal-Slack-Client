@@ -136,6 +136,24 @@
   $: if (selected && enableReactions && !handlersRegistered) {
     const keyboardService = getKeyboardService();
     if (keyboardService) {
+      // Register 'r' key for opening reaction picker
+      keyboardService.registerHandler('openReactionPicker', {
+        action: () => {
+          // Simulate click event for opening reaction picker
+          const event = new MouseEvent('click');
+          const button = document.querySelector('.btn-reaction');
+          if (button) {
+            const rect = button.getBoundingClientRect();
+            reactionPickerPosition = {
+              x: rect.left,
+              y: rect.bottom + 5
+            };
+            showReactionPicker = true;
+          }
+        },
+        allowInInput: false
+      });
+      
       // Register number keys 1-9 for reactions
       for (let i = 1; i <= 9; i++) {
         keyboardService.registerHandler(`reaction${i}` as any, {
@@ -149,6 +167,7 @@
     // Unregister when deselected
     const keyboardService = getKeyboardService();
     if (keyboardService) {
+      keyboardService.unregisterHandler('openReactionPicker');
       for (let i = 1; i <= 9; i++) {
         keyboardService.unregisterHandler(`reaction${i}` as any);
       }
@@ -162,6 +181,7 @@
       if (handlersRegistered) {
         const keyboardService = getKeyboardService();
         if (keyboardService) {
+          keyboardService.unregisterHandler('openReactionPicker');
           for (let i = 1; i <= 9; i++) {
             keyboardService.unregisterHandler(`reaction${i}` as any);
           }
