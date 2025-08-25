@@ -1,4 +1,5 @@
-import { writable, derived } from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
+import { workspaceStore, activeWorkspace } from './workspaces';
 
 interface ChannelInfo {
   id: string;
@@ -242,31 +243,68 @@ function createChannelStore() {
           selectionMode: 'multi'
         };
       });
+    },
+    
+    // Reset the store to initial state (for workspace switching)
+    reset() {
+      update(() => ({
+        allChannels: [],
+        favorites: [],
+        recentChannels: [],
+        searchHistory: [],
+        selectedChannels: [],
+        selectionMode: 'single',
+        channelGroups: []
+      }));
     }
   };
 }
 
 // Persistent storage functions
 async function loadFavorites(): Promise<string[]> {
-  // Use localStorage
-  const stored = localStorage.getItem('channel_favorites');
-  return stored ? JSON.parse(stored) : [];
+  // Get from active workspace data
+  const workspace = get(activeWorkspace);
+  if (!workspace) return [];
+  
+  const state = get(workspaceStore);
+  const workspaceData = state.workspaceData[workspace.id];
+  return workspaceData?.channelFavorites || [];
 }
 
 async function saveFavorites(favorites: string[]): Promise<void> {
-  // Use localStorage
-  localStorage.setItem('channel_favorites', JSON.stringify(favorites));
+  // Save to active workspace data
+  const workspace = get(activeWorkspace);
+  if (!workspace) return;
+  
+  const state = get(workspaceStore);
+  const workspaceData = state.workspaceData[workspace.id] || {};
+  workspaceStore.updateWorkspaceData(workspace.id, {
+    ...workspaceData,
+    channelFavorites: favorites
+  });
 }
 
 async function loadRecentChannels(): Promise<string[]> {
-  // Use localStorage
-  const stored = localStorage.getItem('recent_channels');
-  return stored ? JSON.parse(stored) : [];
+  // Get from active workspace data
+  const workspace = get(activeWorkspace);
+  if (!workspace) return [];
+  
+  const state = get(workspaceStore);
+  const workspaceData = state.workspaceData[workspace.id];
+  return workspaceData?.recentChannels || [];
 }
 
 async function saveRecentChannels(recent: string[]): Promise<void> {
-  // Use localStorage
-  localStorage.setItem('recent_channels', JSON.stringify(recent));
+  // Save to active workspace data
+  const workspace = get(activeWorkspace);
+  if (!workspace) return;
+  
+  const state = get(workspaceStore);
+  const workspaceData = state.workspaceData[workspace.id] || {};
+  workspaceStore.updateWorkspaceData(workspace.id, {
+    ...workspaceData,
+    recentChannels: recent
+  });
 }
 
 async function loadChannelGroups(): Promise<ChannelGroup[]> {

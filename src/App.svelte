@@ -33,6 +33,7 @@
   import EmojiSettings from './lib/components/EmojiSettings.svelte';
   import RealtimeSettings from './lib/components/RealtimeSettings.svelte';
   import { workspaceStore, activeWorkspace } from './lib/stores/workspaces';
+  import { channelStore } from './lib/stores/channels';
   import { userService } from './lib/services/userService';
   import { reactionService, initializeReactionMappings } from './lib/services/reactionService';
   import { initializeConfig, watchConfigFile } from './lib/services/configService';
@@ -267,6 +268,7 @@
           
           // Clear channels and user cache before reloading
           channels = [];
+          channelStore.reset(); // Reset the channel store state
           if (userService && userService.clearCache) {
             userService.clearCache();
           }
@@ -449,6 +451,7 @@
     
     // Clear channels and user cache before loading new ones
     channels = [];
+    channelStore.reset(); // Reset the channel store state
     userService.clearCache();
     
     // Get the active workspace after the switch
