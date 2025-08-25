@@ -32,15 +32,23 @@
   // Check if multiple channels are selected
   $: isMultiChannel = $searchParams?.channel?.includes(',');
   
-  // Reset focus when messages change
-  $: if (messages) {
-    focusedIndex = -1;
+  // Reset focus only when messages actually change (new search)
+  let previousMessageLength = 0;
+  $: if (messages && messages.length !== previousMessageLength) {
+    // Only reset if it's a completely new set of messages (not just updates)
+    if (previousMessageLength === 0 || messages.length === 0) {
+      focusedIndex = -1;
+    }
+    previousMessageLength = messages.length;
   }
   
   export function focusList() {
     if (messages.length > 0) {
-      focusedIndex = 0;
-      updateFocus();
+      // Only reset to first item if no item is currently focused
+      if (focusedIndex === -1) {
+        focusedIndex = 0;
+        updateFocus();
+      }
       // Focus the list container to enable keyboard navigation
       if (listContainer) {
         listContainer.focus();
