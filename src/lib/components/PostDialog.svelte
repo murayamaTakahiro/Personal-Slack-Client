@@ -137,7 +137,7 @@
   }
 
   .post-dialog {
-    background: var(--color-background);
+    background: var(--bg-primary, #ffffff);
     border: 1px solid var(--color-border);
     border-radius: 8px;
     width: 90%;
@@ -145,7 +145,7 @@
     max-height: 600px;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15), 0 4px 6px rgba(0, 0, 0, 0.1);
   }
 
   .dialog-header {
@@ -217,6 +217,7 @@
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    background: var(--color-background, #ffffff);
   }
 
   textarea {
@@ -225,17 +226,21 @@
     padding: 12px;
     border: 1px solid var(--color-border);
     border-radius: 4px;
-    background: var(--color-input-background);
-    color: var(--color-text);
+    background: var(--color-background, #ffffff);
+    background-color: var(--bg-primary, #ffffff);
+    color: var(--color-text, #000000);
     font-family: inherit;
     font-size: 14px;
     resize: vertical;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, background-color 0.2s;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
   }
 
   textarea:focus {
     outline: none;
-    border-color: var(--color-primary);
+    border-color: var(--color-primary, #4a90e2);
+    background: var(--bg-primary, #ffffff);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 2px rgba(74, 144, 226, 0.1);
   }
 
   textarea:disabled {
@@ -311,5 +316,20 @@
     background: #400;
     border-color: #600;
     color: #faa;
+  }
+  
+  :global([data-theme='dark']) textarea {
+    background: #1a1a1a !important;
+    background-color: #1a1a1a !important;
+    color: #e0e0e0;
+    border-color: #444;
+  }
+  
+  :global([data-theme='dark']) .post-dialog {
+    background: #2a2a2a;
+  }
+  
+  :global([data-theme='dark']) .dialog-body {
+    background: #2a2a2a;
   }
 </style>
