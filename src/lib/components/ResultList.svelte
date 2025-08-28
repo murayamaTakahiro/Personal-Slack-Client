@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import type { Message } from '../types/slack';
   import MessageItem from './MessageItem.svelte';
+  import PostDialog from './PostDialog.svelte';
   import { selectedMessage, searchParams } from '../stores/search';
   import { getKeyboardService } from '../services/keyboardService';
   
@@ -12,6 +13,10 @@
   let focusedIndex = -1;
   let listContainer: HTMLDivElement;
   let messageElements: HTMLElement[] = [];
+  
+  // Post dialog state
+  let showPostDialog = false;
+  let postMode: 'channel' | 'thread' = 'channel';
   
   function handleMessageClick(message: Message) {
     selectedMessage.set(message);
@@ -109,6 +114,22 @@
     updateFocus();
   }
   
+  function openPostDialog(mode: 'channel' | 'thread') {
+    if (focusedIndex >= 0 && focusedIndex < messages.length) {
+      postMode = mode;
+      showPostDialog = true;
+    }
+  }
+  
+  function handlePostSuccess() {
+    showPostDialog = false;
+    // Optionally show a success notification
+  }
+  
+  function handlePostCancel() {
+    showPostDialog = false;
+  }
+  
   function handleKeyDown(event: KeyboardEvent) {
     // Check if thread view has focus - if so, don't handle navigation here
     const threadViewElement = document.querySelector('.thread-view');
@@ -116,13 +137,30 @@
       return; // Let thread view handle its own navigation
     }
     
-    // Only handle Enter key directly - arrow keys are handled by keyboard service
+    // Don't handle shortcuts if post dialog is open
+    if (showPostDialog) {
+      return;
+    }
+    
+    // Handle Enter key
     if (event.key === 'Enter') {
       event.preventDefault();
       if (focusedIndex >= 0 && focusedIndex < messages.length) {
         const message = messages[focusedIndex];
         selectedMessage.set(message);
       }
+    }
+    
+    // Shift+R: Post to channel
+    if (event.shiftKey && event.key === 'R' && !event.ctrlKey) {
+      event.preventDefault();
+      openPostDialog('channel');
+    }
+    
+    // Ctrl+Shift+R: Reply to thread
+    if (event.ctrlKey && event.shiftKey && event.key === 'R') {
+      event.preventDefault();
+      openPostDialog('thread');
     }
   }
   
@@ -246,6 +284,18 @@
         </div>
       {/each}
     </div>
+  {/if}
+  
+  {#if showPostDialog && focusedIndex >= 0 && focusedIndex < messages.length}
+    <PostDialog
+      mode={postMode}
+      channelId={messages[focusedIndex].channel}
+      channelName={messages[focusedIndex].channelName || messages[focusedIndex].channel}
+      threadTs={postMode === 'thread' ? messages[focusedIndex].ts : ''}
+      messagePreview={postMode === 'thread' ? messages[focusedIndex].text.slice(0, 100) : ''}
+      on:success={handlePostSuccess}
+      on:cancel={handlePostCancel}
+    />
   {/if}
 </div>
 
