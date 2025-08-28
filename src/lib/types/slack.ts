@@ -138,3 +138,19 @@ export interface UserFavorite {
   alias?: string;    // User-defined alias for easy identification
   avatar?: string;   // Avatar URL
 }
+
+// Message posting types
+export interface PostMessageResponse {
+  ok: boolean;
+  channel: string;
+  ts: string;
+  message?: PostedMessage;
+  error?: string;
+}
+
+export interface PostedMessage {
+  text: string;
+  user: string;
+  ts: string;
+  threadTs?: string;
+}

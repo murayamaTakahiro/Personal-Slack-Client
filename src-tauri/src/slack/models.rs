@@ -229,3 +229,32 @@ pub struct ReactionResponse {
     pub ok: bool,
     pub error: Option<String>,
 }
+
+// Post message models
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PostMessageRequest {
+    pub channel: String,
+    pub text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_ts: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PostMessageResponse {
+    pub ok: bool,
+    pub channel: String,
+    pub ts: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<PostedMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PostedMessage {
+    pub text: String,
+    pub user: String,
+    pub ts: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_ts: Option<String>,
+}

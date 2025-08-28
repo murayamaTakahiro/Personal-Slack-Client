@@ -3,7 +3,8 @@ import type {
   SearchParams, 
   SearchResult, 
   ThreadMessages, 
-  ParsedUrl
+  ParsedUrl,
+  PostMessageResponse
 } from '../types/slack';
 
 export async function searchMessages(params: SearchParams): Promise<SearchResult> {
@@ -47,4 +48,31 @@ export async function testConnection(token: string): Promise<boolean> {
 
 export async function initTokenFromStorage(): Promise<boolean> {
   return await invoke('init_token_from_storage', {});
+}
+
+// Message posting functions
+export async function postToChannel(
+  channelId: string, 
+  text: string
+): Promise<PostMessageResponse> {
+  return await invoke('post_to_channel', {
+    channelId,
+    text
+  });
+}
+
+export async function postThreadReply(
+  channelId: string,
+  threadTs: string,
+  text: string
+): Promise<PostMessageResponse> {
+  return await invoke('post_thread_reply', {
+    channelId,
+    threadTs,
+    text
+  });
+}
+
+export async function checkPostingPermissions(): Promise<boolean> {
+  return await invoke('check_posting_permissions', {});
 }
