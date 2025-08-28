@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import { postToChannel, postThreadReply } from '../api/slack';
   
   export let mode: 'channel' | 'thread';
@@ -14,6 +14,13 @@
   let posting = false;
   let error: string | null = null;
   
+  // Reset state when component mounts (dialog opens)
+  onMount(() => {
+    text = '';
+    error = null;
+    posting = false;
+  });
+  
   async function handlePost() {
     if (!text.trim()) return;
     
@@ -27,6 +34,7 @@
         await postThreadReply(channelId, threadTs, text);
       }
       
+      text = ''; // Reset text after successful post
       dispatch('success');
       handleCancel();
     } catch (err) {
@@ -37,6 +45,8 @@
   }
   
   function handleCancel() {
+    text = ''; // Reset text when canceling
+    error = null; // Clear any errors
     dispatch('cancel');
   }
   
