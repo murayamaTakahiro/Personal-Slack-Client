@@ -18,6 +18,7 @@
   let showPostDialog = false;
   let postMode: 'channel' | 'thread' = 'channel';
   
+  
   function handleMessageClick(message: Message) {
     selectedMessage.set(message);
     const index = messages.findIndex(m => m.ts === message.ts);
@@ -123,11 +124,22 @@
   
   function handlePostSuccess() {
     showPostDialog = false;
-    // Optionally show a success notification
+    // Refocus the list container immediately
+    requestAnimationFrame(() => {
+      if (listContainer) {
+        listContainer.focus();
+      }
+    });
   }
   
   function handlePostCancel() {
     showPostDialog = false;
+    // Refocus the list container immediately
+    requestAnimationFrame(() => {
+      if (listContainer) {
+        listContainer.focus();
+      }
+    });
   }
   
   function handleKeyDown(event: KeyboardEvent) {
@@ -149,18 +161,31 @@
         const message = messages[focusedIndex];
         selectedMessage.set(message);
       }
+      return;
     }
     
-    // Shift+R: Post to channel
-    if (event.shiftKey && event.key === 'R' && !event.ctrlKey) {
-      event.preventDefault();
-      openPostDialog('channel');
+    // P key: Post to channel
+    if (event.key === 'p' || event.key === 'P') {
+      if (!event.ctrlKey && !event.altKey && !event.metaKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (focusedIndex >= 0 && focusedIndex < messages.length) {
+          openPostDialog('channel');
+        }
+        return;
+      }
     }
     
-    // Ctrl+Shift+R: Reply to thread
-    if (event.ctrlKey && event.shiftKey && event.key === 'R') {
-      event.preventDefault();
-      openPostDialog('thread');
+    // T key: Thread reply
+    if (event.key === 't' || event.key === 'T') {
+      if (!event.ctrlKey && !event.altKey && !event.metaKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (focusedIndex >= 0 && focusedIndex < messages.length) {
+          openPostDialog('thread');
+        }
+        return;
+      }
     }
   }
   

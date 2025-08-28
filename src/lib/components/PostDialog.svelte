@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher, onMount, tick } from 'svelte';
   import { postToChannel, postThreadReply } from '../api/slack';
   
   export let mode: 'channel' | 'thread';
@@ -13,12 +13,21 @@
   let text = '';
   let posting = false;
   let error: string | null = null;
+  let textareaElement: HTMLTextAreaElement;
   
-  // Reset state when component mounts (dialog opens)
+  // Reset state and focus when component mounts (dialog opens)
   onMount(() => {
     text = '';
     error = null;
     posting = false;
+    
+    // Focus the textarea after a tick
+    tick().then(() => {
+      if (textareaElement) {
+        textareaElement.focus();
+        textareaElement.select();
+      }
+    });
   });
   
   async function handlePost() {
@@ -79,11 +88,11 @@
     
     <div class="dialog-body">
       <textarea
+        bind:this={textareaElement}
         bind:value={text}
         on:keydown={handleKeydown}
         placeholder="Type your message..."
         disabled={posting}
-        autofocus
       />
       
       {#if error}
