@@ -130,9 +130,10 @@ export class KeyboardService {
     if (!this.enabled) return false;
 
     // Only log for specific keys to reduce noise
-    if (['r', 'p', 't'].includes(event.key.toLowerCase())) {
+    if (['r', 'p', 't'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey)) {
       console.log('🔍 DEBUG: KeyboardService handling key event', {
         key: event.key,
+        altKey: event.altKey,
         enabled: this.enabled,
         handlerCount: this.handlers.size,
         registeredKeys: Array.from(this.handlers.keys())
@@ -160,7 +161,7 @@ export class KeyboardService {
       
       if (shortcut && this.matchesShortcut(event, shortcut)) {
         // Only log for relevant keys to reduce noise
-        if (['r', 'p', 't'].includes(event.key.toLowerCase()) || ['openReactionPicker', 'postMessage', 'replyInThread'].includes(shortcutKey)) {
+        if (['r', 'p', 't'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || ['openReactionPicker', 'postMessage', 'replyInThread', 'openUrls'].includes(shortcutKey)) {
           console.log('🔍 DEBUG: Handler matched', {
             shortcutKey,
             shortcut,

@@ -321,11 +321,10 @@
         });
       }
       
-      // Register Alt+Enter for opening URLs
-      keyboardService.registerHandler('openUrls', {
-        action: handleOpenUrls,
-        allowInInput: false
-      });
+      // NOTE: We don't register Alt+Enter (openUrls) here because:
+      // 1. ResultList already handles it for the focused message
+      // 2. Multiple registrations would overwrite each other
+      // 3. The ResultList's handler properly gets the focused message
       
       handlersRegistered = true;
       console.log('🔍 DEBUG: Keyboard handlers registered successfully');
@@ -353,7 +352,7 @@
       // Always attempt to unregister, even if handlersRegistered is false
       // This handles cases where state might be inconsistent during Live mode
       keyboardService.unregisterHandler('openReactionPicker');
-      keyboardService.unregisterHandler('openUrls');
+      // NOTE: We don't unregister openUrls since we never register it
       for (let i = 1; i <= 9; i++) {
         keyboardService.unregisterHandler(`reaction${i}` as any);
       }
