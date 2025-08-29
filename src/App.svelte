@@ -59,7 +59,6 @@
   
   onMount(async () => {
     // Simple initialization - just use DEFAULT_REACTION_MAPPINGS
-    console.log('[App] Starting with DEFAULT_REACTION_MAPPINGS from reactionService.ts');
     
     // Initialize settings from persistent store
     const currentSettings = await initializeSettings();
