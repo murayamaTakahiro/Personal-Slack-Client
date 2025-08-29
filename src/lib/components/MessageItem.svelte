@@ -283,7 +283,8 @@
 
 {#if showReactionPicker}
   <ReactionPicker
-    position={reactionPickerPosition}
+    x={reactionPickerPosition.x}
+    y={reactionPickerPosition.y}
     on:select={handleEmojiSelect}
     on:close={closeReactionPicker}
   />
