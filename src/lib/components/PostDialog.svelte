@@ -224,16 +224,15 @@
     flex: 1;
     min-height: 200px;
     padding: 12px;
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-border, #ddd);
     border-radius: 4px;
-    background: var(--color-background, #ffffff);
-    background-color: var(--bg-primary, #ffffff);
-    color: var(--color-text, #000000);
+    background: var(--bg-primary, #ffffff);
+    color: var(--text-primary, #ffffff);
     font-family: inherit;
     font-size: 14px;
     resize: vertical;
     transition: border-color 0.2s, background-color 0.2s;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
   }
 
   textarea:focus {
@@ -319,10 +318,16 @@
   }
   
   :global([data-theme='dark']) textarea {
-    background: #1a1a1a !important;
-    background-color: #1a1a1a !important;
-    color: #e0e0e0;
+    background: #2a2a2a !important;
+    color: #ffffff !important;
     border-color: #444;
+  }
+  
+  /* Light mode explicit styles */
+  :global([data-theme='light']) textarea {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border-color: #ddd;
   }
   
   :global([data-theme='dark']) .post-dialog {
