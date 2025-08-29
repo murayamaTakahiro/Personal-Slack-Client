@@ -82,8 +82,20 @@ export class KeyboardService {
    */
   registerHandler(shortcutKey: keyof KeyboardShortcuts, handler: KeyboardHandler): void {
     const shortcut = this.shortcuts[shortcutKey];
+    console.log('🔍 DEBUG: KeyboardService registerHandler', {
+      shortcutKey,
+      shortcut,
+      handlerCount: this.handlers.size
+    });
     if (shortcut) {
       this.handlers.set(shortcutKey, handler);
+      console.log('🔍 DEBUG: Handler registered', { 
+        shortcutKey, 
+        newHandlerCount: this.handlers.size,
+        registeredKeys: Array.from(this.handlers.keys())
+      });
+    } else {
+      console.warn('🔍 DEBUG: No shortcut found for key:', shortcutKey);
     }
   }
 
@@ -91,7 +103,13 @@ export class KeyboardService {
    * Unregister a keyboard shortcut handler
    */
   unregisterHandler(shortcutKey: keyof KeyboardShortcuts): void {
-    this.handlers.delete(shortcutKey);
+    const deleted = this.handlers.delete(shortcutKey);
+    console.log('🔍 DEBUG: KeyboardService unregisterHandler', {
+      shortcutKey,
+      deleted,
+      remainingHandlerCount: this.handlers.size,
+      remainingKeys: Array.from(this.handlers.keys())
+    });
   }
 
   /**
@@ -106,6 +124,16 @@ export class KeyboardService {
    */
   handleKeyboardEvent(event: KeyboardEvent): boolean {
     if (!this.enabled) return false;
+
+    // Only log for 'r' key specifically to reduce noise
+    if (event.key.toLowerCase() === 'r') {
+      console.log('🔍 DEBUG: KeyboardService handling key event', {
+        key: event.key,
+        enabled: this.enabled,
+        handlerCount: this.handlers.size,
+        registeredKeys: Array.from(this.handlers.keys())
+      });
+    }
 
     // Check if the event target is an input element
     const target = event.target as HTMLElement;
@@ -127,8 +155,21 @@ export class KeyboardService {
       const shortcut = this.shortcuts[shortcutKey as keyof KeyboardShortcuts];
       
       if (shortcut && this.matchesShortcut(event, shortcut)) {
+        // Only log for relevant keys to reduce noise
+        if (event.key.toLowerCase() === 'r' || shortcutKey === 'openReactionPicker') {
+          console.log('🔍 DEBUG: Handler matched', {
+            shortcutKey,
+            shortcut,
+            isInInput,
+            allowInInput: handler.allowInInput
+          });
+        }
+        
         // Skip if in input field and handler doesn't allow it
         if (isInInput && !handler.allowInInput) {
+          if (event.key.toLowerCase() === 'r') {
+            console.log('🔍 DEBUG: Skipping handler - in input and not allowed');
+          }
           continue;
         }
 
@@ -140,10 +181,18 @@ export class KeyboardService {
           event.stopPropagation();
         }
         
+        if (event.key.toLowerCase() === 'r') {
+          console.log('🔍 DEBUG: Executing handler action for', shortcutKey);
+        }
+        
         // Execute the action
         Promise.resolve(handler.action()).catch(console.error);
         return true;
       }
+    }
+
+    if (event.key.toLowerCase() === 'r') {
+      console.log('🔍 DEBUG: No handler matched for key event');
     }
 
     return false;

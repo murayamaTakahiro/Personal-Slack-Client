@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
+  import { createEventDispatcher, onMount, onDestroy, tick } from 'svelte';
   import { reactionMappings, recentReactions } from '../services/reactionService';
   import type { ReactionMapping } from '../types/slack';
   
@@ -12,6 +12,22 @@
   let selectedIndex = 0;
   let pickerElement: HTMLDivElement;
   let emojiButtons: HTMLButtonElement[] = [];
+  
+  // Reset state when component mounts (picker opens)
+  onMount(() => {
+    console.log('🔍 DEBUG: ReactionPicker mounted');
+    searchQuery = '';
+    selectedIndex = 0;
+    emojiButtons = [];
+    
+    // Use tick to ensure proper focus management
+    tick().then(() => {
+      if (pickerElement) {
+        pickerElement.focus();
+        console.log('🔍 DEBUG: ReactionPicker focused after tick');
+      }
+    });
+  });
   
   $: mappings = $reactionMappings;
   $: recent = $recentReactions.slice(0, 5);
@@ -55,11 +71,17 @@
   }
   
   function selectEmoji(emoji: string) {
+    console.log('🔍 DEBUG: ReactionPicker selectEmoji called', { emoji });
     dispatch('select', { emoji });
     close();
   }
   
   function close() {
+    console.log('🔍 DEBUG: ReactionPicker close called');
+    // Reset all state when closing
+    searchQuery = '';
+    selectedIndex = 0;
+    emojiButtons = [];
     dispatch('close');
   }
   
@@ -128,22 +150,30 @@
   }
   
   function handleClickOutside(event: MouseEvent) {
+    console.log('🔍 DEBUG: ReactionPicker handleClickOutside', {
+      target: event.target,
+      pickerElement: !!pickerElement,
+      contains: pickerElement?.contains(event.target as Node)
+    });
     if (pickerElement && !pickerElement.contains(event.target as Node)) {
+      console.log('🔍 DEBUG: Click outside detected, closing picker');
       close();
     }
   }
   
   onMount(() => {
-    // Focus the picker element itself for keyboard events
-    pickerElement?.focus();
+    console.log('🔍 DEBUG: ReactionPicker onMount - setting up event listeners');
     
-    // Add click outside listener
-    setTimeout(() => {
-      document.addEventListener('click', handleClickOutside);
-    }, 0);
+    // Add click outside listener with a slight delay to avoid immediate triggers
+    const timeoutId = setTimeout(() => {
+      console.log('🔍 DEBUG: Adding click outside listener');
+      document.addEventListener('click', handleClickOutside, true); // Use capture phase
+    }, 100); // Increased delay to ensure proper setup
     
     return () => {
-      document.removeEventListener('click', handleClickOutside);
+      console.log('🔍 DEBUG: ReactionPicker cleanup - removing event listeners');
+      clearTimeout(timeoutId);
+      document.removeEventListener('click', handleClickOutside, true);
     };
   });
 </script>

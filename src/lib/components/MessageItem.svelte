@@ -21,6 +21,26 @@
   // Update reactions when message prop changes (for realtime mode)
   $: reactions = message.reactions || [];
   
+  // Ensure handlers are properly registered after Live mode updates
+  // This handles cases where the message prop changes during realtime updates
+  $: if (message) {
+    // Re-register handlers if this message is selected but handlers aren't registered
+    // This can happen during Live mode when components are updated
+    if (selected && enableReactions && !handlersRegistered) {
+      console.log('🔍 DEBUG: Message updated, re-registering handlers for selected message', {
+        messageTs: message.ts,
+        selected,
+        handlersRegistered
+      });
+      // Use setTimeout to avoid issues with reactive updates
+      setTimeout(() => {
+        if (selected && enableReactions && !handlersRegistered) {
+          registerKeyboardHandlers();
+        }
+      }, 10);
+    }
+  }
+  
   $: mappings = $reactionMappings;
   
   function formatTimestamp(ts: string) {
@@ -99,7 +119,7 @@
   }
   
   function openReactionPicker(event: MouseEvent) {
-    if (!enableReactions) return;
+    if (!enableReactions || isPickerOpen) return;
     
     event.stopPropagation();
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
@@ -108,15 +128,46 @@
       y: rect.bottom + 5
     };
     showReactionPicker = true;
+    isPickerOpen = true;
+    console.log('🔍 DEBUG: Reaction picker opened via mouse click');
   }
   
   function closeReactionPicker() {
+    console.log('🔍 DEBUG: closeReactionPicker called', {
+      showReactionPicker: showReactionPicker,
+      isPickerOpen,
+      selected,
+      enableReactions,
+      handlersRegistered
+    });
     showReactionPicker = false;
+    isPickerOpen = false;
+    
+    // Force re-registration of keyboard handlers after a short delay
+    // This ensures the handlers are properly restored after picker cleanup
+    setTimeout(() => {
+      if (selected && enableReactions) {
+        console.log('🔍 DEBUG: Force re-registering keyboard handlers after picker close');
+        // First unregister to clean up any stale handlers
+        unregisterKeyboardHandlers();
+        // Then register fresh handlers
+        registerKeyboardHandlers();
+      }
+    }, 50);
   }
   
   async function handleEmojiSelect(event: CustomEvent<{emoji: string}>) {
     const { emoji } = event.detail;
+    console.log('🔍 DEBUG: handleEmojiSelect called', {
+      emoji,
+      showReactionPicker: showReactionPicker,
+      isPickerOpen,
+      selected,
+      enableReactions,
+      handlersRegistered
+    });
     showReactionPicker = false;
+    isPickerOpen = false;
     
     if (!enableReactions) return;
     
@@ -124,23 +175,65 @@
       await reactionService.toggleReaction(message.channel, message.ts, emoji, reactions);
       // Refresh reactions
       reactions = await reactionService.getReactions(message.channel, message.ts);
+      
+      // Force re-registration of keyboard handlers after emoji selection
+      setTimeout(() => {
+        if (selected && enableReactions) {
+          console.log('🔍 DEBUG: Force re-registering keyboard handlers after emoji selection');
+          // First unregister to clean up any stale handlers
+          unregisterKeyboardHandlers();
+          // Then register fresh handlers
+          registerKeyboardHandlers();
+        }
+      }, 50);
     } catch (error) {
       console.error('Failed to toggle reaction:', error);
     }
   }
   
-  // Track if handlers are registered to avoid duplication
+  // Track keyboard handler registration more reliably
   let handlersRegistered = false;
+  let isPickerOpen = false; // Track picker state separately
   
-  // Register keyboard shortcuts when selected
-  $: if (selected && enableReactions && !handlersRegistered) {
+  function registerKeyboardHandlers() {
     const keyboardService = getKeyboardService();
-    if (keyboardService) {
+    console.log('🔍 DEBUG: registerKeyboardHandlers called', {
+      keyboardService: !!keyboardService,
+      handlersRegistered,
+      selected,
+      enableReactions,
+      messageTs: message.ts
+    });
+    
+    if (!keyboardService) {
+      console.log('🔍 DEBUG: No keyboard service available');
+      return;
+    }
+    
+    // Always ensure clean state before registering
+    if (handlersRegistered) {
+      console.log('🔍 DEBUG: Handlers already registered, unregistering first for clean state');
+      unregisterKeyboardHandlers();
+    }
+    
+    try {
       // Register 'r' key for opening reaction picker
       keyboardService.registerHandler('openReactionPicker', {
         action: () => {
-          // Simulate click event for opening reaction picker
-          const event = new MouseEvent('click');
+          console.log('🔍 DEBUG: openReactionPicker action triggered', { 
+            showReactionPicker, 
+            isPickerOpen,
+            selected, 
+            enableReactions 
+          });
+          
+          // Prevent opening if picker is already open
+          if (isPickerOpen || showReactionPicker) {
+            console.log('🔍 DEBUG: Picker already open, ignoring keyboard trigger');
+            return;
+          }
+          
+          // Find the reaction button in this specific message item
           const button = document.querySelector('.btn-reaction');
           if (button) {
             const rect = button.getBoundingClientRect();
@@ -148,7 +241,15 @@
               x: rect.left,
               y: rect.bottom + 5
             };
+            // Reset picker state before opening
             showReactionPicker = true;
+            isPickerOpen = true;
+            console.log('🔍 DEBUG: Reaction picker opened via keyboard', { 
+              position: reactionPickerPosition,
+              showReactionPicker: true
+            });
+          } else {
+            console.log('🔍 DEBUG: No .btn-reaction button found');
           }
         },
         allowInInput: false
@@ -161,33 +262,58 @@
           allowInInput: false
         });
       }
+      
       handlersRegistered = true;
+      console.log('🔍 DEBUG: Keyboard handlers registered successfully');
+    } catch (error) {
+      console.error('Failed to register keyboard handlers:', error);
     }
-  } else if (!selected && handlersRegistered) {
-    // Unregister when deselected
+  }
+  
+  function unregisterKeyboardHandlers() {
     const keyboardService = getKeyboardService();
-    if (keyboardService) {
+    console.log('🔍 DEBUG: unregisterKeyboardHandlers called', {
+      keyboardService: !!keyboardService,
+      handlersRegistered,
+      selected,
+      messageTs: message.ts
+    });
+    
+    if (!keyboardService) {
+      console.log('🔍 DEBUG: No keyboard service available');
+      handlersRegistered = false; // Reset state even if service unavailable
+      return;
+    }
+    
+    try {
+      // Always attempt to unregister, even if handlersRegistered is false
+      // This handles cases where state might be inconsistent during Live mode
       keyboardService.unregisterHandler('openReactionPicker');
       for (let i = 1; i <= 9; i++) {
         keyboardService.unregisterHandler(`reaction${i}` as any);
       }
       handlersRegistered = false;
+      console.log('🔍 DEBUG: Keyboard handlers unregistered successfully');
+    } catch (error) {
+      console.error('Failed to unregister keyboard handlers:', error);
+      handlersRegistered = false; // Reset state even on error
     }
+  }
+  
+  // Register/unregister keyboard shortcuts when selection changes
+  // Use a more stable approach that handles Live mode re-renders
+  $: if (selected && enableReactions && !handlersRegistered) {
+    // Only register if not already registered to prevent duplicate handlers
+    registerKeyboardHandlers();
+  } else if (!selected && handlersRegistered) {
+    // Only unregister if currently registered
+    unregisterKeyboardHandlers();
   }
   
   onMount(() => {
     return () => {
       // Cleanup keyboard handlers on unmount
-      if (handlersRegistered) {
-        const keyboardService = getKeyboardService();
-        if (keyboardService) {
-          keyboardService.unregisterHandler('openReactionPicker');
-          for (let i = 1; i <= 9; i++) {
-            keyboardService.unregisterHandler(`reaction${i}` as any);
-          }
-        }
-        handlersRegistered = false;
-      }
+      unregisterKeyboardHandlers();
     };
   });
 </script>

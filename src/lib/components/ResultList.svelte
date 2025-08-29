@@ -297,7 +297,7 @@
       role="list"
       aria-label="Search results"
       on:keydown={handleKeyDown}>
-      {#each messages as message, index}
+      {#each messages as message, index (message.ts)}
         <div bind:this={messageElements[index]}>
           <MessageItem 
             {message}
