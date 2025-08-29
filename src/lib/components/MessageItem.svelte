@@ -200,18 +200,8 @@
     });
     showReactionPicker = false;
     isPickerOpen = false;
-    
-    // Force re-registration of keyboard handlers after a short delay
-    // This ensures the handlers are properly restored after picker cleanup
-    setTimeout(() => {
-      if (selected && enableReactions) {
-        console.log('🔍 DEBUG: Force re-registering keyboard handlers after picker close');
-        // First unregister to clean up any stale handlers
-        unregisterKeyboardHandlers();
-        // Then register fresh handlers
-        registerKeyboardHandlers();
-      }
-    }, 50);
+    // NOTE: No re-registration needed here - handlers should remain registered
+    // for the selected message until selection changes
   }
   
   async function handleEmojiSelect(event: CustomEvent<{emoji: string}>) {
@@ -233,17 +223,7 @@
       await reactionService.toggleReaction(message.channel, message.ts, emoji, reactions);
       // Refresh reactions
       reactions = await reactionService.getReactions(message.channel, message.ts);
-      
-      // Force re-registration of keyboard handlers after emoji selection
-      setTimeout(() => {
-        if (selected && enableReactions) {
-          console.log('🔍 DEBUG: Force re-registering keyboard handlers after emoji selection');
-          // First unregister to clean up any stale handlers
-          unregisterKeyboardHandlers();
-          // Then register fresh handlers
-          registerKeyboardHandlers();
-        }
-      }, 50);
+      // NOTE: No re-registration needed - handlers remain active for selected message
     } catch (error) {
       console.error('Failed to toggle reaction:', error);
     }
@@ -268,11 +248,8 @@
       return;
     }
     
-    // Always ensure clean state before registering
-    if (handlersRegistered) {
-      console.log('🔍 DEBUG: Handlers already registered, unregistering first for clean state');
-      unregisterKeyboardHandlers();
-    }
+    // Always proceed with registration to ensure handlers are active
+    // handlersRegistered flag will be set at the end
     
     try {
       // Register 'r' key for opening reaction picker
@@ -366,12 +343,27 @@
   
   // Register/unregister keyboard shortcuts when selection changes
   // Use a more stable approach that handles Live mode re-renders
-  $: if (selected && enableReactions && !handlersRegistered) {
-    // Only register if not already registered to prevent duplicate handlers
-    registerKeyboardHandlers();
-  } else if (!selected && handlersRegistered) {
-    // Only unregister if currently registered
-    unregisterKeyboardHandlers();
+  let previousSelected = false;
+  $: if (selected !== previousSelected) {
+    // Selection state changed
+    previousSelected = selected;
+    
+    if (selected && enableReactions) {
+      // Always re-register when becoming selected to ensure handlers are active
+      // First unregister to clean up any stale state
+      if (handlersRegistered) {
+        unregisterKeyboardHandlers();
+      }
+      // Use a small delay to ensure proper cleanup
+      setTimeout(() => {
+        if (selected && enableReactions) {
+          registerKeyboardHandlers();
+        }
+      }, 10);
+    } else if (!selected && handlersRegistered) {
+      // Unregister when deselected
+      unregisterKeyboardHandlers();
+    }
   }
   
   onMount(() => {
