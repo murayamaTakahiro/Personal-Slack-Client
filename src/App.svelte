@@ -271,6 +271,10 @@
           searchError.set(null);
           searchLoading.set(false);
           
+          // Reset realtime mode when clearing search
+          realtimeStore.setEnabled(false);
+          stopRealtimeUpdates();
+          
           // Clear channels and user cache before reloading
           channels = [];
           channelStore.reset(); // Reset the channel store state
