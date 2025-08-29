@@ -97,6 +97,7 @@ export interface KeyboardShortcuts {
   postMessage?: string;
   replyInThread?: string;
   openReactionPicker?: string;
+  openUrls?: string;
   reaction1?: string;
   reaction2?: string;
   reaction3?: string;

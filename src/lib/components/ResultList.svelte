@@ -5,6 +5,9 @@
   import PostDialog from './PostDialog.svelte';
   import { selectedMessage, searchParams } from '../stores/search';
   import { getKeyboardService } from '../services/keyboardService';
+  import { urlService } from '../services/urlService';
+  import { openUrlsSmart } from '../api/urls';
+  import { showInfo, showError } from '../stores/toast';
   
   export let messages: Message[] = [];
   export let loading = false;
@@ -144,6 +147,66 @@
     });
   }
   
+  async function handleOpenUrls() {
+    if (focusedIndex < 0 || focusedIndex >= messages.length) return;
+    
+    const messageToOpen = messages[focusedIndex];
+    
+    try {
+      // Extract URLs from message text
+      const extractedUrls = urlService.extractUrls(messageToOpen.text);
+      
+      // Check if we have URLs to open
+      if (extractedUrls.slackUrls.length === 0 && extractedUrls.externalUrls.length === 0) {
+        showInfo('No URLs found', 'This message does not contain any URLs to open.');
+        return;
+      }
+      
+      // Prepare URLs for opening (first Slack URL, all external URLs)
+      const prepared = urlService.prepareUrlsForOpening(extractedUrls);
+      
+      // Check if confirmation is needed for too many external URLs
+      if (urlService.requiresConfirmation(prepared.externalUrls.length)) {
+        const confirmed = confirm(`Opening ${prepared.externalUrls.length} external URLs. Continue?`);
+        if (!confirmed) {
+          showInfo('Cancelled', 'URL opening was cancelled by user.');
+          return;
+        }
+      }
+      
+      // Show user-friendly message
+      const openingMessage = urlService.generateOpeningMessage(
+        extractedUrls.slackUrls.length, 
+        extractedUrls.externalUrls.length
+      );
+      showInfo('Opening URLs', openingMessage);
+      
+      // Open URLs with smart handling
+      const result = await openUrlsSmart(
+        prepared.slackUrl,
+        prepared.externalUrls,
+        200 // 200ms delay between openings
+      );
+      
+      // Show result
+      if (result.errors.length > 0) {
+        showError('Some URLs failed to open', result.errors.join(', '));
+      }
+      
+      // CRITICAL: Ensure list container maintains focus after URL opening
+      // This prevents focus loss issues that occur with navigation direction
+      setTimeout(() => {
+        if (listContainer) {
+          listContainer.focus();
+        }
+      }, 100);
+      
+    } catch (error) {
+      console.error('Failed to open URLs:', error);
+      showError('Failed to open URLs', error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+  
   function handlePostCancel() {
     showPostDialog = false;
     // Refocus the list container immediately
@@ -262,6 +325,22 @@
       },
       allowInInput: false
     });
+    
+    // Open URLs (Alt+Enter)
+    keyboardService.registerHandler('openUrls', {
+      action: async () => {
+        // CRITICAL: Ensure focus is on list container before handling
+        // This prevents the focus direction issue
+        if (listContainer && document.activeElement !== listContainer) {
+          listContainer.focus();
+        }
+        
+        if (focusedIndex >= 0 && focusedIndex < messages.length) {
+          await handleOpenUrls();
+        }
+      },
+      allowInInput: false
+    });
   });
   
   onDestroy(() => {
@@ -274,6 +353,7 @@
       keyboardService.unregisterHandler('replyInThread');
       keyboardService.unregisterHandler('jumpToFirst');
       keyboardService.unregisterHandler('jumpToLast');
+      keyboardService.unregisterHandler('openUrls');
     }
   });
 </script>

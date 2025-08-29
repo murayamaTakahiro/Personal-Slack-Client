@@ -129,6 +129,7 @@
       postMessage: 'p',
       replyInThread: 't',
       openReactionPicker: 'r',
+      openUrls: 'Alt+Enter',
       reaction1: '1',
       reaction2: '2',
       reaction3: '3',
