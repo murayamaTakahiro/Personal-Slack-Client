@@ -115,6 +115,18 @@
     updateFocus();
   }
   
+  function jumpToFirst() {
+    if (messages.length === 0) return;
+    focusedIndex = 0;
+    updateFocus();
+  }
+  
+  function jumpToLast() {
+    if (messages.length === 0) return;
+    focusedIndex = messages.length - 1;
+    updateFocus();
+  }
+  
   function openPostDialog(mode: 'channel' | 'thread') {
     if (focusedIndex >= 0 && focusedIndex < messages.length) {
       postMode = mode;
@@ -230,6 +242,26 @@
       },
       allowInInput: false
     });
+    
+    // Jump to First (Home key)
+    keyboardService.registerHandler('jumpToFirst', {
+      action: () => {
+        if (messages.length > 0) {
+          jumpToFirst();
+        }
+      },
+      allowInInput: false
+    });
+    
+    // Jump to Last (End key)
+    keyboardService.registerHandler('jumpToLast', {
+      action: () => {
+        if (messages.length > 0) {
+          jumpToLast();
+        }
+      },
+      allowInInput: false
+    });
   });
   
   onDestroy(() => {
@@ -240,6 +272,8 @@
       keyboardService.unregisterHandler('openResult');
       keyboardService.unregisterHandler('postMessage');
       keyboardService.unregisterHandler('replyInThread');
+      keyboardService.unregisterHandler('jumpToFirst');
+      keyboardService.unregisterHandler('jumpToLast');
     }
   });
 </script>

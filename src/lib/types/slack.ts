@@ -92,6 +92,8 @@ export interface KeyboardShortcuts {
   openResult: string;
   clearSearch: string;
   toggleChannelSelector: string;
+  jumpToFirst: string;
+  jumpToLast: string;
   postMessage?: string;
   replyInThread?: string;
   openReactionPicker?: string;

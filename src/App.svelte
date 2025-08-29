@@ -123,6 +123,8 @@
       openResult: 'Enter',
       clearSearch: 'Escape',
       toggleChannelSelector: 'Ctrl+L',
+      jumpToFirst: 'h',
+      jumpToLast: 'e',
       postMessage: 'p',
       replyInThread: 't',
       openReactionPicker: 'r',

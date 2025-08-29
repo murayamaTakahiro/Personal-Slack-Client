@@ -40,6 +40,8 @@ export class KeyboardService {
            key === 'delete' ? 'delete' :
            key === 'backspace' ? 'backspace' :
            key === 'space' ? ' ' :
+           key === 'home' ? 'home' :
+           key === 'end' ? 'end' :
            key === ',' ? ',' : key,
       ctrl: parts.includes('ctrl') || parts.includes('control'),
       alt: parts.includes('alt'),
@@ -65,7 +67,9 @@ export class KeyboardService {
                     (eventKey === 'arrowright' && parsed.key === 'arrowright') ||
                     (eventKey === 'tab' && parsed.key === 'tab') ||
                     (eventKey === 'delete' && parsed.key === 'delete') ||
-                    (eventKey === 'backspace' && parsed.key === 'backspace');
+                    (eventKey === 'backspace' && parsed.key === 'backspace') ||
+                    (eventKey === 'home' && parsed.key === 'home') ||
+                    (eventKey === 'end' && parsed.key === 'end');
 
     const isMac = navigator.platform.toLowerCase().includes('mac');
     const ctrlOrCmd = isMac ? event.metaKey : event.ctrlKey;
@@ -233,6 +237,8 @@ export class KeyboardService {
     display = display.replace(/Tab/gi, '⇥');
     display = display.replace(/Delete/gi, 'Del');
     display = display.replace(/Backspace/gi, '⌫');
+    display = display.replace(/Home/gi, 'Home');
+    display = display.replace(/End/gi, 'End');
     
     return display;
   }

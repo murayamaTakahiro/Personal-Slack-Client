@@ -38,6 +38,8 @@
     openResult: 'Open Selected Result',
     clearSearch: 'Clear Search',
     toggleChannelSelector: 'Toggle Channel Selector',
+    jumpToFirst: 'Jump to First Message',
+    jumpToLast: 'Jump to Last Message',
     postMessage: 'Post Message to Channel',
     replyInThread: 'Reply in Thread',
     openReactionPicker: 'Open Reaction Picker',
@@ -99,6 +101,8 @@
     else if (key === 'Tab') key = 'Tab';
     else if (key === 'Delete') key = 'Delete';
     else if (key === 'Backspace') key = 'Backspace';
+    else if (key === 'Home') key = 'Home';
+    else if (key === 'End') key = 'End';
     else if (key.length === 1) key = key.toUpperCase();
     
     // Don't add modifier keys as the main key
@@ -156,6 +160,8 @@
     display = display.replace(/Tab/gi, '⇥');
     display = display.replace(/Delete/gi, 'Del');
     display = display.replace(/Backspace/gi, '⌫');
+    display = display.replace(/Home/gi, 'Home');
+    display = display.replace(/End/gi, 'End');
     
     return display;
   }
