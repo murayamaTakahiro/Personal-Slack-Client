@@ -3,8 +3,9 @@
   import { reactionMappings, recentReactions } from '../services/reactionService';
   import type { ReactionMapping } from '../types/slack';
   
-  export let x = 0;
-  export let y = 0;
+  // Remove x and y props - we'll use fixed center positioning
+  // export let x = 0;
+  // export let y = 0;
   
   const dispatch = createEventDispatcher();
   
@@ -192,15 +193,17 @@
   });
 </script>
 
-<div 
-  class="reaction-picker"
-  style="left: {x}px; top: {y}px;"
-  bind:this={pickerElement}
-  on:keydown={handleKeydown}
-  tabindex="-1"
-  role="dialog"
-  aria-label="Emoji picker"
->
+<!-- Add backdrop for better visibility -->
+<div class="reaction-picker-backdrop" on:click={close}>
+  <div 
+    class="reaction-picker"
+    bind:this={pickerElement}
+    on:keydown={handleKeydown}
+    on:click|stopPropagation
+    tabindex="-1"
+    role="dialog"
+    aria-label="Emoji picker"
+  >
   <div class="picker-header">
     <input
       type="text"
@@ -265,21 +268,56 @@
   <div class="picker-footer">
     <span class="hint">Press 1-9 for quick reactions</span>
   </div>
+  </div>
 </div>
 
 <style>
-  .reaction-picker {
+  .reaction-picker-backdrop {
     position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  .reaction-picker {
+    position: relative;
     background: var(--bg-primary);
     border: 1px solid var(--border);
     border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-    z-index: 10000;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
     width: 420px;
     max-height: 500px;
     display: flex;
     flex-direction: column;
     outline: none;
+    animation: slideIn 0.2s;
+  }
+  
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
   
   .reaction-picker:focus {

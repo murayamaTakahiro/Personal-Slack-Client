@@ -18,7 +18,6 @@
   
   let reactions: EmojiReaction[] = message.reactions || [];
   let showReactionPicker = false;
-  let reactionPickerPosition = { x: 0, y: 0 };
   
   // Update reactions when message prop changes (for realtime mode)
   $: reactions = message.reactions || [];
@@ -180,11 +179,6 @@
     if (!enableReactions || isPickerOpen) return;
     
     event.stopPropagation();
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    reactionPickerPosition = {
-      x: rect.left,
-      y: rect.bottom + 5
-    };
     showReactionPicker = true;
     isPickerOpen = true;
     console.log('🔍 DEBUG: Reaction picker opened via mouse click');
@@ -232,6 +226,7 @@
   // Track keyboard handler registration more reliably
   let handlersRegistered = false;
   let isPickerOpen = false; // Track picker state separately
+  let messageItemElement: HTMLElement; // Reference to this message item element
   
   function registerKeyboardHandlers() {
     const keyboardService = getKeyboardService();
@@ -268,24 +263,12 @@
             return;
           }
           
-          // Find the reaction button in this specific message item
-          const button = document.querySelector('.btn-reaction');
-          if (button) {
-            const rect = button.getBoundingClientRect();
-            reactionPickerPosition = {
-              x: rect.left,
-              y: rect.bottom + 5
-            };
-            // Reset picker state before opening
-            showReactionPicker = true;
-            isPickerOpen = true;
-            console.log('🔍 DEBUG: Reaction picker opened via keyboard', { 
-              position: reactionPickerPosition,
-              showReactionPicker: true
-            });
-          } else {
-            console.log('🔍 DEBUG: No .btn-reaction button found');
-          }
+          // Reset picker state before opening
+          showReactionPicker = true;
+          isPickerOpen = true;
+          console.log('🔍 DEBUG: Reaction picker opened via keyboard', { 
+            showReactionPicker: true
+          });
         },
         allowInInput: false
       });
@@ -378,6 +361,7 @@
   class="message-item"
   class:selected
   on:click={handleClick}
+  bind:this={messageItemElement}
 >
   <div class="message-header">
     <div class="message-meta">
@@ -465,8 +449,6 @@
 
 {#if showReactionPicker}
   <ReactionPicker
-    x={reactionPickerPosition.x}
-    y={reactionPickerPosition.y}
     on:select={handleEmojiSelect}
     on:close={closeReactionPicker}
   />
