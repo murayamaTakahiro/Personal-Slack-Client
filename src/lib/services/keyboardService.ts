@@ -146,6 +146,17 @@ export class KeyboardService {
                      target.tagName === 'TEXTAREA' || 
                      target.contentEditable === 'true';
 
+    // Check if emoji/reaction picker is open - if so, don't handle navigation
+    const reactionPicker = document.querySelector('.reaction-picker');
+    if (reactionPicker) {
+      // Don't handle any navigation keys when reaction picker is open
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Escape'].includes(event.key) ||
+          (event.key >= '1' && event.key <= '9')) {
+        console.log('🔍 DEBUG: Reaction picker is open, skipping keyboard event handling');
+        return false;
+      }
+    }
+
     // Check if thread view has focus - if so, let it handle its own navigation
     const threadViewElement = document.querySelector('.thread-view');
     if (threadViewElement && threadViewElement.contains(target)) {

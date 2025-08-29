@@ -95,10 +95,14 @@
     switch (event.key) {
       case 'Escape':
         event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         close();
         break;
       case 'Enter':
         event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         if (filteredEmojis[selectedIndex]) {
           const emoji = 'display' in filteredEmojis[selectedIndex] 
             ? filteredEmojis[selectedIndex].emoji 
@@ -108,6 +112,8 @@
         break;
       case 'ArrowUp':
         event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         if (selectedIndex > 5) {
           selectedIndex -= 6; // Move up one row (6 columns)
         } else {
@@ -116,6 +122,8 @@
         break;
       case 'ArrowDown':
         event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         if (selectedIndex + 6 < filteredEmojis.length) {
           selectedIndex += 6; // Move down one row (6 columns)
         } else {
@@ -124,10 +132,14 @@
         break;
       case 'ArrowLeft':
         event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         selectedIndex = Math.max(0, selectedIndex - 1);
         break;
       case 'ArrowRight':
         event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         selectedIndex = Math.min(filteredEmojis.length - 1, selectedIndex + 1);
         break;
       case '1':
@@ -140,6 +152,8 @@
       case '8':
       case '9':
         event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         const num = parseInt(event.key);
         const mapping = mappings.find(m => m.shortcut === num);
         if (mapping) {
