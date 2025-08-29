@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import type { ThreadMessages, Message } from '../types/slack';
-  import { getThread, openInSlack } from '../api/slack';
+  import { getThread, openInSlack, openUrlsSmart } from '../api/slack';
   import { activeWorkspace } from '../stores/workspaces';
+  import { urlService } from '../services/urlService';
+  import { showSuccess, showError, showInfo } from '../stores/toast';
   
   export let message: Message | null = null;
   
@@ -73,6 +75,60 @@
     }
   }
   
+  async function handleOpenUrls(messageToOpen: Message) {
+    try {
+      // Extract URLs from message text
+      const extractedUrls = urlService.extractUrls(messageToOpen.text);
+      console.log('🔍 DEBUG: Thread - Extracted URLs:', extractedUrls);
+      
+      // Check if we have URLs to open
+      if (extractedUrls.slackUrls.length === 0 && extractedUrls.externalUrls.length === 0) {
+        showInfo('No URLs found', 'This message does not contain any URLs to open.');
+        return;
+      }
+      
+      // Prepare URLs for opening (first Slack URL, all external URLs)
+      const prepared = urlService.prepareUrlsForOpening(extractedUrls);
+      
+      // Check if confirmation is needed for too many external URLs
+      if (urlService.requiresConfirmation(prepared.externalUrls.length)) {
+        const confirmed = confirm(`Opening ${prepared.externalUrls.length} external URLs. Continue?`);
+        if (!confirmed) {
+          showInfo('Cancelled', 'URL opening was cancelled by user.');
+          return;
+        }
+      }
+      
+      // Show user-friendly message
+      const openingMessage = urlService.generateOpeningMessage(
+        extractedUrls.slackUrls.length, 
+        extractedUrls.externalUrls.length
+      );
+      showInfo('Opening URLs', openingMessage);
+      
+      // Open URLs with smart handling
+      const result = await openUrlsSmart(
+        prepared.slackUrl,
+        prepared.externalUrls,
+        200 // 200ms delay between openings
+      );
+      
+      console.log('🔍 DEBUG: Thread - URL opening result:', result);
+      
+      // Handle any errors
+      if (result.errors.length > 0) {
+        showError('Some URLs failed to open', result.errors.join('; '));
+      } else {
+        showSuccess('URLs opened successfully', 
+          `Opened ${result.opened_slack ? '1 Slack URL' : ''}${result.opened_slack && result.opened_external_count > 0 ? ' and ' : ''}${result.opened_external_count > 0 ? `${result.opened_external_count} external URL${result.opened_external_count > 1 ? 's' : ''}` : ''}`
+        );
+      }
+      
+    } catch (error) {
+      showError('Failed to open URLs', error instanceof Error ? error.message : String(error));
+    }
+  }
+  
   function getAllMessages(): Array<{message: Message, index: number}> {
     if (!thread) return [];
     
@@ -89,6 +145,16 @@
     
     const messages = getAllMessages();
     const totalMessages = messages.length;
+    
+    // Check for Alt+Enter to open URLs
+    if (event.key === 'Enter' && event.altKey) {
+      event.preventDefault();
+      if (selectedIndex >= 0 && selectedIndex < totalMessages) {
+        const selectedMsg = messages[selectedIndex].message;
+        handleOpenUrls(selectedMsg);
+      }
+      return;
+    }
     
     switch (event.key) {
       case 'ArrowDown':
@@ -227,7 +293,7 @@
     <div class="thread-header">
       <div>
         <h3>Thread in #{thread.parent.channelName}</h3>
-        <span class="keyboard-hint">Use ↑↓ to navigate, Enter to open in Slack</span>
+        <span class="keyboard-hint">Use ↑↓ to navigate, Enter to open in Slack, Alt+Enter to open URLs</span>
       </div>
       <button
         class="btn-open-thread"

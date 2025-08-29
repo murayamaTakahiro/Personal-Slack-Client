@@ -17,7 +17,8 @@
     prevResult: 'ArrowUp',
     openResult: 'Enter',
     clearSearch: 'Escape',
-    toggleChannelSelector: 'Ctrl+L'
+    toggleChannelSelector: 'Ctrl+L',
+    openUrls: 'Alt+Enter'
   };
   
   let editingShortcut: keyof KeyboardShortcuts | null = null;
@@ -51,7 +52,8 @@
     reaction6: 'Quick Reaction 6',
     reaction7: 'Quick Reaction 7',
     reaction8: 'Quick Reaction 8',
-    reaction9: 'Quick Reaction 9'
+    reaction9: 'Quick Reaction 9',
+    openUrls: 'Open URLs from Message'
   };
   
   onMount(() => {

@@ -4,7 +4,8 @@ import type {
   SearchResult, 
   ThreadMessages, 
   ParsedUrl,
-  PostMessageResponse
+  PostMessageResponse,
+  OpenUrlsResult
 } from '../types/slack';
 
 export async function searchMessages(params: SearchParams): Promise<SearchResult> {
@@ -75,4 +76,21 @@ export async function postThreadReply(
 
 export async function checkPostingPermissions(): Promise<boolean> {
   return await invoke('check_posting_permissions', {});
+}
+
+// URL opening functions
+export async function openUrlsSmart(
+  slackUrl: string | null,
+  externalUrls: string[],
+  delayMs?: number
+): Promise<OpenUrlsResult> {
+  return await invoke('open_urls_smart', {
+    slackUrl,
+    externalUrls,
+    delayMs
+  });
+}
+
+export async function validateUrls(urls: string[]): Promise<string[]> {
+  return await invoke('validate_urls', { urls });
 }

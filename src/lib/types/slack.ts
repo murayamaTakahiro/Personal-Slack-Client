@@ -106,6 +106,7 @@ export interface KeyboardShortcuts {
   reaction7?: string;
   reaction8?: string;
   reaction9?: string;
+  openUrls?: string;
 }
 
 export interface AppSettings {
@@ -157,4 +158,16 @@ export interface PostedMessage {
   user: string;
   ts: string;
   threadTs?: string;
+}
+
+// URL opening types
+export interface OpenUrlsResult {
+  opened_slack: boolean;
+  opened_external_count: number;
+  errors: string[];
+}
+
+export interface ExtractedUrls {
+  slackUrls: string[];
+  externalUrls: string[];
 }

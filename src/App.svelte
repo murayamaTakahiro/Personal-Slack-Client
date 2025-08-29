@@ -32,6 +32,7 @@
   import KeyboardHelp from './lib/components/KeyboardHelp.svelte';
   import EmojiSettings from './lib/components/EmojiSettings.svelte';
   import RealtimeSettings from './lib/components/RealtimeSettings.svelte';
+  import Toast from './lib/components/Toast.svelte';
   import { workspaceStore, activeWorkspace } from './lib/stores/workspaces';
   import { channelStore } from './lib/stores/channels';
   import { userService } from './lib/services/userService';
@@ -991,6 +992,7 @@
   {/if}
   
   <KeyboardHelp bind:show={showKeyboardHelp} />
+  <Toast />
 </div>
 
 <style>

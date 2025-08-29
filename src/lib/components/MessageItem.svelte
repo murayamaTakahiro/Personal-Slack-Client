@@ -1,10 +1,12 @@
 <script lang="ts">
   import type { Message, EmojiReaction } from '../types/slack';
-  import { openInSlack } from '../api/slack';
+  import { openInSlack, openUrlsSmart } from '../api/slack';
   import { createEventDispatcher, onMount } from 'svelte';
   import { activeWorkspace } from '../stores/workspaces';
   import { reactionService, reactionMappings } from '../services/reactionService';
   import { getKeyboardService } from '../services/keyboardService';
+  import { urlService } from '../services/urlService';
+  import { showSuccess, showError, showInfo } from '../stores/toast';
   import ReactionPicker from './ReactionPicker.svelte';
   
   export let message: Message;
@@ -85,6 +87,62 @@
       await openInSlack(url);
     } catch (error) {
       console.error('Failed to open in Slack:', error);
+    }
+  }
+  
+  async function handleOpenUrls() {
+    if (!selected) return;
+    
+    try {
+      // Extract URLs from message text
+      const extractedUrls = urlService.extractUrls(message.text);
+      console.log('🔍 DEBUG: Extracted URLs:', extractedUrls);
+      
+      // Check if we have URLs to open
+      if (extractedUrls.slackUrls.length === 0 && extractedUrls.externalUrls.length === 0) {
+        showInfo('No URLs found', 'This message does not contain any URLs to open.');
+        return;
+      }
+      
+      // Prepare URLs for opening (first Slack URL, all external URLs)
+      const prepared = urlService.prepareUrlsForOpening(extractedUrls);
+      
+      // Check if confirmation is needed for too many external URLs
+      if (urlService.requiresConfirmation(prepared.externalUrls.length)) {
+        const confirmed = confirm(`Opening ${prepared.externalUrls.length} external URLs. Continue?`);
+        if (!confirmed) {
+          showInfo('Cancelled', 'URL opening was cancelled by user.');
+          return;
+        }
+      }
+      
+      // Show user-friendly message
+      const openingMessage = urlService.generateOpeningMessage(
+        extractedUrls.slackUrls.length, 
+        extractedUrls.externalUrls.length
+      );
+      showInfo('Opening URLs', openingMessage);
+      
+      // Open URLs with smart handling
+      const result = await openUrlsSmart(
+        prepared.slackUrl,
+        prepared.externalUrls,
+        200 // 200ms delay between openings
+      );
+      
+      console.log('🔍 DEBUG: URL opening result:', result);
+      
+      // Handle any errors
+      if (result.errors.length > 0) {
+        showError('Some URLs failed to open', result.errors.join('; '));
+      } else {
+        showSuccess('URLs opened successfully', 
+          `Opened ${result.opened_slack ? '1 Slack URL' : ''}${result.opened_slack && result.opened_external_count > 0 ? ' and ' : ''}${result.opened_external_count > 0 ? `${result.opened_external_count} external URL${result.opened_external_count > 1 ? 's' : ''}` : ''}`
+        );
+      }
+      
+    } catch (error) {
+      showError('Failed to open URLs', error instanceof Error ? error.message : String(error));
     }
   }
   
@@ -263,6 +321,12 @@
         });
       }
       
+      // Register Alt+Enter for opening URLs
+      keyboardService.registerHandler('openUrls', {
+        action: handleOpenUrls,
+        allowInInput: false
+      });
+      
       handlersRegistered = true;
       console.log('🔍 DEBUG: Keyboard handlers registered successfully');
     } catch (error) {
@@ -289,6 +353,7 @@
       // Always attempt to unregister, even if handlersRegistered is false
       // This handles cases where state might be inconsistent during Live mode
       keyboardService.unregisterHandler('openReactionPicker');
+      keyboardService.unregisterHandler('openUrls');
       for (let i = 1; i <= 9; i++) {
         keyboardService.unregisterHandler(`reaction${i}` as any);
       }
