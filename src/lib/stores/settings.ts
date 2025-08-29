@@ -18,6 +18,8 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   openResult: 'Enter',
   clearSearch: 'Escape',
   toggleChannelSelector: 'Ctrl+L',
+  postMessage: 'p',
+  replyInThread: 't',
   openReactionPicker: 'r',
   reaction1: '1',
   reaction2: '2',

@@ -125,8 +125,8 @@ export class KeyboardService {
   handleKeyboardEvent(event: KeyboardEvent): boolean {
     if (!this.enabled) return false;
 
-    // Only log for 'r' key specifically to reduce noise
-    if (event.key.toLowerCase() === 'r') {
+    // Only log for specific keys to reduce noise
+    if (['r', 'p', 't'].includes(event.key.toLowerCase())) {
       console.log('🔍 DEBUG: KeyboardService handling key event', {
         key: event.key,
         enabled: this.enabled,
@@ -156,7 +156,7 @@ export class KeyboardService {
       
       if (shortcut && this.matchesShortcut(event, shortcut)) {
         // Only log for relevant keys to reduce noise
-        if (event.key.toLowerCase() === 'r' || shortcutKey === 'openReactionPicker') {
+        if (['r', 'p', 't'].includes(event.key.toLowerCase()) || ['openReactionPicker', 'postMessage', 'replyInThread'].includes(shortcutKey)) {
           console.log('🔍 DEBUG: Handler matched', {
             shortcutKey,
             shortcut,
@@ -167,7 +167,7 @@ export class KeyboardService {
         
         // Skip if in input field and handler doesn't allow it
         if (isInInput && !handler.allowInInput) {
-          if (event.key.toLowerCase() === 'r') {
+          if (['r', 'p', 't'].includes(event.key.toLowerCase())) {
             console.log('🔍 DEBUG: Skipping handler - in input and not allowed');
           }
           continue;
@@ -181,7 +181,7 @@ export class KeyboardService {
           event.stopPropagation();
         }
         
-        if (event.key.toLowerCase() === 'r') {
+        if (['r', 'p', 't'].includes(event.key.toLowerCase())) {
           console.log('🔍 DEBUG: Executing handler action for', shortcutKey);
         }
         
@@ -191,7 +191,7 @@ export class KeyboardService {
       }
     }
 
-    if (event.key.toLowerCase() === 'r') {
+    if (['r', 'p', 't'].includes(event.key.toLowerCase())) {
       console.log('🔍 DEBUG: No handler matched for key event');
     }
 

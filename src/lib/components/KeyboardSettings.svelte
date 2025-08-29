@@ -38,6 +38,8 @@
     openResult: 'Open Selected Result',
     clearSearch: 'Clear Search',
     toggleChannelSelector: 'Toggle Channel Selector',
+    postMessage: 'Post Message to Channel',
+    replyInThread: 'Reply in Thread',
     openReactionPicker: 'Open Reaction Picker',
     reaction1: 'Quick Reaction 1',
     reaction2: 'Quick Reaction 2',

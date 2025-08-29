@@ -164,29 +164,10 @@
       return;
     }
     
-    // P key: Post to channel
-    if (event.key === 'p' || event.key === 'P') {
-      if (!event.ctrlKey && !event.altKey && !event.metaKey) {
-        event.preventDefault();
-        event.stopPropagation();
-        if (focusedIndex >= 0 && focusedIndex < messages.length) {
-          openPostDialog('channel');
-        }
-        return;
-      }
-    }
-    
-    // T key: Thread reply
-    if (event.key === 't' || event.key === 'T') {
-      if (!event.ctrlKey && !event.altKey && !event.metaKey) {
-        event.preventDefault();
-        event.stopPropagation();
-        if (focusedIndex >= 0 && focusedIndex < messages.length) {
-          openPostDialog('thread');
-        }
-        return;
-      }
-    }
+    // NOTE: P and T key handling moved to KeyboardService to avoid conflicts with emoji reactions
+    // The KeyboardService now handles:
+    // - P key: Post to channel (via 'postMessage' handler)
+    // - T key: Thread reply (via 'replyInThread' handler)
   }
   
   onMount(() => {
@@ -223,6 +204,32 @@
       },
       allowInInput: false
     });
+    
+    // Post Message (P key)
+    keyboardService.registerHandler('postMessage', {
+      action: () => {
+        // Don't handle if post dialog is open
+        if (showPostDialog) return;
+        
+        if (focusedIndex >= 0 && focusedIndex < messages.length) {
+          openPostDialog('channel');
+        }
+      },
+      allowInInput: false
+    });
+    
+    // Reply in Thread (T key)
+    keyboardService.registerHandler('replyInThread', {
+      action: () => {
+        // Don't handle if post dialog is open
+        if (showPostDialog) return;
+        
+        if (focusedIndex >= 0 && focusedIndex < messages.length) {
+          openPostDialog('thread');
+        }
+      },
+      allowInInput: false
+    });
   });
   
   onDestroy(() => {
@@ -231,6 +238,8 @@
       keyboardService.unregisterHandler('nextResult');
       keyboardService.unregisterHandler('prevResult');
       keyboardService.unregisterHandler('openResult');
+      keyboardService.unregisterHandler('postMessage');
+      keyboardService.unregisterHandler('replyInThread');
     }
   });
 </script>
