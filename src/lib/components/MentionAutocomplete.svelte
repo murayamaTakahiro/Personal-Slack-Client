@@ -204,7 +204,7 @@
         {/if}
         <div class="user-info">
           <div class="user-name">
-            @{user.name}
+            @{getUserDisplayName(user)}
             {#if isFavorite(user)}
               <span class="favorite-badge">★</span>
             {/if}
