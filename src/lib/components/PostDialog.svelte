@@ -1,6 +1,10 @@
 <script lang="ts">
   import { createEventDispatcher, onMount, tick } from 'svelte';
   import { postToChannel, postThreadReply } from '../api/slack';
+  import MentionTextarea from './MentionTextarea.svelte';
+  import { mentionService } from '../services/mentionService';
+  import { userService } from '../services/userService';
+  import type { SlackUser } from '../types/slack';
   
   export let mode: 'channel' | 'thread';
   export let channelId: string;
@@ -13,19 +17,26 @@
   let text = '';
   let posting = false;
   let error: string | null = null;
-  let textareaElement: HTMLTextAreaElement;
+  let mentionTextarea: MentionTextarea;
+  let userMap: Map<string, SlackUser> = new Map();
   
   // Reset state and focus when component mounts (dialog opens)
-  onMount(() => {
+  onMount(async () => {
     text = '';
     error = null;
     posting = false;
     
+    // Load users for mention conversion
+    const users = await userService.getAllUsers();
+    users.forEach(user => {
+      userMap.set(user.id, user);
+    });
+    
     // Focus the textarea after a tick
     tick().then(() => {
-      if (textareaElement) {
-        textareaElement.focus();
-        textareaElement.select();
+      if (mentionTextarea) {
+        mentionTextarea.focus();
+        mentionTextarea.select();
       }
     });
   });
@@ -37,10 +48,13 @@
     error = null;
     
     try {
+      // Convert mentions to Slack format before posting
+      const formattedText = mentionService.convertToSlackFormat(text, userMap);
+      
       if (mode === 'channel') {
-        await postToChannel(channelId, text);
+        await postToChannel(channelId, formattedText);
       } else {
-        await postThreadReply(channelId, threadTs, text);
+        await postThreadReply(channelId, threadTs, formattedText);
       }
       
       text = ''; // Reset text after successful post
@@ -59,12 +73,18 @@
     dispatch('cancel');
   }
   
-  function handleKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') {
+  function handleKeydown(event: CustomEvent) {
+    // The event from MentionTextarea dispatches the KeyboardEvent directly
+    const keyEvent = event.detail as KeyboardEvent;
+    if (keyEvent.key === 'Escape') {
       handleCancel();
-    } else if (event.ctrlKey && event.key === 'Enter') {
+    } else if (keyEvent.ctrlKey && keyEvent.key === 'Enter') {
       handlePost();
     }
+  }
+  
+  function handleInput(event: CustomEvent<{ value: string }>) {
+    text = event.detail.value;
   }
 </script>
 
@@ -87,12 +107,13 @@
     </div>
     
     <div class="dialog-body">
-      <textarea
-        bind:this={textareaElement}
-        bind:value={text}
-        on:keydown={handleKeydown}
-        placeholder="Type your message..."
+      <MentionTextarea
+        bind:this={mentionTextarea}
+        value={text}
+        placeholder="Type your message... (Use @ to mention users)"
         disabled={posting}
+        on:input={handleInput}
+        on:keydown={handleKeydown}
       />
       
       {#if error}
@@ -101,7 +122,7 @@
     </div>
     
     <div class="dialog-footer">
-      <span class="hint">Ctrl+Enter to send • Escape to cancel</span>
+      <span class="hint">Ctrl+Enter to send • Escape to cancel • @ to mention</span>
       <div class="buttons">
         <button 
           class="btn-cancel" 
@@ -220,32 +241,6 @@
     background: var(--color-background, #ffffff);
   }
 
-  textarea {
-    flex: 1;
-    min-height: 200px;
-    padding: 12px;
-    border: 1px solid var(--color-border, #ddd);
-    border-radius: 4px;
-    background: var(--bg-primary, #ffffff);
-    color: var(--text-primary, #ffffff);
-    font-family: inherit;
-    font-size: 14px;
-    resize: vertical;
-    transition: border-color 0.2s, background-color 0.2s;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-  }
-
-  textarea:focus {
-    outline: none;
-    border-color: var(--color-primary, #4a90e2);
-    background: var(--bg-primary, #ffffff);
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 2px rgba(74, 144, 226, 0.1);
-  }
-
-  textarea:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
 
   .error-message {
     margin-top: 12px;
@@ -315,19 +310,6 @@
     background: #400;
     border-color: #600;
     color: #faa;
-  }
-  
-  :global([data-theme='dark']) textarea {
-    background: #2a2a2a !important;
-    color: #ffffff !important;
-    border-color: #444;
-  }
-  
-  /* Light mode explicit styles */
-  :global([data-theme='light']) textarea {
-    background: #ffffff !important;
-    color: #000000 !important;
-    border-color: #ddd;
   }
   
   :global([data-theme='dark']) .post-dialog {
