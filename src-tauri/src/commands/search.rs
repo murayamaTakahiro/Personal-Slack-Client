@@ -13,32 +13,7 @@ use tracing::{debug, error, info, warn};
 use std::collections::HashMap;
 
 fn replace_user_mentions(text: &str, user_cache: &HashMap<String, CachedUser>) -> String {
-    let mut result = text.to_string();
-
-    // Updated regex to handle both <@USERID> and <@USERID|username> formats
-    // The Slack search.messages API returns mentions with display names included
-    let re = regex::Regex::new(r"<@(U[A-Z0-9]+)(?:\|([^>]+))?>").unwrap();
-
-    for cap in re.captures_iter(text) {
-        let user_id = cap.get(1).map(|m| m.as_str()).unwrap_or("");
-        let display_name = cap.get(2).map(|m| m.as_str());
-
-        let replacement = if let Some(name) = display_name {
-            // If we have the display name in the mention (e.g., <@U123|john.doe>), use it directly
-            format!("@{}", name)
-        } else if let Some(cached_user) = user_cache.get(user_id) {
-            // Otherwise, look up the user in our cache (for <@U123> format)
-            format!("@{}", cached_user.name)
-        } else {
-            // Fallback: keep the original format if we can't resolve it
-            continue;
-        };
-
-        let original = cap.get(0).map(|m| m.as_str()).unwrap_or("");
-        result = result.replace(original, &replacement);
-    }
-
-    result
+    crate::slack::parser::replace_user_mentions(text, user_cache)
 }
 
 #[tauri::command]
@@ -577,7 +552,7 @@ pub async fn get_all_users(state: State<'_, AppState>) -> AppResult<Vec<SlackUse
 
             SlackUser {
                 id: user_info.id,
-                name: preferred_name,  // Use display name as the primary name
+                name: preferred_name, // Use display name as the primary name
                 real_name: user_info
                     .real_name
                     .clone()

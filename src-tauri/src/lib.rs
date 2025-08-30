@@ -21,7 +21,7 @@ pub fn run() {
     } else {
         tracing::Level::INFO
     };
-    
+
     tracing_subscriber::registry()
         .with(
             fmt::layer()
@@ -31,7 +31,7 @@ pub fn run() {
                 .with_file(true)
                 .with_line_number(true)
                 .with_level(true)
-                .with_ansi(false)
+                .with_ansi(false),
         )
         .with(tracing_subscriber::filter::LevelFilter::from(filter))
         .init();

@@ -2,7 +2,7 @@ use crate::error::AppResult;
 use crate::slack::SlackReaction;
 use crate::state::AppState;
 use tauri::State;
-use tracing::{info, error};
+use tracing::{error, info};
 
 #[tauri::command]
 pub async fn add_reaction(
@@ -11,10 +11,13 @@ pub async fn add_reaction(
     timestamp: String,
     emoji: String,
 ) -> AppResult<()> {
-    info!("Adding reaction {} to message {} in channel {}", emoji, timestamp, channel);
-    
+    info!(
+        "Adding reaction {} to message {} in channel {}",
+        emoji, timestamp, channel
+    );
+
     let client = state.get_client().await?;
-    
+
     match client.add_reaction(&channel, &timestamp, &emoji).await {
         Ok(_) => {
             info!("Successfully added reaction");
@@ -34,10 +37,13 @@ pub async fn remove_reaction(
     timestamp: String,
     emoji: String,
 ) -> AppResult<()> {
-    info!("Removing reaction {} from message {} in channel {}", emoji, timestamp, channel);
-    
+    info!(
+        "Removing reaction {} from message {} in channel {}",
+        emoji, timestamp, channel
+    );
+
     let client = state.get_client().await?;
-    
+
     match client.remove_reaction(&channel, &timestamp, &emoji).await {
         Ok(_) => {
             info!("Successfully removed reaction");
@@ -56,10 +62,13 @@ pub async fn get_reactions(
     channel: String,
     timestamp: String,
 ) -> AppResult<Vec<SlackReaction>> {
-    info!("Getting reactions for message {} in channel {}", timestamp, channel);
-    
+    info!(
+        "Getting reactions for message {} in channel {}",
+        timestamp, channel
+    );
+
     let client = state.get_client().await?;
-    
+
     match client.get_reactions(&channel, &timestamp).await {
         Ok(reactions) => {
             info!("Successfully retrieved {} reactions", reactions.len());

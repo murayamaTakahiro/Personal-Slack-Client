@@ -55,5 +55,4 @@ impl From<tauri_plugin_store::Error> for AppError {
     }
 }
 
-
 pub type AppResult<T> = Result<T, AppError>;

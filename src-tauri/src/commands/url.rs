@@ -19,9 +19,9 @@ pub async fn open_urls_smart(
         opened_external_count: 0,
         errors: Vec::new(),
     };
-    
+
     let delay = Duration::from_millis(delay_ms.unwrap_or(200));
-    
+
     // Open Slack URL first if provided
     if let Some(url) = slack_url {
         match open_url(&url) {
@@ -31,11 +31,13 @@ pub async fn open_urls_smart(
                 sleep(delay).await;
             }
             Err(e) => {
-                result.errors.push(format!("Failed to open Slack URL: {}", e));
+                result
+                    .errors
+                    .push(format!("Failed to open Slack URL: {}", e));
             }
         }
     }
-    
+
     // Open external URLs with delay between each
     for (index, url) in external_urls.iter().enumerate() {
         match open_url(url) {
@@ -47,11 +49,13 @@ pub async fn open_urls_smart(
                 }
             }
             Err(e) => {
-                result.errors.push(format!("Failed to open URL {}: {}", url, e));
+                result
+                    .errors
+                    .push(format!("Failed to open URL {}: {}", url, e));
             }
         }
     }
-    
+
     Ok(result)
 }
 
