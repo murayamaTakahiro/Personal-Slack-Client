@@ -5,6 +5,7 @@
   import ResultList from './lib/components/ResultList.svelte';
   import ThreadView from './lib/components/ThreadView.svelte';
   import WorkspaceSwitcher from './lib/components/WorkspaceSwitcher.svelte';
+  import './styles/zoom.css';
   import { 
     searchResults, 
     searchLoading, 

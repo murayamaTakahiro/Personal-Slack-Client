@@ -69,14 +69,21 @@ function applyZoom(zoomLevel: number) {
   const scale = zoomLevel / 100;
   const root = document.documentElement;
   
-  // Apply CSS zoom property for better compatibility
+  // Apply font-size scaling instead of viewport zoom
   if (root) {
-    // Set CSS variable for reference
+    // Set CSS variables for reference
     root.style.setProperty('--app-zoom', scale.toString());
     root.style.setProperty('--app-zoom-percent', `${zoomLevel}%`);
     
-    // Use CSS zoom property for cleaner scaling
-    root.style.zoom = scale.toString();
+    // Calculate base font size (default is usually 16px)
+    const baseFontSize = 16;
+    const scaledFontSize = baseFontSize * scale;
+    
+    // Apply scaled font size to root element
+    root.style.fontSize = `${scaledFontSize}px`;
+    
+    // Remove any zoom property to prevent viewport scaling
+    root.style.zoom = '';
   }
 }
 
