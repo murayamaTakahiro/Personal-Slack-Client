@@ -69,11 +69,21 @@
     }
     
     // Setup realtime updates subscription
+    let previousInterval: number | null = null;
     unsubscribeRealtime = realtimeStore.subscribe(state => {
       if (state.isEnabled) {
-        startRealtimeUpdates();
+        // Check if interval has changed and restart if needed
+        if (previousInterval !== null && previousInterval !== state.updateInterval) {
+          console.log('Interval changed from', previousInterval, 'to', state.updateInterval, '- restarting timer');
+          stopRealtimeUpdates();
+          startRealtimeUpdates();
+        } else if (previousInterval === null) {
+          startRealtimeUpdates();
+        }
+        previousInterval = state.updateInterval;
       } else {
         stopRealtimeUpdates();
+        previousInterval = null;
       }
     });
     

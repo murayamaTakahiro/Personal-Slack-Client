@@ -61,7 +61,10 @@ function saveRealtimeSettings(state: RealtimeState) {
 
 // Create the main store
 function createRealtimeStore() {
-  const initialState = { ...defaultState, ...loadRealtimeSettings() };
+  const loadedSettings = loadRealtimeSettings();
+  console.log('Loaded realtime settings from localStorage:', loadedSettings);
+  const initialState = { ...defaultState, ...loadedSettings };
+  console.log('Initial realtime state:', initialState);
   const { subscribe, set, update } = writable<RealtimeState>(initialState);
   
   // Auto-save settings on change
@@ -91,6 +94,7 @@ function createRealtimeStore() {
      * Update the refresh interval
      */
     setUpdateInterval(seconds: number) {
+      console.log('Setting update interval to:', seconds, 'seconds');
       update(state => {
         const newState = { ...state, updateInterval: seconds };
         
