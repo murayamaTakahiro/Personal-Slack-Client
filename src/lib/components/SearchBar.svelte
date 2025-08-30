@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { searchQuery, searchParams, searchLoading, searchProgress } from '../stores/search';
+  import { searchQuery, searchParams, searchLoading, searchProgress, selectedMessage, searchError } from '../stores/search';
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import ChannelSelector from './ChannelSelector.svelte';
   import UserSelector from './UserSelector.svelte';
@@ -7,6 +7,7 @@
   import { userService } from '../services/userService';
   import { realtimeStore } from '../stores/realtime';
   import { channelStore } from '../stores/channels';
+  import { getThreadFromUrl } from '../api/slack';
   
   export let channels: [string, string][] = [];
   export let showAdvanced = false;
@@ -23,6 +24,9 @@
   let showChannelSelector = false;
   let channelSelectorComponent: ChannelSelector;
   let userSelectorComponent: UserSelector;
+  let urlInput = '';
+  let urlLoading = false;
+  let urlInputElement: HTMLInputElement;
   
   async function handleSearch(isRealtimeUpdate: boolean = false) {
     // If realtime mode is enabled and this is a realtime update, auto-set today's date
@@ -91,6 +95,38 @@
     }
   }
   
+  async function handleUrlPaste() {
+    if (!urlInput.trim()) return;
+    
+    urlLoading = true;
+    searchError.set(null);
+    
+    try {
+      const thread = await getThreadFromUrl(urlInput);
+      selectedMessage.set(thread.parent);
+      urlInput = '';
+    } catch (err) {
+      let errorMessage = 'Failed to load thread from URL';
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        // Extract more specific error details if available
+        if (err.message.includes('Invalid Slack URL')) {
+          errorMessage = 'Invalid Slack URL format. Please paste a valid Slack message link.';
+        } else if (err.message.includes('Authentication') || err.message.includes('No Slack token')) {
+          errorMessage = 'Authentication failed. Please check your Slack token in Settings.';
+        } else if (err.message.includes('Network')) {
+          errorMessage = 'Network error. Please check your internet connection.';
+        } else if (err.message.includes('not found')) {
+          errorMessage = 'Thread not found. The message may have been deleted or you may not have access.';
+        }
+      }
+      searchError.set(errorMessage);
+      console.error('URL parse error:', err);
+    } finally {
+      urlLoading = false;
+    }
+  }
+
   // Export for external triggering (from App.svelte for realtime updates)
   export function triggerRealtimeSearch() {
     handleSearch(true);
@@ -99,6 +135,12 @@
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter' && !$searchLoading) {
       handleSearch();
+    }
+  }
+
+  function handleUrlKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter' && !urlLoading) {
+      handleUrlPaste();
     }
   }
   
@@ -133,9 +175,20 @@
       searchInput.select();
     }
   }
+
+  export function focusUrlInput() {
+    if (urlInputElement) {
+      urlInputElement.focus();
+      urlInputElement.select();
+    }
+  }
   
   export function toggleAdvancedSearch() {
     showAdvanced = !showAdvanced;
+  }
+  
+  export function isAdvancedOpen() {
+    return showAdvanced;
   }
   
   export function toggleChannelSelector() {
@@ -206,25 +259,16 @@
 
 <div class="search-bar">
   <div class="search-main">
-    <input
-      type="text"
-      bind:this={searchInput}
-      bind:value={$searchQuery}
-      on:keydown={handleKeydown}
-      placeholder="Search messages... (optional with filters)"
-      disabled={$searchLoading}
-      class="search-input"
-    />
-    
     <button
       on:click={toggleAdvanced}
-      class="btn-icon {(channel || user || fromDate || toDate) ? 'active' : ''}"
-      title="Advanced filters {(channel || user || fromDate || toDate) ? '(active)' : ''}"
+      class="btn-toggle {showAdvanced ? 'active' : ''}"
+      title="Toggle Advanced Search (Ctrl+Shift+F)"
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
         <path d="M3 4h18v2.172a2 2 0 0 1-.586 1.414l-6.828 6.828A2 2 0 0 0 13 15.828V20l-4 2v-6.172a2 2 0 0 0-.586-1.414L1.586 7.586A2 2 0 0 1 1 6.172V4z"/>
       </svg>
-      {#if channel || user || fromDate || toDate}
+      <span>Advanced Search</span>
+      {#if $searchQuery || urlInput || channel || user || fromDate || toDate}
         <span class="filter-indicator"></span>
       {/if}
     </button>
@@ -257,34 +301,82 @@
   
   {#if showAdvanced}
     <div class="search-advanced">
-      {#if !$searchQuery.trim() && (channel || user || fromDate || toDate)}
-        <div class="info-message">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="8" x2="12" y2="12"/>
-            <line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
-          <span>You can search with filters only - no search term required!</span>
+      <div class="search-section">
+        <h3>Search & Thread URL</h3>
+        
+        <div class="input-group">
+          <label>
+            Search Keywords:
+            <input
+              type="text"
+              bind:this={searchInput}
+              bind:value={$searchQuery}
+              on:keydown={handleKeydown}
+              placeholder="Search messages... (optional with filters)"
+              disabled={$searchLoading}
+              class="search-input"
+            />
+          </label>
         </div>
-      {/if}
-      {#if channel || user || fromDate || toDate}
-        <div class="active-filters">
-          <span class="filter-label">Active filters:</span>
-          {#if channel}
-            <span class="filter-tag">Channel: {channel}</span>
-          {/if}
-          {#if userId || user}
-            <span class="filter-tag">User: {user || userId}</span>
-          {/if}
-          {#if fromDate}
-            <span class="filter-tag">From: {fromDate}</span>
-          {/if}
-          {#if toDate}
-            <span class="filter-tag">To: {toDate}</span>
-          {/if}
+
+        <div class="input-group">
+          <label>
+            Thread URL:
+            <div class="url-input-wrapper">
+              <input
+                type="text"
+                bind:this={urlInputElement}
+                bind:value={urlInput}
+                placeholder="Paste a Slack thread URL to view..."
+                on:keydown={handleUrlKeydown}
+                disabled={urlLoading}
+                class="url-input"
+              />
+              <button
+                on:click={handleUrlPaste}
+                disabled={!urlInput.trim() || urlLoading}
+                class="btn-secondary"
+              >
+                {urlLoading ? 'Loading...' : 'Load Thread'}
+              </button>
+            </div>
+          </label>
         </div>
-      {/if}
-      <div class="filter-row">
+      </div>
+
+      <div class="search-section">
+        <h3>Filters</h3>
+        
+        {#if !$searchQuery.trim() && (channel || user || fromDate || toDate)}
+          <div class="info-message">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span>You can search with filters only - no search term required!</span>
+          </div>
+        {/if}
+        
+        {#if channel || user || fromDate || toDate}
+          <div class="active-filters">
+            <span class="filter-label">Active filters:</span>
+            {#if channel}
+              <span class="filter-tag">Channel: {channel}</span>
+            {/if}
+            {#if userId || user}
+              <span class="filter-tag">User: {user || userId}</span>
+            {/if}
+            {#if fromDate}
+              <span class="filter-tag">From: {fromDate}</span>
+            {/if}
+            {#if toDate}
+              <span class="filter-tag">To: {toDate}</span>
+            {/if}
+          </div>
+        {/if}
+        
+        <div class="filter-row">
         <label class="channel-label">
           Channel:
           <ChannelSelector 
@@ -358,10 +450,11 @@
         </label>
       </div>
       
-      <div class="filter-actions">
-        <button on:click={clearFilters} class="btn-secondary">
-          Clear filters
-        </button>
+        <div class="filter-actions">
+          <button on:click={clearFilters} class="btn-secondary">
+            Clear filters
+          </button>
+        </div>
       </div>
     </div>
   {/if}
@@ -378,32 +471,108 @@
   .search-main {
     display: flex;
     gap: 0.5rem;
+    justify-content: space-between;
   }
   
-  .search-input {
-    flex: 1;
+  .btn-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     padding: 0.5rem 1rem;
+    background: transparent;
     border: 1px solid var(--border);
     border-radius: 4px;
-    font-size: 1rem;
-    background: var(--bg-primary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  
+  .btn-toggle:hover {
+    background: var(--bg-hover);
     color: var(--text-primary);
   }
   
-  .search-input:focus {
-    outline: none;
+  .btn-toggle.active {
+    background: var(--primary-bg);
+    color: var(--primary);
     border-color: var(--primary);
-  }
-  
-  .search-input:disabled {
-    opacity: 0.6;
   }
   
   .search-advanced {
     margin-top: 1rem;
     padding-top: 1rem;
     border-top: 1px solid var(--border);
+    animation: slideDown 0.3s ease-out;
   }
+  
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .search-section {
+    margin-bottom: 1.5rem;
+  }
+  
+  .search-section h3 {
+    margin: 0 0 1rem 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .input-group {
+    margin-bottom: 1rem;
+  }
+  
+  .input-group label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+  }
+  
+  .search-input,
+  .url-input {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 1rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    width: 100%;
+  }
+  
+  .search-input:focus,
+  .url-input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+  
+  .search-input:disabled,
+  .url-input:disabled {
+    opacity: 0.6;
+  }
+  
+  .url-input-wrapper {
+    display: flex;
+    gap: 0.5rem;
+  }
+  
+  .url-input {
+    flex: 1;
+  }
+  
   
   .filter-row {
     display: flex;

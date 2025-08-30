@@ -24,7 +24,6 @@
     searchMessages, 
     getUserChannels, 
     testConnection,
-    getThreadFromUrl,
     initTokenFromStorage 
   } from './lib/api/slack';
   import { initKeyboardService, type KeyboardService } from './lib/services/keyboardService';
@@ -46,8 +45,6 @@
   let maskedToken = '';
   let workspace = '';
   let useMultiWorkspace = false; // Feature flag for multi-workspace mode
-  let urlInput = '';
-  let urlLoading = false;
   let keyboardService: KeyboardService;
   let searchBarElement: SearchBar;
   let resultListElement: ResultList;
@@ -391,12 +388,13 @@
     // Focus URL Input
     keyboardService.registerHandler('focusUrlInput', {
       action: () => {
-        if (!showSettings) {
-          const urlInput = document.querySelector('.url-input') as HTMLInputElement;
-          if (urlInput) {
-            urlInput.focus();
-            urlInput.select();
+        if (!showSettings && searchBarElement) {
+          // Make sure advanced search is open first
+          if (!searchBarElement.isAdvancedOpen()) {
+            searchBarElement.toggleAdvancedSearch();
           }
+          // Then focus the URL input
+          searchBarElement.focusUrlInput();
         }
       },
       allowInInput: true  // Allow even when in input fields for better navigation
@@ -731,59 +729,6 @@
     }
   }
   
-  async function handleUrlPaste() {
-    if (!urlInput.trim()) return;
-    
-    urlLoading = true;
-    searchError.set(null);
-    
-    try {
-      // Ensure we have a token
-      if (!token) {
-        if (useMultiWorkspace) {
-          const wsToken = await workspaceStore.getActiveToken();
-          if (wsToken) {
-            token = wsToken;
-            await updateTokenSecure(wsToken);
-            await new Promise(resolve => setTimeout(resolve, 100));
-          } else {
-            throw new Error('No token available for current workspace');
-          }
-        } else {
-          throw new Error('No Slack token configured');
-        }
-      }
-      
-      // First ensure the token is initialized in the backend
-      const tokenInitialized = await initTokenFromStorage();
-      if (!tokenInitialized) {
-        throw new Error('Failed to initialize token in backend');
-      }
-      
-      const thread = await getThreadFromUrl(urlInput);
-      selectedMessage.set(thread.parent);
-      urlInput = '';
-    } catch (err) {
-      let errorMessage = 'Failed to load thread from URL';
-      if (err instanceof Error) {
-        errorMessage = err.message;
-        // Extract more specific error details if available
-        if (err.message.includes('Invalid Slack URL')) {
-          errorMessage = 'Invalid Slack URL format. Please paste a valid Slack message link.';
-        } else if (err.message.includes('Authentication') || err.message.includes('No Slack token')) {
-          errorMessage = 'Authentication failed. Please check your Slack token in Settings.';
-        } else if (err.message.includes('Network')) {
-          errorMessage = 'Network error. Please check your internet connection.';
-        } else if (err.message.includes('not found')) {
-          errorMessage = 'Thread not found. The message may have been deleted or you may not have access.';
-        }
-      }
-      searchError.set(errorMessage);
-      console.error('URL parse error:', err);
-    } finally {
-      urlLoading = false;
-    }
-  }
 </script>
 
 <div class="app">
@@ -935,24 +880,6 @@
       </div>
     </div>
   {:else}
-    <div class="url-input-section">
-      <input
-        type="text"
-        bind:value={urlInput}
-        placeholder="Paste a Slack thread URL to view..."
-        on:keydown={(e) => e.key === 'Enter' && handleUrlPaste()}
-        disabled={urlLoading}
-        class="url-input"
-      />
-      <button
-        on:click={handleUrlPaste}
-        disabled={!urlInput.trim() || urlLoading}
-        class="btn-primary"
-      >
-        {urlLoading ? 'Loading...' : 'Load Thread'}
-      </button>
-    </div>
-    
     {#if $searchError}
       <div class="error-banner">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -1241,26 +1168,6 @@
     border-radius: 0 0 8px 8px;
   }
   
-  .url-input-section {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-  }
-  
-  .url-input {
-    flex: 1;
-    padding: 0.5rem 1rem;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    font-size: 0.875rem;
-  }
-  
-  .url-input:focus {
-    outline: none;
-    border-color: var(--primary);
-  }
   
   .main-content {
     display: flex;
