@@ -3,6 +3,9 @@ mod error;
 mod slack;
 mod state;
 
+#[cfg(test)]
+mod tests;
+
 use state::AppState;
 use tauri::Manager;
 use tracing_subscriber;

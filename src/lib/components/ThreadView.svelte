@@ -5,7 +5,6 @@
   import { activeWorkspace } from '../stores/workspaces';
   import { urlService } from '../services/urlService';
   import { showSuccess, showError, showInfo } from '../stores/toast';
-  import userStore from '../stores/users';
   
   export let message: Message | null = null;
   
@@ -324,7 +323,7 @@
             <span class="user-name">{thread.parent.userName}</span>
             <span class="timestamp">{formatTimestamp(thread.parent.ts)}</span>
           </div>
-          <div class="message-text">{userStore.replaceMentions(thread.parent.text)}</div>
+          <div class="message-text">{thread.parent.text}</div>
         </div>
       </div>
       
@@ -347,7 +346,7 @@
                 <span class="user-name">{reply.userName}</span>
                 <span class="timestamp">{formatTimestamp(reply.ts)}</span>
               </div>
-              <div class="message-text">{userStore.replaceMentions(reply.text)}</div>
+              <div class="message-text">{reply.text}</div>
             </div>
           {/each}
         </div>
@@ -390,7 +389,7 @@
           <span class="user-name">{message.userName}</span>
           <span class="timestamp">{formatTimestamp(message.ts)}</span>
         </div>
-        <div class="message-text">{userStore.replaceMentions(message.text)}</div>
+        <div class="message-text">{message.text}</div>
       </div>
     </div>
   {/if}

@@ -153,6 +153,17 @@ impl AppState {
         result
     }
 
+    pub async fn get_user_cache_full(&self) -> HashMap<String, CachedUser> {
+        let cache = self.user_cache.read().await;
+        let mut result = HashMap::new();
+        for (id, user) in cache.iter() {
+            if Self::is_cache_valid(user.cached_at) {
+                result.insert(id.clone(), user.clone());
+            }
+        }
+        result
+    }
+
     pub async fn get_channel_cache(&self) -> HashMap<String, String> {
         let cache = self.channel_cache.read().await;
         let mut result = HashMap::new();

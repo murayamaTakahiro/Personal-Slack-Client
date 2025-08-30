@@ -3,12 +3,43 @@ use crate::slack::{
     SlackClient, SearchRequest, SearchResult, Message, SlackMessage,
     build_search_query, fetch_all_results, SlackUser
 };
-use crate::state::AppState;
+use crate::state::{AppState, CachedUser};
 use std::time::Instant;
 use tauri::State;
 use tracing::{debug, info, error, warn};
 use futures::future::join_all;
 use std::sync::Arc;
+
+use std::collections::HashMap;
+
+fn replace_user_mentions(text: &str, user_cache: &HashMap<String, CachedUser>) -> String {
+    let mut result = text.to_string();
+    
+    // Updated regex to handle both <@USERID> and <@USERID|username> formats
+    // The Slack search.messages API returns mentions with display names included
+    let re = regex::Regex::new(r"<@(U[A-Z0-9]+)(?:\|([^>]+))?>").unwrap();
+    
+    for cap in re.captures_iter(text) {
+        let user_id = cap.get(1).map(|m| m.as_str()).unwrap_or("");
+        let display_name = cap.get(2).map(|m| m.as_str());
+        
+        let replacement = if let Some(name) = display_name {
+            // If we have the display name in the mention (e.g., <@U123|john.doe>), use it directly
+            format!("@{}", name)
+        } else if let Some(cached_user) = user_cache.get(user_id) {
+            // Otherwise, look up the user in our cache (for <@U123> format)
+            format!("@{}", cached_user.name)
+        } else {
+            // Fallback: keep the original format if we can't resolve it
+            continue;
+        };
+        
+        let original = cap.get(0).map(|m| m.as_str()).unwrap_or("");
+        result = result.replace(original, &replacement);
+    }
+    
+    result
+}
 
 #[tauri::command]
 pub async fn search_messages(
@@ -217,7 +248,7 @@ pub async fn search_messages(
     let slack_messages: Vec<_> = all_slack_messages.into_iter().take(max_results).collect();
     
     // Get user cache from state
-    let user_cache = state.get_user_cache().await;
+    let user_cache_simple = state.get_user_cache().await;
     let channel_cache = state.get_channel_cache().await;
     
     // Clone client for use in the loop
@@ -225,7 +256,7 @@ pub async fn search_messages(
     let unique_user_ids: Vec<String> = slack_messages
         .iter()
         .filter_map(|msg| msg.user.as_ref())
-        .filter(|user_id| !user_cache.contains_key(*user_id))
+        .filter(|user_id| !user_cache_simple.contains_key(*user_id))
         .map(|s| s.to_string())
         .collect::<std::collections::HashSet<_>>()
         .into_iter()
@@ -263,7 +294,7 @@ pub async fn search_messages(
     }
     
     // Reload cache after batch update
-    let user_cache = state.get_user_cache().await;
+    let mut user_cache_simple = state.get_user_cache().await;
     let client_for_loop = client.clone();
     
     // Convert Slack messages to our Message format
@@ -271,7 +302,7 @@ pub async fn search_messages(
     for slack_msg in slack_messages {
         let user_name = if let Some(user_id) = &slack_msg.user {
             // Try to get from cache first
-            if let Some(cached_name) = user_cache.get(user_id) {
+            if let Some(cached_name) = user_cache_simple.get(user_id) {
                 cached_name.clone()
             } else {
                 // Fetch from API and cache
@@ -285,6 +316,8 @@ pub async fn search_messages(
                         
                         // Update cache
                         state.cache_user(user_id.clone(), name.clone(), None).await;
+                        // Also update local cache
+                        user_cache_simple.insert(user_id.clone(), name.clone());
                         name
                     }
                     Err(e) => {
@@ -306,12 +339,18 @@ pub async fn search_messages(
             name
         };
         
+        // Get fresh user cache for mention replacement
+        let user_cache_full = state.get_user_cache_full().await;
+        
+        // Replace user mentions in the text
+        let processed_text = replace_user_mentions(&slack_msg.text, &user_cache_full);
+        
         messages.push(Message {
             ts: slack_msg.ts.clone(),
             thread_ts: slack_msg.thread_ts.clone(),
             user: slack_msg.user.unwrap_or_else(|| "Unknown".to_string()),
             user_name,
-            text: slack_msg.text.clone(),
+            text: processed_text,
             channel: slack_msg.channel.id.clone(),
             channel_name,
             permalink: slack_msg.permalink.clone(),

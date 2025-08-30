@@ -3,9 +3,39 @@ use crate::slack::{
     ThreadMessages, Message, ParsedUrl,
     parse_slack_url
 };
-use crate::state::AppState;
+use crate::state::{AppState, CachedUser};
 use tauri::State;
 use tracing::{debug, info, error};
+use std::collections::HashMap;
+
+fn replace_user_mentions(text: &str, user_cache: &HashMap<String, CachedUser>) -> String {
+    let mut result = text.to_string();
+    
+    // Updated regex to handle both <@USERID> and <@USERID|username> formats
+    // The Slack API can return mentions in either format depending on the endpoint
+    let re = regex::Regex::new(r"<@(U[A-Z0-9]+)(?:\|([^>]+))?>").unwrap();
+    
+    for cap in re.captures_iter(text) {
+        let user_id = cap.get(1).map(|m| m.as_str()).unwrap_or("");
+        let display_name = cap.get(2).map(|m| m.as_str());
+        
+        let replacement = if let Some(name) = display_name {
+            // If we have the display name in the mention (e.g., <@U123|john.doe>), use it directly
+            format!("@{}", name)
+        } else if let Some(cached_user) = user_cache.get(user_id) {
+            // Otherwise, look up the user in our cache (for <@U123> format)
+            format!("@{}", cached_user.name)
+        } else {
+            // Fallback: keep the original format if we can't resolve it
+            continue;
+        };
+        
+        let original = cap.get(0).map(|m| m.as_str()).unwrap_or("");
+        result = result.replace(original, &replacement);
+    }
+    
+    result
+}
 
 #[tauri::command]
 pub async fn get_thread(
@@ -47,7 +77,7 @@ pub async fn get_thread(
     }
     
     // Get user and channel caches
-    let user_cache = state.get_user_cache().await;
+    let user_cache_simple = state.get_user_cache().await;
     let mut channel_cache = state.get_channel_cache().await;
     
     // If channel name is not in cache, try to fetch it (but don't fail if it doesn't work)
@@ -71,7 +101,7 @@ pub async fn get_thread(
     let mut users_to_fetch = Vec::new();
     for msg in &messages {
         if let Some(user_id) = &msg.user {
-            if !user_cache.contains_key(user_id) && !users_to_fetch.contains(user_id) {
+            if !user_cache_simple.contains_key(user_id) && !users_to_fetch.contains(user_id) {
                 users_to_fetch.push(user_id.clone());
             }
         }
@@ -119,14 +149,15 @@ pub async fn get_thread(
     }
     
     // Refresh cache after batch fetching
-    let user_cache = state.get_user_cache().await;
+    let user_cache_simple = state.get_user_cache().await;
+    let user_cache_full = state.get_user_cache_full().await;
     
     // Convert messages to our format
     let mut converted_messages = Vec::new();
     
     for msg in messages {
         let user_name = if let Some(user_id) = &msg.user {
-            user_cache.get(user_id).cloned().unwrap_or_else(|| user_id.clone())
+            user_cache_simple.get(user_id).cloned().unwrap_or_else(|| user_id.clone())
         } else {
             "Unknown".to_string()
         };
@@ -144,12 +175,15 @@ pub async fn get_thread(
             msg.ts.replace('.', "")
         );
         
+        // Replace user mentions in the text
+        let processed_text = replace_user_mentions(&msg.text, &user_cache_full);
+        
         converted_messages.push(Message {
             ts: msg.ts.clone(),
             thread_ts: msg.thread_ts.clone(),
             user: msg.user.clone().unwrap_or_else(|| "Unknown".to_string()),
             user_name,
-            text: msg.text.clone(),
+            text: processed_text,
             channel: channel_id.clone(),
             channel_name: channel_name.clone(),
             permalink,
