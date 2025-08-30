@@ -158,6 +158,8 @@
     
     switch (event.key) {
       case 'ArrowDown':
+      case 'j':
+      case 'J':
         event.preventDefault();
         if (selectedIndex === -1) {
           // Initialize selection
@@ -171,6 +173,8 @@
         focusMessage(selectedIndex);
         break;
       case 'ArrowUp':
+      case 'k':
+      case 'K':
         event.preventDefault();
         if (selectedIndex === -1) {
           // Initialize selection at end

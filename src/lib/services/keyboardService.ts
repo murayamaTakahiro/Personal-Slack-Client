@@ -177,7 +177,7 @@ export class KeyboardService {
     // Check if thread view has focus - if so, let it handle its own navigation
     const threadViewElement = document.querySelector('.thread-view');
     if (threadViewElement && threadViewElement.contains(target)) {
-      // Don't handle arrow keys and vim keys when thread view has focus
+      // Thread view handles these keys internally
       const navigationKeys = ['ArrowUp', 'ArrowDown', 'j', 'k', 'J', 'K'];
       if (navigationKeys.includes(event.key)) {
         return false;
