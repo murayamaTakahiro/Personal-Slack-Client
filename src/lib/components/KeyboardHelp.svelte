@@ -122,6 +122,26 @@
             shortcut: shortcuts.toggleSettings || 'Ctrl+,'
           }
         ]
+      },
+      {
+        name: 'View',
+        shortcuts: [
+          {
+            key: 'zoomIn',
+            description: 'Zoom In',
+            shortcut: shortcuts.zoomIn || 'Ctrl+='
+          },
+          {
+            key: 'zoomOut',
+            description: 'Zoom Out',
+            shortcut: shortcuts.zoomOut || 'Ctrl+-'
+          },
+          {
+            key: 'zoomReset',
+            description: 'Reset Zoom',
+            shortcut: shortcuts.zoomReset || 'Ctrl+0'
+          }
+        ]
       }
     ];
   });

@@ -107,7 +107,9 @@ export interface KeyboardShortcuts {
   reaction7?: string;
   reaction8?: string;
   reaction9?: string;
-  openUrls?: string;
+  zoomIn?: string;
+  zoomOut?: string;
+  zoomReset?: string;
 }
 
 export interface AppSettings {

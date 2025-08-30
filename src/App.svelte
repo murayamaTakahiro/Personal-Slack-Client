@@ -38,6 +38,7 @@
   import { reactionService, initializeReactionMappings } from './lib/services/reactionService';
   import { initializeConfig, watchConfigFile } from './lib/services/configService';
   import { realtimeStore, timeUntilUpdate, formattedLastUpdate } from './lib/stores/realtime';
+  import { zoomStore } from './lib/stores/zoom';
   
   let channels: [string, string][] = [];
   let showSettings = false;
@@ -59,6 +60,9 @@
     
     // Initialize settings from persistent store
     const currentSettings = await initializeSettings();
+    
+    // Initialize zoom store
+    await zoomStore.initialize();
     
     // Request notification permission if needed
     if ('Notification' in window && Notification.permission === 'default') {
@@ -408,6 +412,28 @@
         }
       },
       allowInInput: true  // Allow from anywhere for better UX
+    });
+    
+    // Zoom controls
+    keyboardService.registerHandler('zoomIn', {
+      action: () => {
+        zoomStore.zoomIn();
+      },
+      allowInInput: true
+    });
+    
+    keyboardService.registerHandler('zoomOut', {
+      action: () => {
+        zoomStore.zoomOut();
+      },
+      allowInInput: true
+    });
+    
+    keyboardService.registerHandler('zoomReset', {
+      action: () => {
+        zoomStore.resetZoom();
+      },
+      allowInInput: true
     });
   }
   

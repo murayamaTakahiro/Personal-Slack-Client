@@ -32,7 +32,10 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   reaction6: '6',
   reaction7: '7',
   reaction8: '8',
-  reaction9: '9'
+  reaction9: '9',
+  zoomIn: 'Ctrl+=',
+  zoomOut: 'Ctrl+-',
+  zoomReset: 'Ctrl+0'
 };
 
 // Default settings
