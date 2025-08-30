@@ -78,6 +78,7 @@ pub async fn search_messages(
                         from_date,
                         to_date,
                         limit: Some(max_results),
+                        is_realtime: force_refresh,
                     };
                     
                     let search_query = build_search_query(&search_request);
@@ -166,6 +167,7 @@ pub async fn search_messages(
                             from_date: from_date.clone(),
                             to_date: to_date.clone(),
                             limit,
+                            is_realtime: force_refresh,
                         };
                         
                         let search_query = build_search_query(&search_request);
@@ -183,6 +185,7 @@ pub async fn search_messages(
                     from_date: from_date.clone(),
                     to_date: to_date.clone(),
                     limit,
+                    is_realtime: force_refresh,
                 };
                 
                 let search_query = build_search_query(&search_request);
@@ -200,6 +203,7 @@ pub async fn search_messages(
             from_date: from_date.clone(),
             to_date: to_date.clone(),
             limit,
+            is_realtime: force_refresh,
         };
         
         let search_query = build_search_query(&search_request);
@@ -336,6 +340,7 @@ pub async fn search_messages(
                 from_date: from_date.clone(),
                 to_date: to_date.clone(),
                 limit,
+                is_realtime: force_refresh,
             };
             build_search_query(&search_request)
         } else {
@@ -347,6 +352,7 @@ pub async fn search_messages(
                 from_date: from_date.clone(),
                 to_date: to_date.clone(),
                 limit,
+                is_realtime: force_refresh,
             };
             build_search_query(&search_request)
         }
@@ -358,6 +364,7 @@ pub async fn search_messages(
             from_date: from_date.clone(),
             to_date: to_date.clone(),
             limit,
+            is_realtime: force_refresh,
         };
         build_search_query(&search_request)
     };

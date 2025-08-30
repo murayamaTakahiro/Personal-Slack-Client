@@ -8,6 +8,7 @@ pub struct SearchRequest {
     pub from_date: Option<String>, // ISO 8601
     pub to_date: Option<String>,   // ISO 8601
     pub limit: Option<usize>,      // デフォルト: 100
+    pub is_realtime: Option<bool>, // Flag for realtime/live mode searches
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

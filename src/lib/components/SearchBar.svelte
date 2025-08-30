@@ -27,8 +27,13 @@
   async function handleSearch(isRealtimeUpdate: boolean = false) {
     // If realtime mode is enabled and this is a realtime update, auto-set today's date
     if ($realtimeStore.isEnabled && isRealtimeUpdate) {
-      const today = new Date().toISOString().split('T')[0];
-      fromDate = today;
+      // Use local date instead of UTC to get today in user's timezone
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      fromDate = `${year}-${month}-${day}`;
+      
       // Don't set toDate - we want all messages from today onward
       toDate = '';
       // Clear query for realtime mode to focus on channel-based filtering

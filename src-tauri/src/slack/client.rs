@@ -671,15 +671,33 @@ pub fn build_search_query(params: &SearchRequest) -> String {
     
     // Add date filters - Slack expects dates in YYYY-MM-DD format
     // Note: Slack's "after:" is exclusive, so we need to subtract 1 day for inclusive "from"
+    // EXCEPT for realtime/live mode where we want exactly today's messages
     if let Some(from) = &params.from_date {
         // Parse ISO string and format as YYYY-MM-DD for Slack
         if let Some(date_part) = from.split('T').next() {
-            // Parse the date and subtract one day for inclusive search
+            // Parse the date
             if let Ok(date) = chrono::NaiveDate::parse_from_str(date_part, "%Y-%m-%d") {
-                let adjusted_date = date - chrono::Duration::days(1);
-                let formatted_date = adjusted_date.format("%Y-%m-%d");
-                info!("Parsed from_date '{}' -> adjusted to '{}'", date_part, formatted_date);
-                query_parts.push(format!("after:{}", formatted_date));
+                // For realtime mode, don't adjust the date - we want exactly today's messages
+                // For normal searches, subtract one day for inclusive search
+                if params.is_realtime.unwrap_or(false) {
+                    // For realtime/live mode: use yesterday as the "after" date to get today's messages
+                    // This ensures we only get messages from today (midnight onwards)
+                    let yesterday = date - chrono::Duration::days(1);
+                    let formatted_date = yesterday.format("%Y-%m-%d");
+                    info!("Realtime mode: using after:{} to get messages from {} onwards", formatted_date, date_part);
+                    query_parts.push(format!("after:{}", formatted_date));
+                    
+                    // Also add a before filter for tomorrow to ensure we only get today's messages
+                    let tomorrow = date + chrono::Duration::days(1);
+                    let tomorrow_formatted = tomorrow.format("%Y-%m-%d");
+                    query_parts.push(format!("before:{}", tomorrow_formatted));
+                } else {
+                    // For normal searches, subtract one day for inclusive search
+                    let adjusted_date = date - chrono::Duration::days(1);
+                    let formatted_date = adjusted_date.format("%Y-%m-%d");
+                    info!("Normal search: adjusted from_date '{}' -> '{}'", date_part, formatted_date);
+                    query_parts.push(format!("after:{}", formatted_date));
+                };
             } else {
                 // Fallback if parsing fails
                 warn!("Failed to parse from_date '{}', using as-is", date_part);
@@ -691,13 +709,17 @@ pub fn build_search_query(params: &SearchRequest) -> String {
         }
     }
     
+    // Don't add to_date filter if already added by realtime mode
     if let Some(to) = &params.to_date {
-        // Parse ISO string and format as YYYY-MM-DD for Slack
-        // "before:" is exclusive which is what we want for "to" dates
-        if let Some(date_part) = to.split('T').next() {
-            query_parts.push(format!("before:{}", date_part));
-        } else {
-            query_parts.push(format!("before:{}", to));
+        // Skip if realtime mode already added a before filter
+        if !params.is_realtime.unwrap_or(false) {
+            // Parse ISO string and format as YYYY-MM-DD for Slack
+            // "before:" is exclusive which is what we want for "to" dates
+            if let Some(date_part) = to.split('T').next() {
+                query_parts.push(format!("before:{}", date_part));
+            } else {
+                query_parts.push(format!("before:{}", to));
+            }
         }
     }
     
