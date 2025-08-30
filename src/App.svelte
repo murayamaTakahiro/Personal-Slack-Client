@@ -23,7 +23,8 @@
   import { maskTokenClient } from './lib/api/secure';
   import { 
     searchMessages, 
-    getUserChannels, 
+    getUserChannels,
+    getUsers, 
     testConnection,
     initTokenFromStorage 
   } from './lib/api/slack';
@@ -35,6 +36,7 @@
   import Toast from './lib/components/Toast.svelte';
   import { workspaceStore, activeWorkspace } from './lib/stores/workspaces';
   import { channelStore } from './lib/stores/channels';
+  import userStore from './lib/stores/users';
   import { userService } from './lib/services/userService';
   import { reactionService, initializeReactionMappings } from './lib/services/reactionService';
   import { initializeConfig, watchConfigFile } from './lib/services/configService';
@@ -667,10 +669,24 @@
       await channelStore.initChannels(channels);
       
       console.log(`Loaded ${channels.length} channels for workspace`);
+      
+      // Also load users for mention resolution
+      await loadUsers();
     } catch (err) {
       console.error('Failed to load channels:', err);
       channels = [];
       searchError.set('Failed to load channels. Please check your token permissions.');
+    }
+  }
+  
+  async function loadUsers() {
+    try {
+      const users = await getUsers();
+      await userStore.initUsers(users);
+      console.log(`Loaded ${users.length} users for workspace`);
+    } catch (err) {
+      console.error('Failed to load users:', err);
+      // Non-critical error - continue without user mention resolution
     }
   }
   

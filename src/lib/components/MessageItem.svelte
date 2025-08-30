@@ -8,6 +8,7 @@
   import { urlService } from '../services/urlService';
   import { showSuccess, showError, showInfo } from '../stores/toast';
   import ReactionPicker from './ReactionPicker.svelte';
+  import userStore from '../stores/users';
   
   export let message: Message;
   export let selected = false;
@@ -432,7 +433,7 @@
   {/if}
   
   <div class="message-content">
-    {truncateText(message.text)}
+    {truncateText(userStore.replaceMentions(message.text))}
   </div>
   
   {#if selected && enableReactions}

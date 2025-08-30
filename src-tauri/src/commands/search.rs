@@ -257,7 +257,7 @@ pub async fn search_messages(
         let user_results = join_all(user_fetch_futures).await;
         for result in user_results {
             if let Some((user_id, name)) = result {
-                state.cache_user(user_id, name).await;
+                state.cache_user(user_id, name, None).await;
             }
         }
     }
@@ -284,7 +284,7 @@ pub async fn search_messages(
                             .unwrap_or_else(|| user_info.name.clone());
                         
                         // Update cache
-                        state.cache_user(user_id.clone(), name.clone()).await;
+                        state.cache_user(user_id.clone(), name.clone(), None).await;
                         name
                     }
                     Err(e) => {
@@ -414,6 +414,29 @@ pub async fn get_user_channels(
     info!("Fetched {} channels", channel_list.len());
     
     Ok(channel_list)
+}
+
+#[tauri::command]
+pub async fn get_users(
+    state: State<'_, AppState>,
+) -> AppResult<Vec<(String, String, Option<String>)>> {
+    let client = state.get_client().await?;
+    
+    debug!("Fetching users");
+    
+    let users = client.get_users().await?;
+    
+    let mut user_list = Vec::new();
+    for user in users {
+        // Return user ID, username, and real name
+        user_list.push((user.id.clone(), user.name.clone(), user.real_name.clone()));
+        // Cache the user
+        state.cache_user(user.id, user.name, user.real_name).await;
+    }
+    
+    info!("Fetched {} users", user_list.len());
+    
+    Ok(user_list)
 }
 
 #[tauri::command]

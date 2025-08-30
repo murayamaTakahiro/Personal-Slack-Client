@@ -12,6 +12,7 @@ use std::hash::{Hash, Hasher};
 #[derive(Clone, Serialize, Deserialize)]
 pub struct CachedUser {
     pub name: String,
+    pub real_name: Option<String>,
     pub cached_at: u64,  // Unix timestamp
 }
 
@@ -124,10 +125,11 @@ impl AppState {
         }
     }
 
-    pub async fn cache_user(&self, user_id: String, user_name: String) {
+    pub async fn cache_user(&self, user_id: String, user_name: String, real_name: Option<String>) {
         let mut cache = self.user_cache.write().await;
         cache.insert(user_id, CachedUser {
             name: user_name,
+            real_name,
             cached_at: Self::current_timestamp(),
         });
     }

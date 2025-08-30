@@ -43,6 +43,10 @@ export async function getUserChannels(): Promise<[string, string][]> {
   return await invoke('get_user_channels', {});
 }
 
+export async function getUsers(): Promise<[string, string, string | null][]> {
+  return await invoke('get_users', {});
+}
+
 export async function testConnection(token: string): Promise<boolean> {
   return await invoke('test_connection', { token });
 }

@@ -323,6 +323,59 @@ impl SlackClient {
         Ok(all_channels)
     }
 
+    pub async fn get_users(&self) -> Result<Vec<SlackUserInfo>> {
+        let url = format!("{}/users.list", SLACK_API_BASE);
+        
+        let mut all_users = Vec::new();
+        let mut cursor: Option<String> = None;
+
+        loop {
+            let mut params = HashMap::new();
+            params.insert("limit", "1000".to_string());
+            
+            if let Some(ref cursor_value) = cursor {
+                params.insert("cursor", cursor_value.clone());
+            }
+
+            let response = self.client
+                .get(&url)
+                .query(&params)
+                .send()
+                .await?;
+
+            if !response.status().is_success() {
+                return Err(anyhow!("Failed to get users: {}", response.status()));
+            }
+
+            let result: SlackUsersListResponse = response.json().await?;
+            
+            if !result.ok {
+                let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
+                return Err(anyhow!("Slack API error: {}", error_msg));
+            }
+
+            if let Some(users) = result.members {
+                all_users.extend(users);
+            }
+
+            // Check if there are more pages
+            if let Some(metadata) = result.response_metadata {
+                if let Some(next) = metadata.next_cursor {
+                    if !next.is_empty() {
+                        cursor = Some(next);
+                        // Rate limiting
+                        sleep(Duration::from_millis(RATE_LIMIT_DELAY_MS)).await;
+                        continue;
+                    }
+                }
+            }
+            
+            break;
+        }
+
+        Ok(all_users)
+    }
+
     pub async fn get_channel_info(&self, channel_id: &str) -> Result<SlackConversation> {
         let url = format!("{}/conversations.info", SLACK_API_BASE);
         

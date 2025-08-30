@@ -113,7 +113,7 @@ pub async fn get_thread(
         // Update cache with all fetched users
         for result in user_results {
             if let Some((user_id, name)) = result {
-                state.cache_user(user_id, name).await;
+                state.cache_user(user_id, name, None).await;
             }
         }
     }
