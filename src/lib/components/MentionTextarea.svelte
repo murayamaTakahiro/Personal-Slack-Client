@@ -69,15 +69,22 @@
   }
   
   function handleKeydown(event: KeyboardEvent) {
-    // Don't propagate Escape when autocomplete is open
-    if (showAutocomplete && event.key === 'Escape') {
-      event.stopPropagation();
-      showAutocomplete = false;
-      mentionContext = null;
-      return;
+    // Handle special keys when autocomplete is open
+    if (showAutocomplete) {
+      // These keys are handled by the autocomplete component
+      if (['ArrowDown', 'ArrowUp', 'Tab', 'Enter', 'Escape'].includes(event.key)) {
+        // Autocomplete will handle these keys
+        if (event.key === 'Escape') {
+          event.stopPropagation();
+          showAutocomplete = false;
+          mentionContext = null;
+        }
+        // Don't pass arrow keys, Tab, or Enter to parent when autocomplete is open
+        return;
+      }
     }
     
-    // Pass keyboard events to parent (dispatch the event itself, not wrapped)
+    // Pass other keyboard events to parent
     dispatch('keydown', event);
   }
   

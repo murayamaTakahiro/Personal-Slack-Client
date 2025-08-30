@@ -72,7 +72,7 @@ export class MentionService {
   }
 
   detectMentionTrigger(text: string, cursorPos: number): MentionContext | null {
-    console.log('detectMentionTrigger called:', { text, cursorPos, textAtCursor: text.substring(Math.max(0, cursorPos - 5), cursorPos) });
+    // console.log('detectMentionTrigger called:', { text, cursorPos, textAtCursor: text.substring(Math.max(0, cursorPos - 5), cursorPos) });
     
     if (cursorPos === 0) return null;
 
@@ -89,18 +89,18 @@ export class MentionService {
         const prevChar = searchStart > 0 ? text[searchStart - 1] : null;
         const isValidPosition = prevChar === null || prevChar === ' ' || prevChar === '\n' || prevChar === '\r' || prevChar === '\t';
         
-        console.log('Found @ at position', searchStart, { prevChar, isValidPosition });
+        // console.log('Found @ at position', searchStart, { prevChar, isValidPosition });
         
         if (isValidPosition) {
           const searchQuery = text.substring(searchStart + 1, cursorPos);
           
           // Only trigger if we're not in a code block
           if (this.isInCodeBlock(text, searchStart)) {
-            console.log('@ is in code block, ignoring');
+            // console.log('@ is in code block, ignoring');
             return null;
           }
           
-          console.log('Returning mention context with query:', searchQuery);
+          // console.log('Returning mention context with query:', searchQuery);
           
           // Return context for autocomplete
           return {
@@ -110,7 +110,7 @@ export class MentionService {
           };
         }
         // @ is not at a valid position
-        console.log('@ not at valid position');
+        // console.log('@ not at valid position');
         return null;
       }
       
@@ -120,14 +120,14 @@ export class MentionService {
       
       // If we hit whitespace or invalid char, stop searching
       if (!isValidChar && char !== '@') {
-        console.log('Hit invalid char:', char, 'stopping search');
+        // console.log('Hit invalid char:', char, 'stopping search');
         return null;
       }
       
       searchStart--;
     }
     
-    console.log('No @ found');
+    // console.log('No @ found');
     return null;
   }
 

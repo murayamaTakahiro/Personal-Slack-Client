@@ -100,25 +100,33 @@
   }
   
   function handleKeydown(event: KeyboardEvent) {
+    // Only handle keys when autocomplete is visible
+    if (!filteredUsers.length) return;
+    
     switch(event.key) {
       case 'ArrowDown':
         event.preventDefault();
+        event.stopPropagation(); // Prevent propagation to parent components
         selectedIndex = Math.min(selectedIndex + 1, filteredUsers.length - 1);
         scrollToSelected();
         break;
       case 'ArrowUp':
         event.preventDefault();
+        event.stopPropagation(); // Prevent propagation to parent components
         selectedIndex = Math.max(selectedIndex - 1, 0);
         scrollToSelected();
         break;
+      case 'Tab':
       case 'Enter':
         event.preventDefault();
+        event.stopPropagation();
         if (filteredUsers[selectedIndex]) {
           selectUser(filteredUsers[selectedIndex]);
         }
         break;
       case 'Escape':
         event.preventDefault();
+        event.stopPropagation();
         dispatch('close');
         break;
     }
