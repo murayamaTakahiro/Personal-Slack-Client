@@ -43,6 +43,9 @@
     
     if (!mentionContext) return;
     
+    // Record this mention in history
+    mentionService.recordMention(user.id);
+    
     // Insert the mention
     const before = value.substring(0, mentionContext.triggerPosition);
     const after = value.substring(textarea.selectionStart);

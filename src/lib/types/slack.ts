@@ -112,6 +112,12 @@ export interface KeyboardShortcuts {
   zoomReset?: string;
 }
 
+export interface MentionHistory {
+  userId: string;
+  count: number;
+  lastUsed: string; // ISO date string
+}
+
 export interface AppSettings {
   token?: string;
   workspace?: string;
@@ -120,6 +126,7 @@ export interface AppSettings {
   keyboardShortcuts?: KeyboardShortcuts;
   userFavorites?: UserFavorite[];
   reactionMappings?: ReactionMapping[];
+  mentionHistory?: MentionHistory[];
 }
 
 export interface SearchHistory {

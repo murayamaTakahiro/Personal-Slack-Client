@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import { userService } from '../services/userService';
+  import { mentionService } from '../services/mentionService';
   import type { SlackUser, UserFavorite } from '../types/slack';
   
   export let searchQuery: string = '';
@@ -43,35 +44,48 @@
     loading = true;
     
     try {
-      // If query is empty, show favorites first
+      let users: (SlackUser | UserFavorite)[] = [];
+      
+      // If query is empty, show frequently mentioned users first
       if (query.length === 0) {
         const allUsers = await userService.getAllUsers();
         console.log('Got all users:', allUsers.length);
-        
-        // Combine favorites with all users
-        const favoriteUsers = userFavorites.slice(0, 5);
-        const otherUsers = allUsers
-          .filter(u => !userFavorites.some(f => f.id === u.id))
-          .slice(0, 5);
-        
-        filteredUsers = [...favoriteUsers, ...otherUsers];
+        users = allUsers;
       } else {
         // Search for users matching the query
         const searchResults = await userService.searchUsers(query);
         console.log('Search results:', searchResults.length);
-        
-        // Sort to prioritize favorites
-        filteredUsers = searchResults.sort((a, b) => {
-          const aIsFavorite = userFavorites.some(f => f.id === a.id);
-          const bIsFavorite = userFavorites.some(f => f.id === b.id);
-          
-          if (aIsFavorite && !bIsFavorite) return -1;
-          if (!aIsFavorite && bIsFavorite) return 1;
-          return 0;
-        }).slice(0, 10);
+        users = searchResults;
       }
       
+      // Sort users by: 1) Favorites, 2) Mention frequency, 3) Alphabetical
+      filteredUsers = users.sort((a, b) => {
+        const aIsFavorite = userFavorites.some(f => f.id === a.id);
+        const bIsFavorite = userFavorites.some(f => f.id === b.id);
+        
+        // Favorites always come first
+        if (aIsFavorite && !bIsFavorite) return -1;
+        if (!aIsFavorite && bIsFavorite) return 1;
+        
+        // Then sort by mention frequency
+        const aMentionCount = mentionService.getUserMentionCount(a.id);
+        const bMentionCount = mentionService.getUserMentionCount(b.id);
+        
+        if (aMentionCount !== bMentionCount) {
+          return bMentionCount - aMentionCount; // Higher count first
+        }
+        
+        // Finally, sort alphabetically
+        const aName = a.displayName || a.realName || a.name;
+        const bName = b.displayName || b.realName || b.name;
+        return aName.localeCompare(bName);
+      }).slice(0, 10);
+      
       console.log('Filtered users:', filteredUsers.length);
+      console.log('Top user mention counts:', filteredUsers.slice(0, 3).map(u => ({
+        name: u.name,
+        count: mentionService.getUserMentionCount(u.id)
+      })));
       
       // Reset selection index if needed
       if (selectedIndex >= filteredUsers.length) {
@@ -186,6 +200,11 @@
             {#if isFavorite(user)}
               <span class="favorite-badge">★</span>
             {/if}
+            {#if mentionService.getUserMentionCount(user.id) > 0}
+              <span class="mention-count" title="Mentioned {mentionService.getUserMentionCount(user.id)} times">
+                ({mentionService.getUserMentionCount(user.id)})
+              </span>
+            {/if}
           </div>
           <div class="user-real-name">
             {getUserDisplayName(user)}
@@ -276,6 +295,13 @@
   .favorite-badge {
     color: gold;
     font-size: 12px;
+  }
+  
+  .mention-count {
+    color: var(--color-text-secondary, #999);
+    font-size: 11px;
+    margin-left: 4px;
+    opacity: 0.7;
   }
   
   .user-real-name {

@@ -1,4 +1,6 @@
-import type { SlackUser } from '../types/slack';
+import type { SlackUser, MentionHistory } from '../types/slack';
+import { settings } from '../stores/settings';
+import { get } from 'svelte/store';
 
 export interface MentionContext {
   triggerPosition: number;
@@ -8,14 +10,65 @@ export interface MentionContext {
 
 export class MentionService {
   private static instance: MentionService;
+  private mentionHistory: Map<string, MentionHistory> = new Map();
 
-  private constructor() {}
+  private constructor() {
+    this.loadMentionHistory();
+  }
 
   static getInstance(): MentionService {
     if (!MentionService.instance) {
       MentionService.instance = new MentionService();
     }
     return MentionService.instance;
+  }
+
+  private loadMentionHistory() {
+    const currentSettings = get(settings);
+    if (currentSettings.mentionHistory) {
+      currentSettings.mentionHistory.forEach(history => {
+        this.mentionHistory.set(history.userId, history);
+      });
+    }
+  }
+
+  private saveMentionHistory() {
+    const historyArray = Array.from(this.mentionHistory.values());
+    settings.update(s => ({
+      ...s,
+      mentionHistory: historyArray
+    }));
+  }
+
+  recordMention(userId: string) {
+    const existing = this.mentionHistory.get(userId);
+    if (existing) {
+      existing.count++;
+      existing.lastUsed = new Date().toISOString();
+    } else {
+      this.mentionHistory.set(userId, {
+        userId,
+        count: 1,
+        lastUsed: new Date().toISOString()
+      });
+    }
+    this.saveMentionHistory();
+    console.log('Recorded mention for user:', userId, 'Total count:', this.mentionHistory.get(userId)?.count);
+  }
+
+  getMentionHistory(): MentionHistory[] {
+    return Array.from(this.mentionHistory.values())
+      .sort((a, b) => {
+        // Sort by count (descending), then by lastUsed (most recent first)
+        if (b.count !== a.count) {
+          return b.count - a.count;
+        }
+        return new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime();
+      });
+  }
+
+  getUserMentionCount(userId: string): number {
+    return this.mentionHistory.get(userId)?.count || 0;
   }
 
   detectMentionTrigger(text: string, cursorPos: number): MentionContext | null {
