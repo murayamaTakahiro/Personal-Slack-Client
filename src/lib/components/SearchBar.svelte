@@ -10,7 +10,7 @@
   import { getThreadFromUrl } from '../api/slack';
   
   export let channels: [string, string][] = [];
-  export let showAdvanced = false;
+  export let showAdvanced = true;
   
   const dispatch = createEventDispatcher();
   
@@ -262,12 +262,11 @@
     <button
       on:click={toggleAdvanced}
       class="btn-toggle {showAdvanced ? 'active' : ''}"
-      title="Toggle Advanced Search (Ctrl+Shift+F)"
+      title="Toggle filters (Ctrl+Shift+F)"
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
         <path d="M3 4h18v2.172a2 2 0 0 1-.586 1.414l-6.828 6.828A2 2 0 0 0 13 15.828V20l-4 2v-6.172a2 2 0 0 0-.586-1.414L1.586 7.586A2 2 0 0 1 1 6.172V4z"/>
       </svg>
-      <span>Advanced Search</span>
       {#if $searchQuery || urlInput || channel || user || fromDate || toDate}
         <span class="filter-indicator"></span>
       {/if}
