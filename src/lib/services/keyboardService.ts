@@ -146,15 +146,23 @@ export class KeyboardService {
                      target.tagName === 'TEXTAREA' || 
                      target.contentEditable === 'true';
 
-    // Check if emoji/reaction picker is open - if so, don't handle navigation
+    // Check if emoji/reaction picker is open - if so, block most keyboard shortcuts
     const reactionPicker = document.querySelector('.reaction-picker');
     if (reactionPicker) {
-      // Don't handle any navigation keys when reaction picker is open
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Escape'].includes(event.key) ||
-          (event.key >= '1' && event.key <= '9')) {
-        console.log('🔍 DEBUG: Reaction picker is open, skipping keyboard event handling');
+      // Allow only specific keys that the picker handles
+      const allowedKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Escape'];
+      const isNumberKey = event.key >= '1' && event.key <= '9';
+      const isAllowed = allowedKeys.includes(event.key) || isNumberKey;
+      
+      // Block all other shortcuts (including 't', 'p', 'r', etc.)
+      if (!isAllowed) {
+        console.log('🔍 DEBUG: Reaction picker is open, blocking keyboard shortcut:', event.key);
         return false;
       }
+      
+      // Let the picker handle its own keys
+      console.log('🔍 DEBUG: Reaction picker is open, allowing key for picker:', event.key);
+      return false;
     }
 
     // Check if thread view has focus - if so, let it handle its own navigation
