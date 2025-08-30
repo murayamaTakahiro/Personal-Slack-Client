@@ -13,8 +13,8 @@
     focusUrlInput: 'Ctrl+U',
     toggleSettings: 'Ctrl+,',
     newSearch: 'Ctrl+N',
-    nextResult: 'ArrowDown',
-    prevResult: 'ArrowUp',
+    nextResult: ['j', 'ArrowDown'],
+    prevResult: ['k', 'ArrowUp'],
     openResult: 'Enter',
     clearSearch: 'Escape',
     toggleChannelSelector: 'Ctrl+L',
@@ -142,30 +142,41 @@
     }
   }
   
-  function getShortcutDisplay(shortcut: string): string {
+  function getShortcutDisplay(shortcut: string | string[]): string {
     const isMac = navigator.platform.toLowerCase().includes('mac');
-    let display = shortcut;
     
-    if (isMac) {
-      display = display.replace(/Ctrl/gi, '⌘');
-      display = display.replace(/Alt/gi, '⌥');
-      display = display.replace(/Shift/gi, '⇧');
-    }
+    // Handle multiple shortcuts
+    const shortcuts = Array.isArray(shortcut) ? shortcut : [shortcut];
     
-    display = display.replace(/ArrowUp/gi, '↑');
-    display = display.replace(/ArrowDown/gi, '↓');
-    display = display.replace(/ArrowLeft/gi, '←');
-    display = display.replace(/ArrowRight/gi, '→');
-    display = display.replace(/Enter/gi, '⏎');
-    display = display.replace(/Escape/gi, 'Esc');
-    display = display.replace(/Space/gi, '␣');
-    display = display.replace(/Tab/gi, '⇥');
-    display = display.replace(/Delete/gi, 'Del');
-    display = display.replace(/Backspace/gi, '⌫');
-    display = display.replace(/Home/gi, 'Home');
-    display = display.replace(/End/gi, 'End');
-    
-    return display;
+    return shortcuts.map(s => {
+      let display = s;
+      
+      if (isMac) {
+        display = display.replace(/Ctrl/gi, '⌘');
+        display = display.replace(/Alt/gi, '⌥');
+        display = display.replace(/Shift/gi, '⇧');
+      }
+      
+      display = display.replace(/ArrowUp/gi, '↑');
+      display = display.replace(/ArrowDown/gi, '↓');
+      display = display.replace(/ArrowLeft/gi, '←');
+      display = display.replace(/ArrowRight/gi, '→');
+      display = display.replace(/Enter/gi, '⏎');
+      display = display.replace(/Escape/gi, 'Esc');
+      display = display.replace(/Space/gi, '␣');
+      display = display.replace(/Tab/gi, '⇥');
+      display = display.replace(/Delete/gi, 'Del');
+      display = display.replace(/Backspace/gi, '⌫');
+      display = display.replace(/Home/gi, 'Home');
+      display = display.replace(/End/gi, 'End');
+      
+      // Format single letters (J, K) to uppercase for display
+      if (display.length === 1) {
+        display = display.toUpperCase();
+      }
+      
+      return display;
+    }).join(' / ');
   }
 </script>
 

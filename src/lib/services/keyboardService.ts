@@ -51,9 +51,18 @@ export class KeyboardService {
   }
 
   /**
-   * Check if a keyboard event matches a shortcut
+   * Check if a keyboard event matches a shortcut (supports multiple shortcuts)
    */
-  private matchesShortcut(event: KeyboardEvent, shortcut: string): boolean {
+  private matchesShortcut(event: KeyboardEvent, shortcut: string | string[]): boolean {
+    // Handle multiple shortcuts
+    const shortcuts = Array.isArray(shortcut) ? shortcut : [shortcut];
+    return shortcuts.some(s => this.matchesSingleShortcut(event, s));
+  }
+
+  /**
+   * Check if a keyboard event matches a single shortcut string
+   */
+  private matchesSingleShortcut(event: KeyboardEvent, shortcut: string): boolean {
     const parsed = this.parseShortcut(shortcut);
     const eventKey = event.key.toLowerCase();
     
@@ -168,8 +177,9 @@ export class KeyboardService {
     // Check if thread view has focus - if so, let it handle its own navigation
     const threadViewElement = document.querySelector('.thread-view');
     if (threadViewElement && threadViewElement.contains(target)) {
-      // Don't handle arrow keys when thread view has focus
-      if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      // Don't handle arrow keys and vim keys when thread view has focus
+      const navigationKeys = ['ArrowUp', 'ArrowDown', 'j', 'k', 'J', 'K'];
+      if (navigationKeys.includes(event.key)) {
         return false;
       }
     }
@@ -230,7 +240,7 @@ export class KeyboardService {
   }
 
   /**
-   * Get formatted shortcut display string
+   * Get formatted shortcut display string (supports multiple shortcuts)
    */
   getShortcutDisplay(shortcutKey: keyof KeyboardShortcuts): string {
     const shortcut = this.shortcuts[shortcutKey];
@@ -238,29 +248,39 @@ export class KeyboardService {
 
     const isMac = navigator.platform.toLowerCase().includes('mac');
     
-    // Replace Ctrl with Cmd on Mac
-    let display = shortcut;
-    if (isMac) {
-      display = display.replace(/Ctrl/gi, '⌘');
-      display = display.replace(/Alt/gi, '⌥');
-      display = display.replace(/Shift/gi, '⇧');
-    }
+    // Handle multiple shortcuts
+    const shortcuts = Array.isArray(shortcut) ? shortcut : [shortcut];
     
-    // Format special keys
-    display = display.replace(/ArrowUp/gi, '↑');
-    display = display.replace(/ArrowDown/gi, '↓');
-    display = display.replace(/ArrowLeft/gi, '←');
-    display = display.replace(/ArrowRight/gi, '→');
-    display = display.replace(/Enter/gi, '⏎');
-    display = display.replace(/Escape/gi, 'Esc');
-    display = display.replace(/Space/gi, '␣');
-    display = display.replace(/Tab/gi, '⇥');
-    display = display.replace(/Delete/gi, 'Del');
-    display = display.replace(/Backspace/gi, '⌫');
-    display = display.replace(/Home/gi, 'Home');
-    display = display.replace(/End/gi, 'End');
-    
-    return display;
+    return shortcuts.map(s => {
+      // Replace Ctrl with Cmd on Mac
+      let display = s;
+      if (isMac) {
+        display = display.replace(/Ctrl/gi, '⌘');
+        display = display.replace(/Alt/gi, '⌥');
+        display = display.replace(/Shift/gi, '⇧');
+      }
+      
+      // Format special keys
+      display = display.replace(/ArrowUp/gi, '↑');
+      display = display.replace(/ArrowDown/gi, '↓');
+      display = display.replace(/ArrowLeft/gi, '←');
+      display = display.replace(/ArrowRight/gi, '→');
+      display = display.replace(/Enter/gi, '⏎');
+      display = display.replace(/Escape/gi, 'Esc');
+      display = display.replace(/Space/gi, '␣');
+      display = display.replace(/Tab/gi, '⇥');
+      display = display.replace(/Delete/gi, 'Del');
+      display = display.replace(/Backspace/gi, '⌫');
+      display = display.replace(/Home/gi, 'Home');
+      display = display.replace(/End/gi, 'End');
+      
+      // Format single letters (J, K) to uppercase for display
+      if (display.length === 1) {
+        display = display.toUpperCase();
+      }
+      
+      return display;
+    }).join(' / ');
   }
 
   /**
@@ -271,11 +291,14 @@ export class KeyboardService {
     
     for (const key in this.shortcuts) {
       const shortcutKey = key as keyof KeyboardShortcuts;
-      shortcuts.push({
-        key: shortcutKey,
-        display: this.getShortcutDisplay(shortcutKey),
-        shortcut: this.shortcuts[shortcutKey]
-      });
+      const shortcutValue = this.shortcuts[shortcutKey];
+      if (shortcutValue) {
+        shortcuts.push({
+          key: shortcutKey,
+          display: this.getShortcutDisplay(shortcutKey),
+          shortcut: Array.isArray(shortcutValue) ? shortcutValue.join(' / ') : shortcutValue
+        });
+      }
     }
     
     return shortcuts;

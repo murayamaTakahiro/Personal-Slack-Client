@@ -79,37 +79,37 @@ export interface KeyboardShortcut {
 }
 
 export interface KeyboardShortcuts {
-  executeSearch: string;
-  toggleAdvancedSearch: string;
-  focusSearchBar: string;
-  focusResults: string;
-  focusThread: string;
-  focusUrlInput: string;
-  toggleSettings: string;
-  newSearch: string;
-  nextResult: string;
-  prevResult: string;
-  openResult: string;
-  clearSearch: string;
-  toggleChannelSelector: string;
-  jumpToFirst: string;
-  jumpToLast: string;
-  postMessage?: string;
-  replyInThread?: string;
-  openReactionPicker?: string;
-  openUrls?: string;
-  reaction1?: string;
-  reaction2?: string;
-  reaction3?: string;
-  reaction4?: string;
-  reaction5?: string;
-  reaction6?: string;
-  reaction7?: string;
-  reaction8?: string;
-  reaction9?: string;
-  zoomIn?: string;
-  zoomOut?: string;
-  zoomReset?: string;
+  executeSearch: string | string[];
+  toggleAdvancedSearch: string | string[];
+  focusSearchBar: string | string[];
+  focusResults: string | string[];
+  focusThread: string | string[];
+  focusUrlInput: string | string[];
+  toggleSettings: string | string[];
+  newSearch: string | string[];
+  nextResult: string | string[];
+  prevResult: string | string[];
+  openResult: string | string[];
+  clearSearch: string | string[];
+  toggleChannelSelector: string | string[];
+  jumpToFirst: string | string[];
+  jumpToLast: string | string[];
+  postMessage?: string | string[];
+  replyInThread?: string | string[];
+  openReactionPicker?: string | string[];
+  openUrls?: string | string[];
+  reaction1?: string | string[];
+  reaction2?: string | string[];
+  reaction3?: string | string[];
+  reaction4?: string | string[];
+  reaction5?: string | string[];
+  reaction6?: string | string[];
+  reaction7?: string | string[];
+  reaction8?: string | string[];
+  reaction9?: string | string[];
+  zoomIn?: string | string[];
+  zoomOut?: string | string[];
+  zoomReset?: string | string[];
 }
 
 export interface MentionHistory {

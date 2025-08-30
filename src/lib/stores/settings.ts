@@ -13,8 +13,8 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   focusUrlInput: 'Ctrl+U',
   toggleSettings: 'Ctrl+,',
   newSearch: 'Ctrl+N',
-  nextResult: 'ArrowDown',
-  prevResult: 'ArrowUp',
+  nextResult: ['j', 'ArrowDown'],
+  prevResult: ['k', 'ArrowUp'],
   openResult: 'Enter',
   clearSearch: 'Escape',
   toggleChannelSelector: 'Ctrl+L',
@@ -53,6 +53,36 @@ let isInitialized = false;
 // Settings store
 export const settings = writable<AppSettings>(initialSettings);
 
+// Migrate old shortcut format to new array format
+function migrateShortcuts(shortcuts: any): KeyboardShortcuts {
+  const migrated = { ...defaultKeyboardShortcuts };
+  
+  if (shortcuts) {
+    for (const key in shortcuts) {
+      const value = shortcuts[key];
+      
+      // Special migration for nextResult and prevResult
+      if (key === 'nextResult') {
+        if (value === 'ArrowDown' || (typeof value === 'string' && !Array.isArray(value))) {
+          migrated.nextResult = ['j', 'ArrowDown'];
+        } else {
+          migrated.nextResult = value;
+        }
+      } else if (key === 'prevResult') {
+        if (value === 'ArrowUp' || (typeof value === 'string' && !Array.isArray(value))) {
+          migrated.prevResult = ['k', 'ArrowUp'];
+        } else {
+          migrated.prevResult = value;
+        }
+      } else if (key in migrated) {
+        (migrated as any)[key] = value;
+      }
+    }
+  }
+  
+  return migrated;
+}
+
 // Load settings asynchronously
 export async function initializeSettings() {
   console.log('[Settings] Initializing settings...');
@@ -62,10 +92,7 @@ export async function initializeSettings() {
   const mergedSettings: AppSettings = {
     ...defaultSettings,
     ...loadedSettings,
-    keyboardShortcuts: {
-      ...defaultKeyboardShortcuts,
-      ...(loadedSettings.keyboardShortcuts || {})
-    },
+    keyboardShortcuts: migrateShortcuts(loadedSettings.keyboardShortcuts),
     reactionMappings: loadedSettings.reactionMappings || DEFAULT_REACTION_MAPPINGS
   };
   
