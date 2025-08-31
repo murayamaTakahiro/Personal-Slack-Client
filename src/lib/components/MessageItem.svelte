@@ -656,23 +656,26 @@
   
   .mention {
     display: inline-block;
-    padding: 0 0.125rem;
-    background: rgba(29, 155, 209, 0.1);
-    color: #1d9bd1;
-    font-weight: 500;
+    padding: 0.125rem 0.25rem;
+    background: rgba(255, 235, 59, 0.25);
+    color: #1976d2;
+    font-weight: 600;
     border-radius: 3px;
     transition: background 0.2s;
+    border: 1px solid rgba(255, 235, 59, 0.4);
   }
   
   .mention:hover {
-    background: rgba(29, 155, 209, 0.2);
+    background: rgba(255, 235, 59, 0.35);
     text-decoration: underline;
     cursor: pointer;
+    border-color: rgba(255, 235, 59, 0.6);
   }
   
   .message-item.selected .mention {
-    background: rgba(29, 155, 209, 0.15);
-    color: #1d9bd1;
+    background: rgba(255, 235, 59, 0.3);
+    color: #1565c0;
+    border-color: rgba(255, 235, 59, 0.5);
   }
   
   .url-link {
