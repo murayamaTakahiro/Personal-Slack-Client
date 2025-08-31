@@ -60,6 +60,16 @@
             key: 'openResult', 
             description: 'Open Selected Result',
             shortcut: shortcuts.openResult || 'Enter'
+          },
+          { 
+            key: 'jumpToFirst', 
+            description: 'Jump to First Result',
+            shortcut: shortcuts.jumpToFirst || 'h'
+          },
+          { 
+            key: 'jumpToLast', 
+            description: 'Jump to Last Result',
+            shortcut: shortcuts.jumpToLast || 'e'
           }
         ]
       },
@@ -89,27 +99,102 @@
         ]
       },
       {
+        name: 'Message Actions',
+        shortcuts: [
+          { 
+            key: 'postMessage', 
+            description: 'Post Message to Channel',
+            shortcut: shortcuts.postMessage || 'p'
+          },
+          { 
+            key: 'replyInThread', 
+            description: 'Reply in Thread',
+            shortcut: shortcuts.replyInThread || 't'
+          },
+          { 
+            key: 'openReactionPicker', 
+            description: 'Open Reaction Picker',
+            shortcut: shortcuts.openReactionPicker || 'r'
+          },
+          { 
+            key: 'openUrls', 
+            description: 'Open URLs in Message',
+            shortcut: shortcuts.openUrls || 'Alt+Enter'
+          }
+        ]
+      },
+      {
+        name: 'Quick Reactions',
+        shortcuts: [
+          { 
+            key: 'reaction1', 
+            description: 'Quick Reaction 1',
+            shortcut: shortcuts.reaction1 || '1'
+          },
+          { 
+            key: 'reaction2', 
+            description: 'Quick Reaction 2',
+            shortcut: shortcuts.reaction2 || '2'
+          },
+          { 
+            key: 'reaction3', 
+            description: 'Quick Reaction 3',
+            shortcut: shortcuts.reaction3 || '3'
+          },
+          { 
+            key: 'reaction4', 
+            description: 'Quick Reaction 4',
+            shortcut: shortcuts.reaction4 || '4'
+          },
+          { 
+            key: 'reaction5', 
+            description: 'Quick Reaction 5',
+            shortcut: shortcuts.reaction5 || '5'
+          },
+          { 
+            key: 'reaction6', 
+            description: 'Quick Reaction 6',
+            shortcut: shortcuts.reaction6 || '6'
+          },
+          { 
+            key: 'reaction7', 
+            description: 'Quick Reaction 7',
+            shortcut: shortcuts.reaction7 || '7'
+          },
+          { 
+            key: 'reaction8', 
+            description: 'Quick Reaction 8',
+            shortcut: shortcuts.reaction8 || '8'
+          },
+          { 
+            key: 'reaction9', 
+            description: 'Quick Reaction 9',
+            shortcut: shortcuts.reaction9 || '9'
+          }
+        ]
+      },
+      {
         name: 'Channel Selection',
         shortcuts: [
           { 
+            key: 'toggleChannelSelector', 
+            description: 'Toggle Channel Selector',
+            shortcut: shortcuts.toggleChannelSelector || 'Ctrl+L'
+          },
+          { 
             key: 'toggleMultiSelectMode', 
             description: 'Toggle Multi-Select Mode',
-            shortcut: 'Ctrl+M'
+            shortcut: shortcuts.toggleMultiSelectMode || 'Ctrl+M'
           },
           { 
             key: 'selectRecentChannels', 
             description: 'Select Recent Channels',
-            shortcut: 'Ctrl+R'
-          },
-          { 
-            key: 'toggleLiveMode', 
-            description: 'Toggle LIVE Mode',
-            shortcut: 'Ctrl+L'
+            shortcut: shortcuts.selectRecentChannels || 'Ctrl+R'
           },
           { 
             key: 'applySelectedChannels', 
             description: 'Apply Selected Channels',
-            shortcut: 'Ctrl+Shift+A'
+            shortcut: shortcuts.applySelectedChannels || 'Ctrl+Shift+A'
           }
         ]
       },
@@ -120,6 +205,11 @@
             key: 'toggleSettings', 
             description: 'Toggle Settings',
             shortcut: shortcuts.toggleSettings || 'Ctrl+,'
+          },
+          { 
+            key: 'toggleKeyboardHelp', 
+            description: 'Toggle Keyboard Help',
+            shortcut: shortcuts.toggleKeyboardHelp || '?'
           }
         ]
       },
@@ -182,9 +272,8 @@
   }
   
   function handleKeydown(event: KeyboardEvent) {
-    if (event.key === '?') {
-      show = !show;
-    } else if (event.key === 'Escape' && show) {
+    // Only handle Escape to close, not '?' (handled globally in App.svelte)
+    if (event.key === 'Escape' && show) {
       show = false;
     }
   }

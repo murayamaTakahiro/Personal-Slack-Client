@@ -243,11 +243,19 @@
   });
   
   function handleGlobalKeydown(event: KeyboardEvent) {
-    // Check for help shortcut first
-    if (event.key === '?' && !showSettings) {
-      event.preventDefault();
-      showKeyboardHelp = !showKeyboardHelp;
-      return;
+    // Check for help shortcut - works globally, not just when settings is closed
+    if (event.key === '?') {
+      // Check if we're in an input field where '?' should type normally
+      const target = event.target as HTMLElement;
+      const isInInput = target.tagName === 'INPUT' || 
+                       target.tagName === 'TEXTAREA' || 
+                       target.contentEditable === 'true';
+      
+      if (!isInInput) {
+        event.preventDefault();
+        showKeyboardHelp = !showKeyboardHelp;
+        return;
+      }
     }
     
     if (keyboardService) {
@@ -444,6 +452,14 @@
         zoomStore.resetZoom();
       },
       allowInInput: true
+    });
+    
+    // Toggle Keyboard Help - register handler for consistency
+    keyboardService.registerHandler('toggleKeyboardHelp', {
+      action: () => {
+        showKeyboardHelp = !showKeyboardHelp;
+      },
+      allowInInput: false  // Don't trigger when typing in inputs
     });
   }
   
