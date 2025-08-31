@@ -5,6 +5,7 @@
   import { activeWorkspace } from '../stores/workspaces';
   import { urlService } from '../services/urlService';
   import { showSuccess, showError, showInfo } from '../stores/toast';
+  import { parseMessageWithMentions } from '../utils/mentionParser';
   
   export let message: Message | null = null;
   
@@ -393,7 +394,15 @@
           <span class="user-name">{message.userName}</span>
           <span class="timestamp">{formatTimestamp(message.ts)}</span>
         </div>
-        <div class="message-text">{message.text}</div>
+        <div class="message-text">
+          {#each parseMessageWithMentions(message.text) as segment}
+            {#if segment.type === 'mention'}
+              <span class="mention">{segment.content}</span>
+            {:else}
+              <span>{segment.content}</span>
+            {/if}
+          {/each}
+        </div>
       </div>
     </div>
   {/if}
@@ -585,5 +594,26 @@
     text-align: center;
     color: var(--text-secondary);
     font-style: italic;
+  }
+  
+  .mention {
+    display: inline-block;
+    padding: 0 0.125rem;
+    background: rgba(29, 155, 209, 0.1);
+    color: #1d9bd1;
+    font-weight: 500;
+    border-radius: 3px;
+    transition: background 0.2s;
+  }
+  
+  .mention:hover {
+    background: rgba(29, 155, 209, 0.2);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  
+  .message.selected .mention {
+    background: rgba(29, 155, 209, 0.15);
+    color: #1d9bd1;
   }
 </style>

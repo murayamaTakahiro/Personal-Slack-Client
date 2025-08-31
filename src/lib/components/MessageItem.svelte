@@ -8,6 +8,7 @@
   import { urlService } from '../services/urlService';
   import { showSuccess, showError, showInfo } from '../stores/toast';
   import ReactionPicker from './ReactionPicker.svelte';
+  import { parseMessageWithMentions } from '../utils/mentionParser';
   
   export let message: Message;
   export let selected = false;
@@ -54,6 +55,8 @@
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
   }
+  
+  $: messageSegments = parseMessageWithMentions(truncateText(message.text));
   
   function generateSlackUrl(): string {
     // Generate correct Slack URL using current workspace domain
@@ -432,7 +435,13 @@
   {/if}
   
   <div class="message-content">
-    {truncateText(message.text)}
+    {#each messageSegments as segment}
+      {#if segment.type === 'mention'}
+        <span class="mention">{segment.content}</span>
+      {:else}
+        <span>{segment.content}</span>
+      {/if}
+    {/each}
   </div>
   
   {#if selected && enableReactions}
@@ -639,5 +648,26 @@
     border-radius: 3px;
     font-family: monospace;
     font-size: 0.75rem;
+  }
+  
+  .mention {
+    display: inline-block;
+    padding: 0 0.125rem;
+    background: rgba(29, 155, 209, 0.1);
+    color: #1d9bd1;
+    font-weight: 500;
+    border-radius: 3px;
+    transition: background 0.2s;
+  }
+  
+  .mention:hover {
+    background: rgba(29, 155, 209, 0.2);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  
+  .message-item.selected .mention {
+    background: rgba(29, 155, 209, 0.15);
+    color: #1d9bd1;
   }
 </style>
