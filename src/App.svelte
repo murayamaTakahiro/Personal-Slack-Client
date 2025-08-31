@@ -137,6 +137,9 @@
       openResult: 'Enter',
       clearSearch: 'Escape',
       toggleChannelSelector: 'Ctrl+L',
+      toggleMultiSelectMode: 'Ctrl+M',
+      selectRecentChannels: 'Ctrl+R',
+      applySelectedChannels: 'Ctrl+Shift+A',
       jumpToFirst: 'h',
       jumpToLast: 'e',
       postMessage: 'p',
@@ -151,7 +154,11 @@
       reaction6: '6',
       reaction7: '7',
       reaction8: '8',
-      reaction9: '9'
+      reaction9: '9',
+      toggleKeyboardHelp: '?',
+      zoomIn: 'Ctrl+=',
+      zoomOut: 'Ctrl+-',
+      zoomReset: 'Ctrl+0'
     });
     
     // The reaction service already loads mappings from localStorage

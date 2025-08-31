@@ -92,6 +92,9 @@ export interface KeyboardShortcuts {
   openResult: string | string[];
   clearSearch: string | string[];
   toggleChannelSelector: string | string[];
+  toggleMultiSelectMode?: string | string[];
+  selectRecentChannels?: string | string[];
+  applySelectedChannels?: string | string[];
   jumpToFirst: string | string[];
   jumpToLast: string | string[];
   postMessage?: string | string[];
@@ -107,6 +110,7 @@ export interface KeyboardShortcuts {
   reaction7?: string | string[];
   reaction8?: string | string[];
   reaction9?: string | string[];
+  toggleKeyboardHelp?: string | string[];
   zoomIn?: string | string[];
   zoomOut?: string | string[];
   zoomReset?: string | string[];
