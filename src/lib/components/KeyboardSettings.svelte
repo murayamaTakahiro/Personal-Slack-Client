@@ -53,7 +53,10 @@
     reaction7: 'Quick Reaction 7',
     reaction8: 'Quick Reaction 8',
     reaction9: 'Quick Reaction 9',
-    openUrls: 'Open URLs from Message'
+    openUrls: 'Open URLs from Message',
+    zoomIn: 'Zoom In',
+    zoomOut: 'Zoom Out',
+    zoomReset: 'Reset Zoom'
   };
   
   onMount(() => {
