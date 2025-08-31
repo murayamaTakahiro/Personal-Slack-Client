@@ -398,6 +398,10 @@
           {#each parseMessageWithMentions(message.text) as segment}
             {#if segment.type === 'mention'}
               <span class="mention">{segment.content}</span>
+            {:else if segment.type === 'url'}
+              <a href={segment.url || segment.content} target="_blank" rel="noopener noreferrer" class="url-link">
+                {segment.content}
+              </a>
             {:else}
               <span>{segment.content}</span>
             {/if}
@@ -615,5 +619,29 @@
   .message.selected .mention {
     background: rgba(29, 155, 209, 0.15);
     color: #1d9bd1;
+  }
+  
+  .url-link {
+    color: #1d9bd1;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s;
+    word-break: break-all;
+  }
+  
+  .url-link:hover {
+    text-decoration: none;
+    border-bottom-color: #1d9bd1;
+    background: rgba(29, 155, 209, 0.05);
+  }
+  
+  .url-link:visited {
+    color: #7a5fb5;
+  }
+  
+  .message.selected .url-link {
+    background: rgba(29, 155, 209, 0.08);
+    padding: 0 0.125rem;
+    border-radius: 3px;
   }
 </style>
