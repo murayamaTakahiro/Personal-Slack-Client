@@ -658,7 +658,7 @@
     display: inline-block;
     padding: 0.125rem 0.25rem;
     background: rgba(255, 235, 59, 0.25);
-    color: #1976d2;
+    color: inherit;
     font-weight: 600;
     border-radius: 3px;
     transition: background 0.2s;
@@ -667,14 +667,14 @@
   
   .mention:hover {
     background: rgba(255, 235, 59, 0.35);
-    text-decoration: underline;
+    text-decoration: none;
     cursor: pointer;
     border-color: rgba(255, 235, 59, 0.6);
   }
   
   .message-item.selected .mention {
     background: rgba(255, 235, 59, 0.3);
-    color: #1565c0;
+    color: inherit;
     border-color: rgba(255, 235, 59, 0.5);
   }
   
