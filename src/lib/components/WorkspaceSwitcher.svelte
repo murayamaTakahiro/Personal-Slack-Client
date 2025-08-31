@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, createEventDispatcher } from 'svelte';
+  import { onDestroy, createEventDispatcher, tick } from 'svelte';
   import { workspaceStore, activeWorkspace, sortedWorkspaces } from '../stores/workspaces';
   import type { Workspace } from '../types/workspace';
   import { maskTokenClient } from '../api/secure';
@@ -16,6 +16,12 @@
   let newWorkspaceColor = '#4A90E2';
   let switchingWorkspace = false;
   
+  // Focus management
+  let dropdownElement: HTMLElement;
+  let workspaceButtonElement: HTMLButtonElement;
+  let focusedIndex = -1;
+  let focusableElements: HTMLElement[] = [];
+  
   $: currentWorkspace = $activeWorkspace;
   $: workspaceList = $sortedWorkspaces;
   
@@ -24,11 +30,21 @@
     '#9B59B6', '#1ABC9C', '#E74C3C', '#3498DB'
   ];
   
-  function toggleDropdown() {
+  async function toggleDropdown() {
     isOpen = !isOpen;
     if (!isOpen) {
       addingWorkspace = false;
       resetNewWorkspaceForm();
+      focusedIndex = -1;
+    } else {
+      // Wait for dropdown to render
+      await tick();
+      updateFocusableElements();
+      // Focus first item
+      if (focusableElements.length > 0) {
+        focusedIndex = 0;
+        focusableElements[0]?.focus();
+      }
     }
   }
   
@@ -36,6 +52,9 @@
     isOpen = false;
     addingWorkspace = false;
     resetNewWorkspaceForm();
+    focusedIndex = -1;
+    // Return focus to the trigger button
+    workspaceButtonElement?.focus();
   }
   
   async function switchToWorkspace(workspace: Workspace) {
@@ -62,8 +81,15 @@
     }
   }
   
-  function showAddWorkspaceForm() {
+  async function showAddWorkspaceForm() {
     addingWorkspace = true;
+    await tick();
+    updateFocusableElements();
+    // Focus first input in the form
+    const firstInput = dropdownElement?.querySelector('input');
+    if (firstInput) {
+      (firstInput as HTMLElement).focus();
+    }
   }
   
   function resetNewWorkspaceForm() {
@@ -136,6 +162,100 @@
       .slice(0, 2);
   }
   
+  // Update focusable elements list
+  function updateFocusableElements() {
+    if (!dropdownElement) return;
+    
+    const selector = 'button:not([disabled]):not(.delete-button), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    focusableElements = Array.from(dropdownElement.querySelectorAll(selector));
+  }
+  
+  // Handle keyboard navigation
+  async function handleKeydown(event: KeyboardEvent) {
+    if (!isOpen) {
+      // Handle Space key to open dropdown
+      if (event.key === ' ' && event.target === workspaceButtonElement) {
+        event.preventDefault();
+        toggleDropdown();
+        return;
+      }
+      return;
+    }
+    
+    switch (event.key) {
+      case 'Escape':
+        event.preventDefault();
+        closeDropdown();
+        break;
+        
+      case 'Tab':
+        // Trap focus within dropdown
+        event.preventDefault();
+        if (event.shiftKey) {
+          navigateFocus('prev');
+        } else {
+          navigateFocus('next');
+        }
+        break;
+        
+      case 'ArrowDown':
+        event.preventDefault();
+        navigateFocus('next');
+        break;
+        
+      case 'ArrowUp':
+        event.preventDefault();
+        navigateFocus('prev');
+        break;
+        
+      case 'Home':
+        event.preventDefault();
+        if (focusableElements.length > 0) {
+          focusedIndex = 0;
+          focusableElements[0].focus();
+        }
+        break;
+        
+      case 'End':
+        event.preventDefault();
+        if (focusableElements.length > 0) {
+          focusedIndex = focusableElements.length - 1;
+          focusableElements[focusedIndex].focus();
+        }
+        break;
+        
+      case 'Enter':
+      case ' ':
+        // Allow default behavior for buttons and inputs
+        if (event.target instanceof HTMLButtonElement && event.key === ' ') {
+          event.preventDefault();
+          (event.target as HTMLButtonElement).click();
+        }
+        break;
+    }
+  }
+  
+  function navigateFocus(direction: 'next' | 'prev') {
+    if (focusableElements.length === 0) return;
+    
+    if (direction === 'next') {
+      focusedIndex = (focusedIndex + 1) % focusableElements.length;
+    } else {
+      focusedIndex = focusedIndex <= 0 ? focusableElements.length - 1 : focusedIndex - 1;
+    }
+    
+    focusableElements[focusedIndex]?.focus();
+  }
+  
+  // Handle focus changes to track focused index
+  function handleFocusIn(event: FocusEvent) {
+    const target = event.target as HTMLElement;
+    const index = focusableElements.indexOf(target);
+    if (index !== -1) {
+      focusedIndex = index;
+    }
+  }
+  
   // Close dropdown when clicking outside
   function handleClickOutside(event: MouseEvent) {
     const target = event.target as HTMLElement;
@@ -163,12 +283,16 @@
   });
 </script>
 
-<div class="workspace-switcher">
+<div class="workspace-switcher" on:keydown={handleKeydown}>
   <button 
     class="workspace-button"
     class:active={isOpen}
     on:click={toggleDropdown}
     disabled={switchingWorkspace}
+    bind:this={workspaceButtonElement}
+    aria-expanded={isOpen}
+    aria-haspopup="true"
+    aria-label="Switch workspace"
   >
     {#if currentWorkspace}
       <div 
@@ -206,14 +330,23 @@
   </button>
   
   {#if isOpen}
-    <div class="workspace-dropdown">
+    <div 
+      class="workspace-dropdown" 
+      bind:this={dropdownElement}
+      on:focusin={handleFocusIn}
+      role="menu"
+      aria-label="Workspace menu"
+    >
       {#if !addingWorkspace}
         <div class="workspace-list">
-          {#each workspaceList as workspace}
+          {#each workspaceList as workspace, index}
             <button
               class="workspace-item"
               class:active={workspace.id === currentWorkspace?.id}
               on:click={() => switchToWorkspace(workspace)}
+              role="menuitem"
+              aria-label="Switch to {workspace.name}"
+              tabindex={focusedIndex === index ? 0 : -1}
             >
               <div 
                 class="workspace-avatar small"
@@ -235,6 +368,8 @@
                   class="delete-button"
                   on:click={e => deleteWorkspace(e, workspace)}
                   title="Delete workspace"
+                  tabindex="-1"
+                  aria-label="Delete {workspace.name}"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <line x1="18" y1="6" x2="6" y2="18"/>
@@ -246,9 +381,15 @@
           {/each}
         </div>
         
-        <div class="dropdown-divider"></div>
+        <div class="dropdown-divider" role="separator"></div>
         
-        <button class="add-workspace-button" on:click|stopPropagation={showAddWorkspaceForm}>
+        <button 
+          class="add-workspace-button" 
+          on:click|stopPropagation={showAddWorkspaceForm}
+          role="menuitem"
+          aria-label="Add new workspace"
+          tabindex={focusedIndex === workspaceList.length ? 0 : -1}
+        >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="8" x2="12" y2="16"/>
@@ -328,7 +469,7 @@
           </div>
           
           <div class="form-actions">
-            <button class="btn-cancel" on:click={() => addingWorkspace = false}>
+            <button class="btn-cancel" on:click={() => {addingWorkspace = false; updateFocusableElements();}}>
               Cancel
             </button>
             <button class="btn-add" on:click={addWorkspace}>
@@ -456,8 +597,14 @@
     position: relative;
   }
   
-  .workspace-item:hover {
+  .workspace-item:hover,
+  .workspace-item:focus {
     background: var(--bg-hover);
+    outline: none;
+  }
+  
+  .workspace-item:focus {
+    box-shadow: inset 0 0 0 2px var(--primary);
   }
   
   .workspace-item.active {
@@ -487,7 +634,8 @@
     transition: all 0.2s;
   }
   
-  .workspace-item:hover .delete-button {
+  .workspace-item:hover .delete-button,
+  .workspace-item:focus .delete-button {
     opacity: 1;
   }
   
@@ -516,8 +664,14 @@
     font-size: 0.875rem;
   }
   
-  .add-workspace-button:hover {
+  .add-workspace-button:hover,
+  .add-workspace-button:focus {
     background: var(--bg-hover);
+    outline: none;
+  }
+  
+  .add-workspace-button:focus {
+    box-shadow: inset 0 0 0 2px var(--primary);
   }
   
   .add-workspace-form {
@@ -554,6 +708,7 @@
   .form-group input:focus {
     outline: none;
     border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-bg);
   }
   
   .domain-input {
@@ -594,6 +749,11 @@
     border-color: var(--text-primary);
   }
   
+  .color-option:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--primary);
+  }
+  
   .form-actions {
     display: flex;
     gap: 0.5rem;
@@ -620,6 +780,12 @@
     background: var(--bg-hover);
   }
   
+  .btn-cancel:focus,
+  .btn-add:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--primary);
+  }
+  
   .btn-add {
     background: var(--primary);
     border: none;
@@ -628,5 +794,11 @@
   
   .btn-add:hover {
     opacity: 0.9;
+  }
+  
+  /* Ensure help text is visible */
+  .help-text {
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
   }
 </style>
