@@ -162,7 +162,61 @@
         return;
       }
       
-      // Prepare URLs for opening (first Slack URL, all external URLs)
+      // Special handling for Slack links - load in thread view instead of opening
+      if (extractedUrls.slackUrls.length > 0) {
+        const slackUrl = extractedUrls.slackUrls[0]; // Use the first Slack URL
+        
+        try {
+          // Import the function we need
+          const { getThreadFromUrl } = await import('../api/slack');
+          
+          showInfo('Loading thread', 'Loading Slack thread...');
+          
+          // Load the thread from the Slack URL
+          const thread = await getThreadFromUrl(slackUrl);
+          
+          // Set the selected message to display the thread
+          if (thread && thread.parent) {
+            selectedMessage.set(thread.parent);
+            showInfo('Thread loaded', 'Thread successfully loaded in the thread view.');
+          }
+          
+          // Maintain focus on the list
+          if (listContainer) {
+            listContainer.focus();
+          }
+          
+          // If there are also external URLs, ask if they should be opened
+          if (extractedUrls.externalUrls.length > 0) {
+            const shouldOpenExternal = confirm(
+              `Also found ${extractedUrls.externalUrls.length} external URL${extractedUrls.externalUrls.length > 1 ? 's' : ''}. Open ${extractedUrls.externalUrls.length > 1 ? 'them' : 'it'}?`
+            );
+            
+            if (shouldOpenExternal) {
+              // Open only the external URLs
+              const result = await openUrlsSmart(
+                null, // No Slack URL since we handled it
+                extractedUrls.externalUrls,
+                200 // 200ms delay between openings
+              );
+              
+              if (result.errors.length > 0) {
+                showError('Some URLs failed to open', result.errors.join(', '));
+              }
+            }
+          }
+          
+          return; // Exit early since we handled the Slack link
+        } catch (error) {
+          console.error('Failed to load thread from Slack URL:', error);
+          showError('Failed to load thread', error instanceof Error ? error.message : 'Unknown error');
+          
+          // Fall back to opening the URL normally
+          showInfo('Opening in browser', 'Could not load thread, opening Slack link in browser instead.');
+        }
+      }
+      
+      // Original behavior for non-Slack URLs or if Slack thread loading failed
       const prepared = urlService.prepareUrlsForOpening(extractedUrls);
       
       // Check if confirmation is needed for too many external URLs
