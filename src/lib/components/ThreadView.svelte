@@ -328,7 +328,19 @@
             <span class="user-name">{thread.parent.userName}</span>
             <span class="timestamp">{formatTimestamp(thread.parent.ts)}</span>
           </div>
-          <div class="message-text">{thread.parent.text}</div>
+          <div class="message-text">
+            {#each parseMessageWithMentions(thread.parent.text) as segment}
+              {#if segment.type === 'mention'}
+                <span class="mention">{segment.content}</span>
+              {:else if segment.type === 'url'}
+                <a href={segment.url || segment.content} target="_blank" rel="noopener noreferrer" class="url-link">
+                  {segment.content}
+                </a>
+              {:else}
+                <span>{segment.content}</span>
+              {/if}
+            {/each}
+          </div>
         </div>
       </div>
       
@@ -351,7 +363,19 @@
                 <span class="user-name">{reply.userName}</span>
                 <span class="timestamp">{formatTimestamp(reply.ts)}</span>
               </div>
-              <div class="message-text">{reply.text}</div>
+              <div class="message-text">
+                {#each parseMessageWithMentions(reply.text) as segment}
+                  {#if segment.type === 'mention'}
+                    <span class="mention">{segment.content}</span>
+                  {:else if segment.type === 'url'}
+                    <a href={segment.url || segment.content} target="_blank" rel="noopener noreferrer" class="url-link">
+                      {segment.content}
+                    </a>
+                  {:else}
+                    <span>{segment.content}</span>
+                  {/if}
+                {/each}
+              </div>
             </div>
           {/each}
         </div>
