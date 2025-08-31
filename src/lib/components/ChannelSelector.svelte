@@ -18,6 +18,11 @@
   $: mode = $channelStore.selectionMode;
   $: selectedChannels = $channelStore.selectedChannels;
   
+  // Sync searchInput when value is cleared externally (e.g., workspace switch)
+  $: if (value === '' && searchInput !== '') {
+    searchInput = '';
+  }
+  
   // Filter channels based on search input
   $: filteredChannels = searchInput
     ? $sortedChannels.filter(ch => 

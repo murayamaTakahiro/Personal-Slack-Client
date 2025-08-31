@@ -380,7 +380,7 @@
           Channel:
           <ChannelSelector 
             bind:this={channelSelectorComponent}
-            value={channel}
+            bind:value={channel}
             {channels}
             onEnterKey={handleSearch}
             on:change={(e) => {
