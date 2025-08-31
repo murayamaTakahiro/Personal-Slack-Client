@@ -1,7 +1,7 @@
 <script lang="ts">
   import { settings } from '../stores/settings';
   import { getKeyboardService } from '../services/keyboardService';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   
   export let show = false;
   
@@ -15,6 +15,9 @@
   }
   
   let categories: ShortcutCategory[] = [];
+  let helpContentElement: HTMLElement;
+  let dialogElement: HTMLElement;
+  let previousActiveElement: HTMLElement | null = null;
   
   onMount(() => {
     const keyboardService = getKeyboardService();
@@ -236,6 +239,34 @@
     ];
   });
   
+  // Reactive: Handle show/hide dialog
+  $: if (show) {
+    handleDialogOpen();
+  } else {
+    handleDialogClose();
+  }
+  
+  async function handleDialogOpen() {
+    // Store current focus
+    previousActiveElement = document.activeElement as HTMLElement;
+    
+    // Wait for DOM update
+    await tick();
+    
+    // Focus the dialog for keyboard navigation
+    if (dialogElement) {
+      dialogElement.focus();
+    }
+  }
+  
+  function handleDialogClose() {
+    // Restore previous focus
+    if (previousActiveElement) {
+      previousActiveElement.focus();
+      previousActiveElement = null;
+    }
+  }
+  
   function getShortcutDisplay(shortcut: string | string[]): string {
     const isMac = navigator.platform.toLowerCase().includes('mac');
     
@@ -272,21 +303,104 @@
   }
   
   function handleKeydown(event: KeyboardEvent) {
-    // Only handle Escape to close, not '?' (handled globally in App.svelte)
-    if (event.key === 'Escape' && show) {
+    if (!show) return;
+    
+    // Prevent event from bubbling to other handlers
+    event.stopPropagation();
+    
+    // Handle Escape to close
+    if (event.key === 'Escape') {
+      event.preventDefault();
       show = false;
+      return;
+    }
+    
+    // Handle scrolling navigation
+    if (helpContentElement) {
+      const scrollAmount = 40; // Pixels to scroll for arrow keys
+      const pageScrollAmount = helpContentElement.clientHeight * 0.8; // 80% of visible height for page up/down
+      
+      switch (event.key) {
+        case 'ArrowUp':
+        case 'k':
+          event.preventDefault();
+          helpContentElement.scrollTop -= scrollAmount;
+          break;
+          
+        case 'ArrowDown':
+        case 'j':
+          event.preventDefault();
+          helpContentElement.scrollTop += scrollAmount;
+          break;
+          
+        case 'PageUp':
+          event.preventDefault();
+          helpContentElement.scrollTop -= pageScrollAmount;
+          break;
+          
+        case 'PageDown':
+          event.preventDefault();
+          helpContentElement.scrollTop += pageScrollAmount;
+          break;
+          
+        case 'Home':
+          event.preventDefault();
+          helpContentElement.scrollTop = 0;
+          break;
+          
+        case 'End':
+          event.preventDefault();
+          helpContentElement.scrollTop = helpContentElement.scrollHeight;
+          break;
+          
+        case ' ': // Spacebar
+          event.preventDefault();
+          // Scroll down by page amount, like browsers do
+          helpContentElement.scrollTop += pageScrollAmount;
+          break;
+          
+        case 'Tab':
+          // Allow tab to cycle through interactive elements
+          // Let it propagate normally
+          break;
+          
+        default:
+          // Prevent other keys from propagating
+          if (!event.ctrlKey && !event.metaKey && !event.altKey) {
+            event.preventDefault();
+          }
+      }
     }
   }
+  
+  // Clean up on destroy
+  onDestroy(() => {
+    if (show) {
+      handleDialogClose();
+    }
+  });
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
 
 {#if show}
   <div class="keyboard-help-overlay" on:click={() => show = false}>
-    <div class="keyboard-help" on:click|stopPropagation>
+    <div 
+      class="keyboard-help" 
+      on:click|stopPropagation
+      bind:this={dialogElement}
+      tabindex="-1"
+      role="dialog"
+      aria-label="Keyboard Shortcuts Help"
+      aria-modal="true"
+    >
       <div class="help-header">
         <h2>Keyboard Shortcuts</h2>
-        <button class="btn-close" on:click={() => show = false}>
+        <button 
+          class="btn-close" 
+          on:click={() => show = false}
+          aria-label="Close help dialog"
+        >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <line x1="18" y1="6" x2="6" y2="18"/>
             <line x1="6" y1="6" x2="18" y2="18"/>
@@ -294,7 +408,7 @@
         </button>
       </div>
       
-      <div class="help-content">
+      <div class="help-content" bind:this={helpContentElement}>
         {#each categories as category}
           <div class="category">
             <h3>{category.name}</h3>
@@ -311,8 +425,12 @@
       </div>
       
       <div class="help-footer">
-        <p>Press <kbd>?</kbd> to toggle this help • Press <kbd>Esc</kbd> to close</p>
-        <p>Customize shortcuts in Settings</p>
+        <p>
+          <kbd>↑/↓</kbd> or <kbd>J/K</kbd> to scroll • 
+          <kbd>Page Up/Down</kbd> for pages • 
+          <kbd>Home/End</kbd> for top/bottom
+        </p>
+        <p>Press <kbd>?</kbd> to toggle help • Press <kbd>Esc</kbd> to close • Customize in Settings</p>
       </div>
     </div>
   </div>
@@ -349,6 +467,12 @@
     flex-direction: column;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     animation: slideUp 0.3s ease;
+    outline: none;
+  }
+  
+  .keyboard-help:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 2px var(--accent-primary);
   }
   
   @keyframes slideUp {

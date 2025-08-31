@@ -243,6 +243,13 @@
   });
   
   function handleGlobalKeydown(event: KeyboardEvent) {
+    // If keyboard help is shown, let it handle its own keyboard events
+    if (showKeyboardHelp && (event.key === 'Escape' || 
+        ['ArrowUp', 'ArrowDown', 'j', 'k', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key))) {
+      // The KeyboardHelp component will handle these
+      return;
+    }
+    
     // Check for help shortcut - works globally, not just when settings is closed
     if (event.key === '?') {
       // Check if we're in an input field where '?' should type normally
