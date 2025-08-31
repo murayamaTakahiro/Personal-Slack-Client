@@ -296,14 +296,11 @@
           // Clear current state similar to workspace switching
           searchResults.set(null);
           selectedMessage.set(null);
-          searchParams.update(p => ({ 
-            ...p, 
-            query: '', 
-            channels: [], 
-            users: [],
-            fromDate: undefined,
-            toDate: undefined 
-          }));
+          // Reset searchParams to initial state completely
+          searchParams.set({
+            query: '',
+            limit: 100
+          });
           searchError.set(null);
           searchLoading.set(false);
           
@@ -514,14 +511,11 @@
     // Clear current state including channels and search results
     searchResults.set(null);
     selectedMessage.set(null);
-    searchParams.update(p => ({ 
-      ...p, 
-      query: '', 
-      channels: [], 
-      users: [],
-      fromDate: undefined,
-      toDate: undefined 
-    }));
+    // Reset searchParams to initial state completely
+    searchParams.set({
+      query: '',
+      limit: 100
+    });
     searchError.set(null);
     searchLoading.set(false);
     

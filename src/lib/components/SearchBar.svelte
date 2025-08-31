@@ -214,6 +214,12 @@
     if (userSelectorComponent && userSelectorComponent.clearSelection) {
       userSelectorComponent.clearSelection();
     }
+    
+    // Also reset searchParams to ensure UI consistency
+    searchParams.set({
+      query: $searchQuery || '',
+      limit: 100
+    });
   }
   
   // Keep the old function name for backward compatibility
