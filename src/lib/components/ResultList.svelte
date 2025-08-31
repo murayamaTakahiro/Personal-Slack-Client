@@ -186,23 +186,17 @@
             listContainer.focus();
           }
           
-          // If there are also external URLs, ask if they should be opened
+          // Automatically open external URLs if present (no confirmation needed)
           if (extractedUrls.externalUrls.length > 0) {
-            const shouldOpenExternal = confirm(
-              `Also found ${extractedUrls.externalUrls.length} external URL${extractedUrls.externalUrls.length > 1 ? 's' : ''}. Open ${extractedUrls.externalUrls.length > 1 ? 'them' : 'it'}?`
+            // Open all external URLs
+            const result = await openUrlsSmart(
+              null, // No Slack URL since we handled it
+              extractedUrls.externalUrls,
+              200 // 200ms delay between openings
             );
             
-            if (shouldOpenExternal) {
-              // Open only the external URLs
-              const result = await openUrlsSmart(
-                null, // No Slack URL since we handled it
-                extractedUrls.externalUrls,
-                200 // 200ms delay between openings
-              );
-              
-              if (result.errors.length > 0) {
-                showError('Some URLs failed to open', result.errors.join(', '));
-              }
+            if (result.errors.length > 0) {
+              showError('Some URLs failed to open', result.errors.join(', '));
             }
           }
           
