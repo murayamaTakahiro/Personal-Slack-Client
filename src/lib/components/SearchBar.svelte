@@ -609,8 +609,7 @@
   }
   
   .btn-primary,
-  .btn-secondary,
-  .btn-icon {
+  .btn-secondary {
     padding: 0.5rem 1rem;
     border: none;
     border-radius: 4px;
@@ -643,24 +642,6 @@
     background: var(--bg-hover);
   }
   
-  .btn-icon {
-    padding: 0.5rem;
-    background: transparent;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-  }
-  
-  .btn-icon:hover {
-    background: var(--bg-hover);
-  }
-  
-  .btn-icon.active {
-    color: var(--primary);
-    background: var(--primary-bg);
-  }
   
   .filter-indicator {
     position: absolute;
