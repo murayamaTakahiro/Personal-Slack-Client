@@ -39,7 +39,8 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   toggleKeyboardHelp: '?',
   zoomIn: 'Ctrl+=',
   zoomOut: 'Ctrl+-',
-  zoomReset: 'Ctrl+0'
+  zoomReset: 'Ctrl+0',
+  toggleChannelFavorite: 'f'
 };
 
 // Default settings

@@ -198,6 +198,11 @@
             key: 'applySelectedChannels', 
             description: 'Apply Selected Channels',
             shortcut: shortcuts.applySelectedChannels || 'Ctrl+Shift+A'
+          },
+          { 
+            key: 'toggleChannelFavorite', 
+            description: 'Toggle Channel Favorite',
+            shortcut: shortcuts.toggleChannelFavorite || 'f'
           }
         ]
       },

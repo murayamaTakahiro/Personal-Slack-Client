@@ -2,6 +2,7 @@
   import { onMount, createEventDispatcher } from 'svelte';
   import { channelStore, favoriteChannels, recentChannelsList, sortedChannels, channelGroups } from '../stores/channels';
   import { realtimeStore } from '../stores/realtime';
+  import { showToast } from '../stores/toast';
   
   export let value = '';  // Currently selected channel(s)
   export let channels: [string, string][] = [];
@@ -161,6 +162,19 @@
         }
         break;
         
+      case 'f':
+      case 'F':
+        // Toggle favorite for highlighted channel
+        if (highlightedIndex >= 0 && highlightedIndex < totalItems) {
+          event.preventDefault();
+          event.stopPropagation();
+          const channel = filteredChannels[highlightedIndex];
+          channelStore.toggleFavorite(channel.id);
+          // Show visual feedback
+          showFavoriteToggleFeedback(channel.name, !channel.isFavorite);
+        }
+        break;
+        
       case 'Escape':
         showDropdown = false;
         highlightedIndex = -1;
@@ -177,8 +191,18 @@
   
   // Handle keyboard events on the dropdown (for when focus is on favorite buttons)
   function handleDropdownKeydown(event: KeyboardEvent) {
+    // Handle 'f' key for favorite toggle when dropdown has focus
+    if (event.key === 'f' || event.key === 'F') {
+      if (highlightedIndex >= 0 && highlightedIndex < filteredChannels.length) {
+        event.preventDefault();
+        event.stopPropagation();
+        const channel = filteredChannels[highlightedIndex];
+        channelStore.toggleFavorite(channel.id);
+        showFavoriteToggleFeedback(channel.name, !channel.isFavorite);
+      }
+    }
     // Handle Esc key when focus is on any element within the dropdown
-    if (event.key === 'Escape') {
+    else if (event.key === 'Escape') {
       event.preventDefault();
       showDropdown = false;
       highlightedIndex = -1;
@@ -202,6 +226,13 @@
     if (items && items[highlightedIndex]) {
       items[highlightedIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
+  }
+  
+  function showFavoriteToggleFeedback(channelName: string, isNowFavorite: boolean) {
+    const message = isNowFavorite 
+      ? `⭐ Added #${channelName} to favorites`
+      : `☆ Removed #${channelName} from favorites`;
+    showToast(message, 'success');
   }
   
   function selectChannel(channelName: string) {
@@ -316,6 +347,7 @@
             ? `Search to add more (${selectedChannels.length} selected)`
             : 'Search channels (multi-select)') 
           : 'Search or select a channel'}
+        title="Use arrow keys to navigate, Enter to select, 'f' to toggle favorite"
         class="channel-input"
         class:has-selection={selectedChannels.length > 0 || value}
       />
@@ -457,6 +489,12 @@
   
   {#if showDropdown}
     <div bind:this={dropdownElement} class="channel-dropdown" on:keydown={handleDropdownKeydown}>
+      {#if showDropdown && filteredChannels.length > 0}
+        <div class="dropdown-help">
+          <span class="help-text">↑↓ Navigate • Enter Select • f Toggle Favorite</span>
+        </div>
+      {/if}
+      
       {#if groupedChannels.favorites.length > 0}
         <div class="channel-group">
           <div class="group-header">⭐ Favorites</div>
@@ -478,7 +516,7 @@
               <button
                 on:click={(e) => toggleFavorite(channel.id, e)}
                 class="favorite-btn active"
-                title="Remove from favorites"
+                title="Remove from favorites (press 'f' when highlighted)"
                 tabindex="-1"
               >
                 ⭐
@@ -510,7 +548,7 @@
               <button
                 on:click={(e) => toggleFavorite(channel.id, e)}
                 class="favorite-btn"
-                title="Add to favorites"
+                title="Add to favorites (press 'f' when highlighted)"
                 tabindex="-1"
               >
                 ☆
@@ -542,7 +580,7 @@
               <button
                 on:click={(e) => toggleFavorite(channel.id, e)}
                 class="favorite-btn"
-                title="Add to favorites"
+                title="Add to favorites (press 'f' when highlighted)"
                 tabindex="-1"
               >
                 ☆
@@ -936,5 +974,19 @@
   
   .channel-dropdown::-webkit-scrollbar-thumb:hover {
     background: var(--text-secondary);
+  }
+  
+  .dropdown-help {
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: center;
+  }
+  
+  .help-text {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.025em;
   }
 </style>

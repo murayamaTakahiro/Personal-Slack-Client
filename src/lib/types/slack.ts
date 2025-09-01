@@ -114,6 +114,7 @@ export interface KeyboardShortcuts {
   zoomIn?: string | string[];
   zoomOut?: string | string[];
   zoomReset?: string | string[];
+  toggleChannelFavorite?: string | string[];
 }
 
 export interface MentionHistory {
