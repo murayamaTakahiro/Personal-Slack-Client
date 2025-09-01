@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    slack_search_enhancer_lib::run()
+    personal_slack_client_lib::run()
 }

@@ -1,4 +1,4 @@
-# Slack Search Enhancer
+# Personal Slack Client
 
 A powerful desktop application that enhances Slack's search capabilities, allowing you to search and view more than 10 messages at once and efficiently browse thread conversations.
 
@@ -30,8 +30,8 @@ A powerful desktop application that enhances Slack's search capabilities, allowi
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/slack-search-enhancer.git
-cd slack-search-enhancer
+git clone https://github.com/yourusername/personal-slack-client.git
+cd personal-slack-client
 ```
 
 2. Install dependencies:
@@ -102,7 +102,7 @@ The following OAuth scopes are required:
 ## Project Structure
 
 ```
-slack-search-enhancer/
+personal-slack-client/
 ├── src-tauri/          # Rust backend
 │   ├── src/
 │   │   ├── slack/      # Slack API integration

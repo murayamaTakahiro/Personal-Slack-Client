@@ -789,7 +789,7 @@
   
   function showNotification(message: string) {
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('Slack Search Enhancer', {
+      new Notification('Personal Slack Client', {
         body: message,
         icon: '/icon.png'
       });
@@ -800,7 +800,7 @@
 
 <div class="app">
   <header class="app-header">
-    <h1>Slack Search Enhancer</h1>
+    <h1>Personal Slack Client</h1>
     
     {#if $realtimeStore.isEnabled}
       <div class="realtime-indicator">
@@ -890,7 +890,7 @@
             ⚠️ IMPORTANT: Must be a User Token (xoxp-), NOT a Bot Token (xoxb-)
           </p>
           <p class="help-text">
-            <a href="https://github.com/your-repo/slack-search-enhancer/blob/main/SLACK_TOKEN_GUIDE.md" target="_blank">
+            <a href="https://github.com/your-repo/personal-slack-client/blob/main/SLACK_TOKEN_GUIDE.md" target="_blank">
               📖 Read the Token Setup Guide
             </a> for detailed instructions
           </p>
@@ -975,7 +975,7 @@
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M9 11H3v2h6v-2zm0-4H3v2h6V7zm0 8H3v2h6v-2zm12-8h-6v2h6V7zm0 4h-6v2h6v-2zm0 4h-6v2h6v-2z"/>
         </svg>
-        <h2>Welcome to Slack Search Enhancer!</h2>
+        <h2>Welcome to Personal Slack Client!</h2>
         <p>To get started, please configure your Slack token in Settings.</p>
         <button class="btn-primary" on:click={() => showSettings = true}>
           Open Settings

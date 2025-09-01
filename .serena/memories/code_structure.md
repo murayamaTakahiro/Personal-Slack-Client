@@ -3,7 +3,7 @@
 ## Project Layout
 
 ```
-slack-search-enhancer/
+personal-slack-client/
 ├── src-tauri/          # Rust backend
 │   ├── src/
 │   │   ├── slack/      # Slack API integration

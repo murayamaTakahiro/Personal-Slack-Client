@@ -1,4 +1,4 @@
-# Slack Search Enhancer - Project Overview
+# Personal Slack Client - Project Overview
 
 ## Purpose
 A desktop application that enhances Slack's search capabilities, allowing users to:

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "slack-search-enhancer",
+  "productName": "Personal Slack Client",
   "version": "0.1.0",
-  "identifier": "com.t-murayama.slack-search-enhancer",
+  "identifier": "com.t-murayama.personal-slack-client",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "slack-search-enhancer",
+        "title": "Personal Slack Client",
         "width": 1200,
         "height": 800,
         "maximized": true,
