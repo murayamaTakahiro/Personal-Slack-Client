@@ -78,7 +78,7 @@
       if (state.isEnabled) {
         // Check if interval has changed and restart if needed
         if (previousInterval !== null && previousInterval !== state.updateInterval) {
-          console.log('Interval changed from', previousInterval, 'to', state.updateInterval, '- restarting timer');
+          // Interval changed - restart timer
           stopRealtimeUpdates();
           startRealtimeUpdates();
         } else if (previousInterval === null) {
@@ -100,7 +100,7 @@
       const newMessages = results.messages.filter(m => !previousMessageIds.has(m.id));
       
       if (newMessages.length > 0) {
-        console.log(`Found ${newMessages.length} new messages`);
+        // Found new messages
         
         // Show notification if enabled
         if (state.showNotifications && 'Notification' in window) {
@@ -204,10 +204,10 @@
               if (initialized) {
                 await loadChannels();
               } else {
-                console.warn('Token found in frontend but not initialized in backend');
+                // Token found in frontend but not initialized in backend
               }
             } catch (err) {
-              console.error('Failed to initialize token:', err);
+              // Failed to initialize token
             }
           }
         } else {
@@ -365,7 +365,7 @@
               }
             }
           } catch (err) {
-            console.error('Failed to refresh workspace:', err);
+            // Failed to refresh workspace
             searchError.set('Failed to refresh workspace. Please try again.');
           } finally {
             searchLoading.set(false);
@@ -493,7 +493,7 @@
           if (initialized) {
             await loadChannels();
           } else {
-            console.error('Failed to initialize backend with token');
+            // Failed to initialize backend with token
           }
         } catch (err) {
           console.error('Failed to initialize token:', err);
@@ -571,11 +571,11 @@
           
           searchError.set(null);
         } else {
-          console.error('Failed to initialize backend token');
+          // Failed to initialize backend token
           searchError.set('Failed to initialize token for the new workspace.');
         }
       } catch (err) {
-        console.error('Failed to switch workspace:', err);
+        // Failed to switch workspace
         searchError.set('Failed to switch workspace. Please check the token.');
       } finally {
         searchLoading.set(false);
@@ -600,7 +600,7 @@
       
       // Use params from event if available, otherwise from store
       const params = event?.detail || $searchParams;
-      console.log('Search params being sent:', params);
+      // Search params being sent
       
       // For realtime incremental updates, get last timestamp
       if (params.isRealtimeUpdate && $realtimeStore.isEnabled) {
@@ -672,7 +672,7 @@
         }
       }
       searchError.set(errorMessage);
-      console.error('Search error:', err);
+      // Search error
     } finally {
       searchLoading.set(false);
     }
@@ -692,12 +692,12 @@
       // Initialize channel store with workspace-specific data (favorites, recent channels, etc.)
       await channelStore.initChannels(channels);
       
-      console.log(`Loaded ${channels.length} channels for workspace`);
+      // Loaded channels for workspace
       
       // Also load users for mention resolution
       await loadUsers();
     } catch (err) {
-      console.error('Failed to load channels:', err);
+      // Failed to load channels
       channels = [];
       searchError.set('Failed to load channels. Please check your token permissions.');
     }
@@ -707,9 +707,9 @@
     try {
       const users = await getUsers();
       await userStore.initUsers(users);
-      console.log(`Loaded ${users.length} users for workspace`);
+      // Loaded users for workspace
     } catch (err) {
-      console.error('Failed to load users:', err);
+      // Failed to load users
       // Non-critical error - continue without user mention resolution
     }
   }
@@ -749,7 +749,7 @@
     if (realtimeInterval) return; // Already running
     
     const state = get(realtimeStore);
-    console.log('Starting realtime updates, interval:', state.updateInterval);
+    // Starting realtime updates
     
     // Don't run immediately - wait for first interval
     // This prevents duplicate on initial search
@@ -764,14 +764,14 @@
     if (realtimeInterval) {
       clearInterval(realtimeInterval);
       realtimeInterval = null;
-      console.log('Stopped realtime updates');
+      // Stopped realtime updates
     }
   }
   
   async function performRealtimeUpdate() {
     if (!searchBarElement) return;
     
-    console.log('Performing realtime update');
+    // Performing realtime update
     
     // Store current message IDs before update
     const currentMessages = $searchResults?.messages || [];

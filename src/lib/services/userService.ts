@@ -34,7 +34,7 @@ export class UserService {
       
       return users;
     } catch (error) {
-      console.error('Failed to fetch users:', error);
+      // Failed to fetch users
       return [];
     }
   }
@@ -84,7 +84,7 @@ export class UserService {
       this.userCache.set(userId, user);
       return user;
     } catch (error) {
-      console.error(`Failed to fetch user ${userId}:`, error);
+      // Failed to fetch user
       return null;
     }
   }
