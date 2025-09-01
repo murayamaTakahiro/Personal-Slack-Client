@@ -19,7 +19,8 @@
   $: selectedChannels = $channelStore.selectedChannels;
   
   // Sync searchInput when value is cleared externally (e.g., workspace switch)
-  $: if (value === '' && searchInput !== '') {
+  // Only clear searchInput if the component is not focused
+  $: if (value === '' && searchInput !== '' && inputElement && document.activeElement !== inputElement) {
     searchInput = '';
   }
   
@@ -96,6 +97,19 @@
   
   function handleInputFocus() {
     showDropdown = true;
+    highlightedIndex = -1;
+  }
+  
+  function handleInput(event: Event) {
+    // Update searchInput from the event target
+    const target = event.target as HTMLInputElement;
+    searchInput = target.value;
+    
+    // Open dropdown when user starts typing
+    if (!showDropdown) {
+      showDropdown = true;
+    }
+    // Reset highlight when search changes
     highlightedIndex = -1;
   }
   
@@ -268,8 +282,9 @@
       <input
         bind:this={inputElement}
         type="text"
-        bind:value={searchInput}
+        value={searchInput}
         on:focus={handleInputFocus}
+        on:input={handleInput}
         on:keydown={handleInputKeydown}
         placeholder={mode === 'multi' 
           ? (selectedChannels.length > 0 
