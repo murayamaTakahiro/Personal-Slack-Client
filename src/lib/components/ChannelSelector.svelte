@@ -175,6 +175,26 @@
     }
   }
   
+  // Handle keyboard events on the dropdown (for when focus is on favorite buttons)
+  function handleDropdownKeydown(event: KeyboardEvent) {
+    // Handle Esc key when focus is on any element within the dropdown
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      showDropdown = false;
+      highlightedIndex = -1;
+      // Return focus to input
+      if (inputElement) {
+        inputElement.focus();
+      }
+    }
+    // Handle Tab key to close dropdown and move to next component
+    else if (event.key === 'Tab') {
+      // Close dropdown but let Tab move focus naturally to next component
+      showDropdown = false;
+      highlightedIndex = -1;
+    }
+  }
+  
   function scrollToHighlighted() {
     if (highlightedIndex < 0) return;
     
@@ -200,7 +220,12 @@
   
   function toggleFavorite(channelId: string, event: MouseEvent) {
     event.stopPropagation();
+    event.preventDefault();
     channelStore.toggleFavorite(channelId);
+    // Return focus to the input element after toggling favorite
+    if (inputElement) {
+      inputElement.focus();
+    }
   }
   
   function toggleMode() {
@@ -431,7 +456,7 @@
   {/if}
   
   {#if showDropdown}
-    <div bind:this={dropdownElement} class="channel-dropdown">
+    <div bind:this={dropdownElement} class="channel-dropdown" on:keydown={handleDropdownKeydown}>
       {#if groupedChannels.favorites.length > 0}
         <div class="channel-group">
           <div class="group-header">⭐ Favorites</div>
@@ -454,6 +479,7 @@
                 on:click={(e) => toggleFavorite(channel.id, e)}
                 class="favorite-btn active"
                 title="Remove from favorites"
+                tabindex="-1"
               >
                 ⭐
               </button>
@@ -485,6 +511,7 @@
                 on:click={(e) => toggleFavorite(channel.id, e)}
                 class="favorite-btn"
                 title="Add to favorites"
+                tabindex="-1"
               >
                 ☆
               </button>
@@ -516,6 +543,7 @@
                 on:click={(e) => toggleFavorite(channel.id, e)}
                 class="favorite-btn"
                 title="Add to favorites"
+                tabindex="-1"
               >
                 ☆
               </button>
