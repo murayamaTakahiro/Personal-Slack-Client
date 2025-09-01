@@ -5,6 +5,7 @@
   import { mentionService } from '../services/mentionService';
   import { userService } from '../services/userService';
   import type { SlackUser } from '../types/slack';
+  import { decodeSlackText } from '../utils/htmlEntities';
   
   export let mode: 'channel' | 'thread';
   export let channelId: string;
@@ -98,10 +99,10 @@
     </div>
     
     <div class="dialog-info">
-      <span class="channel-badge">#{channelName}</span>
+      <span class="channel-badge">#{decodeSlackText(channelName)}</span>
       {#if mode === 'thread' && messagePreview}
         <div class="thread-preview">
-          Replying to: {messagePreview}
+          Replying to: {decodeSlackText(messagePreview)}
         </div>
       {/if}
     </div>

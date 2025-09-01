@@ -6,6 +6,7 @@
   import { urlService } from '../services/urlService';
   import { showSuccess, showError, showInfo } from '../stores/toast';
   import { parseMessageWithMentions } from '../utils/mentionParser';
+  import { decodeSlackText } from '../utils/htmlEntities';
   
   export let message: Message | null = null;
   
@@ -78,8 +79,8 @@
   
   async function handleOpenUrls(messageToOpen: Message) {
     try {
-      // Extract URLs from message text
-      const extractedUrls = urlService.extractUrls(messageToOpen.text);
+      // Extract URLs from message text (use decoded text for URL extraction)
+      const extractedUrls = urlService.extractUrls(decodeSlackText(messageToOpen.text));
       console.log('🔍 DEBUG: Thread - Extracted URLs:', extractedUrls);
       
       // Check if we have URLs to open
@@ -297,7 +298,7 @@
   {:else if thread}
     <div class="thread-header">
       <div>
-        <h3>Thread in #{thread.parent.channelName}</h3>
+        <h3>Thread in #{decodeSlackText(thread.parent.channelName)}</h3>
         <span class="keyboard-hint">Use ↑↓ to navigate, Enter to open in Slack, Alt+Enter to open URLs</span>
       </div>
       <button
@@ -320,16 +321,16 @@
           class:selected={selectedIndex === 0}
           tabindex="0"
           role="article"
-          aria-label="Thread parent message from {thread.parent.userName}"
+          aria-label="Thread parent message from {decodeSlackText(thread.parent.userName)}"
           on:click={() => handleMessageClick(0)}
           on:keydown={(e) => handleMessageKeyDown(e, 0, thread.parent)}
         >
           <div class="message-header">
-            <span class="user-name">{thread.parent.userName}</span>
+            <span class="user-name">{decodeSlackText(thread.parent.userName)}</span>
             <span class="timestamp">{formatTimestamp(thread.parent.ts)}</span>
           </div>
           <div class="message-text">
-            {#each parseMessageWithMentions(thread.parent.text) as segment}
+            {#each parseMessageWithMentions(decodeSlackText(thread.parent.text)) as segment}
               {#if segment.type === 'mention'}
                 <span class="mention">{segment.content}</span>
               {:else if segment.type === 'url'}
@@ -355,16 +356,16 @@
               class:selected={selectedIndex === index + 1}
               tabindex="0"
               role="article"
-              aria-label="Reply from {reply.userName}"
+              aria-label="Reply from {decodeSlackText(reply.userName)}"
               on:click={() => handleMessageClick(index + 1)}
               on:keydown={(e) => handleMessageKeyDown(e, index + 1, reply)}
             >
               <div class="message-header">
-                <span class="user-name">{reply.userName}</span>
+                <span class="user-name">{decodeSlackText(reply.userName)}</span>
                 <span class="timestamp">{formatTimestamp(reply.ts)}</span>
               </div>
               <div class="message-text">
-                {#each parseMessageWithMentions(reply.text) as segment}
+                {#each parseMessageWithMentions(decodeSlackText(reply.text)) as segment}
                   {#if segment.type === 'mention'}
                     <span class="mention">{segment.content}</span>
                   {:else if segment.type === 'url'}
@@ -389,7 +390,7 @@
     <div class="single-message">
       <div class="thread-header">
         <div>
-          <h3>Message in #{message.channelName}</h3>
+          <h3>Message in #{decodeSlackText(message.channelName)}</h3>
           <span class="keyboard-hint">Press Enter to open in Slack</span>
         </div>
         <button
@@ -410,16 +411,16 @@
         class:selected={selectedIndex === 0}
         tabindex="0"
         role="article"
-        aria-label="Message from {message.userName}"
+        aria-label="Message from {decodeSlackText(message.userName)}"
         on:click={() => handleMessageClick(0)}
         on:keydown={(e) => handleMessageKeyDown(e, 0, message)}
       >
         <div class="message-header">
-          <span class="user-name">{message.userName}</span>
+          <span class="user-name">{decodeSlackText(message.userName)}</span>
           <span class="timestamp">{formatTimestamp(message.ts)}</span>
         </div>
         <div class="message-text">
-          {#each parseMessageWithMentions(message.text) as segment}
+          {#each parseMessageWithMentions(decodeSlackText(message.text)) as segment}
             {#if segment.type === 'mention'}
               <span class="mention">{segment.content}</span>
             {:else if segment.type === 'url'}

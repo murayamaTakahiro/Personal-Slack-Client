@@ -8,6 +8,7 @@
   import { urlService } from '../services/urlService';
   import { openUrlsSmart } from '../api/urls';
   import { showInfo, showError } from '../stores/toast';
+  import { decodeSlackText } from '../utils/htmlEntities';
   
   export let messages: Message[] = [];
   export let loading = false;
@@ -153,8 +154,8 @@
     const messageToOpen = messages[focusedIndex];
     
     try {
-      // Extract URLs from message text
-      const extractedUrls = urlService.extractUrls(messageToOpen.text);
+      // Extract URLs from message text (use decoded text for URL extraction)
+      const extractedUrls = urlService.extractUrls(decodeSlackText(messageToOpen.text));
       
       // Check if we have URLs to open
       if (extractedUrls.slackUrls.length === 0 && extractedUrls.externalUrls.length === 0) {
@@ -488,7 +489,7 @@
       channelId={messages[focusedIndex].channel}
       channelName={messages[focusedIndex].channelName || messages[focusedIndex].channel}
       threadTs={postMode === 'thread' ? messages[focusedIndex].ts : ''}
-      messagePreview={postMode === 'thread' ? messages[focusedIndex].text.slice(0, 100) : ''}
+      messagePreview={postMode === 'thread' ? decodeSlackText(messages[focusedIndex].text).slice(0, 100) : ''}
       on:success={handlePostSuccess}
       on:cancel={handlePostCancel}
     />

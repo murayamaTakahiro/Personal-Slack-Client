@@ -9,6 +9,7 @@
   import { showSuccess, showError, showInfo } from '../stores/toast';
   import ReactionPicker from './ReactionPicker.svelte';
   import { parseMessageWithMentions } from '../utils/mentionParser';
+  import { decodeSlackText } from '../utils/htmlEntities';
   
   export let message: Message;
   export let selected = false;
@@ -56,7 +57,7 @@
     return text.substring(0, maxLength) + '...';
   }
   
-  $: messageSegments = parseMessageWithMentions(truncateText(message.text));
+  $: messageSegments = parseMessageWithMentions(truncateText(decodeSlackText(message.text)));
   
   function generateSlackUrl(): string {
     // Generate correct Slack URL using current workspace domain
@@ -96,8 +97,8 @@
     if (!selected) return;
     
     try {
-      // Extract URLs from message text
-      const extractedUrls = urlService.extractUrls(message.text);
+      // Extract URLs from message text (use decoded text for URL extraction)
+      const extractedUrls = urlService.extractUrls(decodeSlackText(message.text));
       console.log('🔍 DEBUG: Extracted URLs:', extractedUrls);
       
       // Check if we have URLs to open
@@ -368,12 +369,12 @@
 >
   <div class="message-header">
     <div class="message-meta">
-      <span class="user-name">{message.userName}</span>
+      <span class="user-name">{decodeSlackText(message.userName)}</span>
       <span class="separator">•</span>
       {#if showChannelBadge}
-        <span class="channel-badge">#{message.channelName}</span>
+        <span class="channel-badge">#{decodeSlackText(message.channelName)}</span>
       {:else}
-        <span class="channel-name">#{message.channelName}</span>
+        <span class="channel-name">#{decodeSlackText(message.channelName)}</span>
       {/if}
       <span class="separator">•</span>
       <span class="timestamp">{formatTimestamp(message.ts)}</span>
