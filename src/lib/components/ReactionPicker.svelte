@@ -15,6 +15,10 @@
   let selectedIndex = 0;
   let pickerElement: HTMLDivElement;
   let emojiButtons: HTMLButtonElement[] = [];
+  let searchInput: HTMLInputElement;
+  let focusableElements: HTMLElement[] = [];
+  let currentFocusIndex = -1;
+  let previousFocusElement: HTMLElement | null = null;
   
   // Reset state when component mounts (picker opens)
   onMount(() => {
@@ -23,14 +27,105 @@
     selectedIndex = 0;
     emojiButtons = [];
     
+    // Store the previously focused element to restore later
+    previousFocusElement = document.activeElement as HTMLElement;
+    
     // Use tick to ensure proper focus management
     tick().then(() => {
-      if (pickerElement) {
-        pickerElement.focus();
-        console.log('🔍 DEBUG: ReactionPicker focused after tick');
-      }
+      initializeFocusTrap();
     });
   });
+  
+  function initializeFocusTrap() {
+    if (!pickerElement) return;
+    
+    // Get all focusable elements within the picker
+    updateFocusableElements();
+    
+    // Focus the search input initially
+    if (searchInput) {
+      searchInput.focus();
+      currentFocusIndex = focusableElements.indexOf(searchInput);
+      console.log('🔍 DEBUG: Initial focus on search input, index:', currentFocusIndex);
+    } else if (pickerElement) {
+      pickerElement.focus();
+      console.log('🔍 DEBUG: ReactionPicker focused (no search input)');
+    }
+  }
+  
+  function updateFocusableElements() {
+    if (!pickerElement) return;
+    
+    // Query all focusable elements in the correct tab order
+    const selector = 'input:not([disabled]), button:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
+    const elements = pickerElement.querySelectorAll(selector);
+    focusableElements = Array.from(elements) as HTMLElement[];
+    
+    // Include the picker element itself if it has tabindex
+    if (pickerElement.getAttribute('tabindex') !== '-1') {
+      focusableElements.unshift(pickerElement);
+    }
+    
+    console.log('🔍 DEBUG: Found focusable elements:', focusableElements.length);
+  }
+  
+  function handleTabKey(event: KeyboardEvent, isShift: boolean) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Update focusable elements in case DOM changed
+    updateFocusableElements();
+    
+    if (focusableElements.length === 0) {
+      console.log('🔍 DEBUG: No focusable elements found');
+      return;
+    }
+    
+    // Get current focus index
+    const currentElement = document.activeElement as HTMLElement;
+    currentFocusIndex = focusableElements.indexOf(currentElement);
+    
+    console.log('🔍 DEBUG: Tab navigation', {
+      isShift,
+      currentFocusIndex,
+      totalElements: focusableElements.length,
+      currentElement: currentElement?.tagName
+    });
+    
+    if (isShift) {
+      // Move backwards
+      currentFocusIndex--;
+      if (currentFocusIndex < 0) {
+        currentFocusIndex = focusableElements.length - 1; // Wrap to last
+      }
+    } else {
+      // Move forwards
+      currentFocusIndex++;
+      if (currentFocusIndex >= focusableElements.length) {
+        currentFocusIndex = 0; // Wrap to first
+      }
+    }
+    
+    // Focus the new element
+    const nextElement = focusableElements[currentFocusIndex];
+    if (nextElement) {
+      nextElement.focus();
+      console.log('🔍 DEBUG: Focused element at index', currentFocusIndex, nextElement.tagName);
+      
+      // If we focused an emoji button, update selectedIndex
+      const buttonIndex = emojiButtons.indexOf(nextElement as HTMLButtonElement);
+      if (buttonIndex !== -1) {
+        selectedIndex = buttonIndex;
+      }
+    }
+  }
+  
+  function restorePreviousFocus() {
+    if (previousFocusElement && document.body.contains(previousFocusElement)) {
+      previousFocusElement.focus();
+      console.log('🔍 DEBUG: Restored focus to previous element');
+    }
+  }
   
   $: mappings = $reactionMappings;
   $: recent = $recentReactions.slice(0, 5);
@@ -66,12 +161,17 @@
     selectedIndex = Math.max(0, filteredEmojis.length - 1);
   }
   
-  // Auto-scroll to selected emoji
+  // Auto-scroll and focus selected emoji
   $: if (emojiButtons[selectedIndex]) {
-    emojiButtons[selectedIndex].scrollIntoView({ 
+    const button = emojiButtons[selectedIndex];
+    button.scrollIntoView({ 
       block: 'nearest', 
       behavior: 'smooth' 
     });
+    // Also focus the button when using arrow keys
+    if (document.activeElement && pickerElement?.contains(document.activeElement)) {
+      button.focus();
+    }
   }
   
   function selectEmoji(emoji: string) {
@@ -82,17 +182,27 @@
   
   function close() {
     console.log('🔍 DEBUG: ReactionPicker close called');
+    // Restore focus to previous element
+    restorePreviousFocus();
     // Reset all state when closing
     searchQuery = '';
     selectedIndex = 0;
     emojiButtons = [];
+    focusableElements = [];
+    currentFocusIndex = -1;
     dispatch('close');
   }
   
   function handleKeydown(event: KeyboardEvent) {
-    // Don't handle keydown if search input has focus and it's a character key
-    if (event.target === pickerElement?.querySelector('input') && 
-        !['Escape', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+    // Handle Tab key for focus trap
+    if (event.key === 'Tab') {
+      handleTabKey(event, event.shiftKey);
+      return;
+    }
+    
+    // Don't handle other keydown if search input has focus and it's a character key
+    if (event.target === searchInput && 
+        !['Escape', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(event.key)) {
       return;
     }
     
@@ -179,8 +289,20 @@
     }
   }
   
+  // Global escape handler to ensure Escape works from any focused element
+  function handleGlobalEscape(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    }
+  }
+  
   onMount(() => {
     console.log('🔍 DEBUG: ReactionPicker onMount - setting up event listeners');
+    
+    // Add global escape listener
+    document.addEventListener('keydown', handleGlobalEscape, true);
     
     // Add click outside listener with a slight delay to avoid immediate triggers
     const timeoutId = setTimeout(() => {
@@ -192,12 +314,15 @@
       console.log('🔍 DEBUG: ReactionPicker cleanup - removing event listeners');
       clearTimeout(timeoutId);
       document.removeEventListener('click', handleClickOutside, true);
+      document.removeEventListener('keydown', handleGlobalEscape, true);
+      // Restore focus on cleanup if component unmounts unexpectedly
+      restorePreviousFocus();
     };
   });
 </script>
 
 <!-- Add backdrop for better visibility -->
-<div class="reaction-picker-backdrop" on:click={close}>
+<div class="reaction-picker-backdrop" on:click={close} role="presentation">
   <div 
     class="reaction-picker"
     bind:this={pickerElement}
@@ -205,17 +330,20 @@
     on:click|stopPropagation
     tabindex="-1"
     role="dialog"
+    aria-modal="true"
     aria-label="Emoji picker"
+    aria-describedby="picker-hint"
   >
   <div class="picker-header">
     <input
       type="text"
       placeholder="Search emoji..."
       bind:value={searchQuery}
+      bind:this={searchInput}
       on:input={() => selectedIndex = 0}
     />
-    <div class="navigation-hint">
-      Use ↑↓←→ to navigate, Enter to select, Esc to close
+    <div class="navigation-hint" id="picker-hint">
+      Use ↑↓←→ or Tab to navigate, Enter to select, Esc to close
     </div>
   </div>
   
@@ -232,8 +360,10 @@
               class:selected={index === selectedIndex}
               on:click={() => selectEmoji(emoji)}
               on:mouseenter={() => selectedIndex = index}
+              on:focus={() => selectedIndex = index}
+              on:keydown={(e) => e.key === 'Enter' && selectEmoji(emoji)}
               title={emoji}
-              tabindex="-1"
+              tabindex="0"
             >
               <span class="emoji">
                 {#if emojiValue && emojiValue.startsWith('http')}
@@ -266,8 +396,10 @@
             class:selected={actualIndex === selectedIndex}
             on:click={() => selectEmoji('display' in item ? item.emoji : item)}
             on:mouseenter={() => selectedIndex = actualIndex}
+            on:focus={() => selectedIndex = actualIndex}
+            on:keydown={(e) => e.key === 'Enter' && selectEmoji('display' in item ? item.emoji : item)}
             title={'display' in item ? item.emoji : item}
-            tabindex="-1"
+            tabindex="0"
           >
             {#if 'shortcut' in item && item.shortcut}
               <span class="shortcut">{item.shortcut}</span>
