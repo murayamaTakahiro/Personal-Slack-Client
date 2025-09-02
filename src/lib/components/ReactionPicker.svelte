@@ -2,6 +2,7 @@
   import { createEventDispatcher, onMount, onDestroy, tick } from 'svelte';
   import { reactionMappings, recentReactions } from '../services/reactionService';
   import { emojiService } from '../services/emojiService';
+  import { emojiSearchService } from '../services/emojiSearchService';
   import EmojiImage from './EmojiImage.svelte';
   import type { ReactionMapping } from '../types/slack';
   
@@ -154,7 +155,14 @@
       ? [...recent.map(e => ({ emoji: e, display: e })), ...mappings, ...additionalEmojis]
       : [...mappings, ...additionalEmojis];
   
-  $: filteredEmojis = allEmojis;
+  $: filteredEmojis = searchQuery 
+    ? emojiSearchService.search(searchQuery, 30).map(result => ({
+        emoji: result.name,
+        display: result.isCustom ? result.name : result.value,
+        matchType: result.matchType,
+        matchedOn: result.matchedOn
+      }))
+    : allEmojis;
   
   // Keep selectedIndex within bounds when filtered results change
   $: if (selectedIndex >= filteredEmojis.length) {

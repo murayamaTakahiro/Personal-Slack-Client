@@ -111,6 +111,7 @@ export interface KeyboardShortcuts {
   reaction8?: string | string[];
   reaction9?: string | string[];
   toggleKeyboardHelp?: string | string[];
+  toggleEmojiSearch?: string | string[];
   zoomIn?: string | string[];
   zoomOut?: string | string[];
   zoomReset?: string | string[];

@@ -1,0 +1,686 @@
+<script lang="ts">
+  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
+  import { emojiSearchService, type EmojiSearchResult } from '../services/emojiSearchService';
+  import { emojiService } from '../services/emojiService';
+  import EmojiImage from './EmojiImage.svelte';
+  import { fade, fly } from 'svelte/transition';
+  
+  export let isOpen = false;
+  
+  const dispatch = createEventDispatcher();
+  
+  let searchQuery = '';
+  let searchResults: EmojiSearchResult[] = [];
+  let selectedIndex = 0;
+  let searchInput: HTMLInputElement;
+  let suggestions: string[] = [];
+  let showTips = false;
+  let activeTab: 'search' | 'browse' | 'recent' = 'search';
+  let categories = ['greetings', 'thanks', 'work', 'emotions', 'gestures', 'celebrations'];
+  let selectedCategory = '';
+  let showHelp = false;
+  
+  const searchTips = emojiSearchService.getSearchTips();
+  
+  // Example searches for help
+  const exampleSearches = [
+    { query: 'bow', description: 'Finds おじぎ (ojigi) emojis' },
+    { query: 'arigatou', description: 'Finds ありがとう thank you emojis' },
+    { query: 'gm', description: 'Finds good morning emojis' },
+    { query: 'tsuka', description: 'Finds 助かります (tasukarimasu)' },
+    { query: 'confirm', description: 'Finds 確認 (kakunin) emojis' }
+  ];
+  
+  $: if (isOpen) {
+    searchQuery = '';
+    searchResults = emojiSearchService.search('', 30);
+    selectedIndex = 0;
+    showTips = false;
+    activeTab = 'search';
+  }
+  
+  $: if (searchQuery) {
+    searchResults = emojiSearchService.search(searchQuery);
+    suggestions = emojiSearchService.getSuggestions(searchQuery);
+    selectedIndex = 0;
+  } else {
+    searchResults = emojiSearchService.search('', 30);
+    suggestions = [];
+  }
+  
+  $: if (selectedCategory) {
+    searchResults = emojiSearchService.search(selectedCategory);
+  }
+  
+  function selectEmoji(emoji: EmojiSearchResult) {
+    emojiSearchService.updateFrequency(emoji.name);
+    dispatch('select', { 
+      emoji: emoji.name,
+      value: emoji.value,
+      isCustom: emoji.isCustom 
+    });
+    close();
+  }
+  
+  function close() {
+    isOpen = false;
+    searchQuery = '';
+    selectedCategory = '';
+    showHelp = false;
+    dispatch('close');
+  }
+  
+  function handleKeydown(event: KeyboardEvent) {
+    switch (event.key) {
+      case 'Escape':
+        event.preventDefault();
+        close();
+        break;
+      case 'Enter':
+        event.preventDefault();
+        if (searchResults[selectedIndex]) {
+          selectEmoji(searchResults[selectedIndex]);
+        }
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        selectedIndex = Math.max(0, selectedIndex - 1);
+        scrollToSelected();
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        selectedIndex = Math.min(searchResults.length - 1, selectedIndex + 1);
+        scrollToSelected();
+        break;
+      case 'Tab':
+        if (!event.shiftKey && activeTab === 'search') {
+          event.preventDefault();
+          activeTab = 'browse';
+        } else if (event.shiftKey && activeTab === 'browse') {
+          event.preventDefault();
+          activeTab = 'search';
+        }
+        break;
+    }
+  }
+  
+  function scrollToSelected() {
+    const element = document.querySelector('.emoji-result.selected');
+    if (element) {
+      element.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }
+  
+  function tryExampleSearch(query: string) {
+    searchQuery = query;
+    showHelp = false;
+  }
+  
+  function handleClickOutside(event: MouseEvent) {
+    const dialog = document.querySelector('.emoji-search-dialog');
+    if (dialog && !dialog.contains(event.target as Node)) {
+      close();
+    }
+  }
+  
+  onMount(() => {
+    if (isOpen && searchInput) {
+      searchInput.focus();
+    }
+    document.addEventListener('click', handleClickOutside);
+    
+    // Rebuild index when component mounts to get latest emojis
+    emojiSearchService.rebuildIndex();
+  });
+  
+  onDestroy(() => {
+    document.removeEventListener('click', handleClickOutside);
+  });
+</script>
+
+{#if isOpen}
+  <div class="emoji-search-backdrop" transition:fade={{ duration: 200 }}>
+    <div 
+      class="emoji-search-dialog"
+      transition:fly={{ y: -20, duration: 300 }}
+      on:keydown={handleKeydown}
+    >
+      <div class="dialog-header">
+        <h2>Find Emoji</h2>
+        <button class="close-button" on:click={close}>×</button>
+      </div>
+      
+      <div class="dialog-tabs">
+        <button 
+          class="tab" 
+          class:active={activeTab === 'search'}
+          on:click={() => activeTab = 'search'}
+        >
+          Search
+        </button>
+        <button 
+          class="tab" 
+          class:active={activeTab === 'browse'}
+          on:click={() => activeTab = 'browse'}
+        >
+          Browse
+        </button>
+        <button 
+          class="tab" 
+          class:active={activeTab === 'recent'}
+          on:click={() => activeTab = 'recent'}
+        >
+          Recent
+        </button>
+      </div>
+      
+      {#if activeTab === 'search'}
+        <div class="search-section">
+          <div class="search-input-wrapper">
+            <input
+              type="text"
+              class="search-input"
+              placeholder="Search by name, English, romaji, or category..."
+              bind:value={searchQuery}
+              bind:this={searchInput}
+              on:focus={() => showTips = true}
+            />
+            <button 
+              class="help-button"
+              on:click={() => showHelp = !showHelp}
+              title="Search help"
+            >
+              ?
+            </button>
+          </div>
+          
+          {#if suggestions.length > 0 && searchQuery}
+            <div class="suggestions">
+              {#each suggestions as suggestion}
+                <button 
+                  class="suggestion"
+                  on:click={() => searchQuery = suggestion}
+                >
+                  {suggestion}
+                </button>
+              {/each}
+            </div>
+          {/if}
+          
+          {#if showHelp}
+            <div class="help-section" transition:fly={{ y: -10, duration: 200 }}>
+              <h3>Search Tips</h3>
+              <ul class="tips-list">
+                {#each searchTips as tip}
+                  <li>{tip}</li>
+                {/each}
+              </ul>
+              
+              <h3>Try These Searches</h3>
+              <div class="example-searches">
+                {#each exampleSearches as example}
+                  <button 
+                    class="example-search"
+                    on:click={() => tryExampleSearch(example.query)}
+                  >
+                    <span class="example-query">"{example.query}"</span>
+                    <span class="example-description">{example.description}</span>
+                  </button>
+                {/each}
+              </div>
+            </div>
+          {/if}
+          
+          <div class="search-results">
+            {#if searchResults.length > 0}
+              <div class="results-header">
+                {searchQuery ? `Found ${searchResults.length} results` : 'Popular emojis'}
+              </div>
+              <div class="emoji-grid">
+                {#each searchResults as result, index}
+                  <button
+                    class="emoji-result"
+                    class:selected={index === selectedIndex}
+                    on:click={() => selectEmoji(result)}
+                    on:mouseenter={() => selectedIndex = index}
+                    title={`${result.name}${result.matchedOn ? ` (matched: ${result.matchedOn})` : ''}`}
+                  >
+                    <div class="emoji-display">
+                      {#if result.isCustom}
+                        <EmojiImage emoji={result.name} url={result.value} size="large" />
+                      {:else}
+                        <span class="emoji-unicode">{result.value}</span>
+                      {/if}
+                    </div>
+                    <div class="emoji-name">{result.name}</div>
+                    {#if result.matchType && result.matchType !== 'exact'}
+                      <div class="match-type">{result.matchType}</div>
+                    {/if}
+                  </button>
+                {/each}
+              </div>
+            {:else if searchQuery}
+              <div class="no-results">
+                <p>No emojis found for "{searchQuery}"</p>
+                <p class="help-text">Try searching in English or romaji</p>
+              </div>
+            {/if}
+          </div>
+        </div>
+      {/if}
+      
+      {#if activeTab === 'browse'}
+        <div class="browse-section">
+          <div class="category-buttons">
+            {#each categories as category}
+              <button
+                class="category-button"
+                class:active={selectedCategory === category}
+                on:click={() => selectedCategory = category}
+              >
+                {category}
+              </button>
+            {/each}
+          </div>
+          
+          <div class="emoji-grid">
+            {#each searchResults as result, index}
+              <button
+                class="emoji-result"
+                class:selected={index === selectedIndex}
+                on:click={() => selectEmoji(result)}
+                on:mouseenter={() => selectedIndex = index}
+                title={result.name}
+              >
+                <div class="emoji-display">
+                  {#if result.isCustom}
+                    <EmojiImage emoji={result.name} url={result.value} size="large" />
+                  {:else}
+                    <span class="emoji-unicode">{result.value}</span>
+                  {/if}
+                </div>
+                <div class="emoji-name">{result.name}</div>
+              </button>
+            {/each}
+          </div>
+        </div>
+      {/if}
+      
+      {#if activeTab === 'recent'}
+        <div class="recent-section">
+          <p class="help-text">Recently used emojis will appear here</p>
+          <div class="emoji-grid">
+            <!-- This would be populated from a recent emojis store -->
+          </div>
+        </div>
+      {/if}
+      
+      <div class="dialog-footer">
+        <div class="footer-hint">
+          Use ↑↓ to navigate • Enter to select • Esc to close
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<style>
+  .emoji-search-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .emoji-search-dialog {
+    background: var(--bg-primary);
+    border-radius: 12px;
+    width: 90%;
+    max-width: 720px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  }
+  
+  .dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .dialog-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: var(--text-primary);
+  }
+  
+  .close-button {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.25rem;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  
+  .close-button:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+  
+  .dialog-tabs {
+    display: flex;
+    padding: 0 1.25rem;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .tab {
+    background: none;
+    border: none;
+    padding: 0.75rem 1rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  
+  .tab:hover {
+    color: var(--text-primary);
+  }
+  
+  .tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+  
+  .search-section,
+  .browse-section,
+  .recent-section {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.25rem;
+  }
+  
+  .search-input-wrapper {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .search-input {
+    flex: 1;
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 1rem;
+  }
+  
+  .search-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-bg);
+  }
+  
+  .help-button {
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    width: 40px;
+    transition: all 0.2s;
+  }
+  
+  .help-button:hover {
+    background: var(--primary-bg);
+    color: var(--primary);
+    border-color: var(--primary);
+  }
+  
+  .suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .suggestion {
+    padding: 0.375rem 0.75rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+  }
+  
+  .suggestion:hover {
+    background: var(--primary-bg);
+    color: var(--primary);
+    border-color: var(--primary);
+  }
+  
+  .help-section {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .help-section h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .tips-list {
+    margin: 0 0 1rem 0;
+    padding-left: 1.25rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+  
+  .example-searches {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .example-search {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .example-search:hover {
+    background: var(--primary-bg);
+    border-color: var(--primary);
+  }
+  
+  .example-query {
+    font-family: monospace;
+    color: var(--primary);
+    font-size: 0.875rem;
+  }
+  
+  .example-description {
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+  }
+  
+  .results-header {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+  }
+  
+  .emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 0.5rem;
+  }
+  
+  .emoji-result {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.75rem 0.5rem;
+    background: transparent;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .emoji-result:hover {
+    background: var(--bg-hover);
+    border-color: var(--border);
+  }
+  
+  .emoji-result.selected {
+    background: var(--primary-bg);
+    border-color: var(--primary);
+  }
+  
+  .emoji-display {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.25rem;
+  }
+  
+  .emoji-unicode {
+    font-size: 2rem;
+  }
+  
+  .emoji-name {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-align: center;
+    word-break: break-all;
+    max-width: 100%;
+  }
+  
+  .match-type {
+    font-size: 0.625rem;
+    color: var(--primary);
+    background: var(--primary-bg);
+    padding: 2px 4px;
+    border-radius: 3px;
+    margin-top: 0.25rem;
+  }
+  
+  .no-results {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+  }
+  
+  .help-text {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+  }
+  
+  .category-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .category-button {
+    padding: 0.5rem 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    text-transform: capitalize;
+    transition: all 0.2s;
+  }
+  
+  .category-button:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+  
+  .category-button.active {
+    background: var(--primary-bg);
+    color: var(--primary);
+    border-color: var(--primary);
+  }
+  
+  .dialog-footer {
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid var(--border);
+    background: var(--bg-secondary);
+    border-radius: 0 0 12px 12px;
+  }
+  
+  .footer-hint {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+  
+  /* Scrollbar styling */
+  .search-section::-webkit-scrollbar,
+  .browse-section::-webkit-scrollbar,
+  .recent-section::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .search-section::-webkit-scrollbar-track,
+  .browse-section::-webkit-scrollbar-track,
+  .recent-section::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 4px;
+  }
+  
+  .search-section::-webkit-scrollbar-thumb,
+  .browse-section::-webkit-scrollbar-thumb,
+  .recent-section::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+  }
+  
+  .search-section::-webkit-scrollbar-thumb:hover,
+  .browse-section::-webkit-scrollbar-thumb:hover,
+  .recent-section::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+  }
+</style>

@@ -168,20 +168,8 @@ const STANDARD_EMOJIS: Record<string, string> = {
   'zap': '⚡',
   'boom': '💥',
   'collision': '💥',
-  'fire': '🔥',
   'hundred': '💯',
-  '100': '💯',
-  'raised_hands': '🙌',
-  'clap': '👏',
-  'thumbsup': '👍',
-  '+1': '👍',
-  'thumbsdown': '👎',
-  '-1': '👎',
-  'ok_hand': '👌',
-  'wave': '👋',
-  'pray': '🙏',
-  'sob': '😭',
-  'confused': '😕'
+  '100': '💯'
 };
 
 export class EmojiService {
@@ -204,7 +192,7 @@ export class EmojiService {
     console.log('[EmojiService] Starting initialization...');
     try {
       // Load cached emoji data
-      const cached = await loadFromStore<EmojiData>('emojiData', null);
+      const cached = await loadFromStore<EmojiData | null>('emojiData', null);
       console.log('[EmojiService] Cached data loaded:', {
         hasCached: !!cached,
         customCount: cached?.custom ? Object.keys(cached.custom).length : 0,
@@ -375,7 +363,7 @@ export class EmojiService {
         console.log('[EmojiService] Successfully loaded emojis:', {
           customEmojis: Object.keys(customEmojis).length,
           standardEmojis: Object.keys(STANDARD_EMOJIS).length,
-          cachedAt: new Date(data.lastFetched).toISOString()
+          cachedAt: data.lastFetched ? new Date(data.lastFetched).toISOString() : 'never'
         });
         
         // Log some sample custom emojis for debugging

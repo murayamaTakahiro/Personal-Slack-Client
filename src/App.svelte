@@ -32,6 +32,7 @@
   import KeyboardSettings from './lib/components/KeyboardSettings.svelte';
   import KeyboardHelp from './lib/components/KeyboardHelp.svelte';
   import EmojiSettings from './lib/components/EmojiSettings.svelte';
+  import EmojiSearchDialog from './lib/components/EmojiSearchDialog.svelte';
   import RealtimeSettings from './lib/components/RealtimeSettings.svelte';
   import Toast from './lib/components/Toast.svelte';
   import { workspaceStore, activeWorkspace } from './lib/stores/workspaces';
@@ -54,6 +55,7 @@
   let searchBarElement: SearchBar;
   let resultListElement: ResultList;
   let showKeyboardHelp = false;
+  let showEmojiSearch = false;
   let realtimeInterval: NodeJS.Timeout | null = null;
   let previousMessageIds = new Set<string>();
   let unsubscribeRealtime: (() => void) | null = null;
@@ -484,6 +486,14 @@
         showKeyboardHelp = !showKeyboardHelp;
       },
       allowInInput: false  // Don't trigger when typing in inputs
+    });
+    
+    // Toggle Emoji Search Dialog
+    keyboardService.registerHandler('toggleEmojiSearch', {
+      action: () => {
+        showEmojiSearch = !showEmojiSearch;
+      },
+      allowInInput: true  // Allow from anywhere for quick emoji access
     });
   }
   
@@ -1031,6 +1041,13 @@
   {/if}
   
   <KeyboardHelp bind:show={showKeyboardHelp} />
+  <EmojiSearchDialog 
+    bind:isOpen={showEmojiSearch}
+    on:select={(event) => {
+      console.log('Selected emoji:', event.detail);
+      // You can handle the selected emoji here if needed
+    }}
+  />
   <Toast />
 </div>
 

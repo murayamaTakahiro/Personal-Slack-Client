@@ -119,6 +119,11 @@
             description: 'Open Reaction Picker',
             shortcut: shortcuts.openReactionPicker || 'r'
           },
+          {
+            key: 'toggleEmojiSearch',
+            description: 'Open Emoji Search',
+            shortcut: shortcuts.toggleEmojiSearch || 'Ctrl+E'
+          },
           { 
             key: 'openUrls', 
             description: 'Open URLs in Message',

@@ -37,6 +37,7 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   reaction8: '8',
   reaction9: '9',
   toggleKeyboardHelp: '?',
+  toggleEmojiSearch: 'Ctrl+e',
   zoomIn: 'Ctrl+=',
   zoomOut: 'Ctrl+-',
   zoomReset: 'Ctrl+0',

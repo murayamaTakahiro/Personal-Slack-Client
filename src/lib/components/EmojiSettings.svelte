@@ -2,6 +2,7 @@
   import { reactionMappings, DEFAULT_REACTION_MAPPINGS, reactionService } from '../services/reactionService';
   import { updateSettings, settings } from '../stores/settings';
   import { emojiService, emojiLoading, emojiData } from '../services/emojiService';
+  import { emojiSearchService } from '../services/emojiSearchService';
   import type { ReactionMapping } from '../types/slack';
   import { get } from 'svelte/store';
   import { onMount } from 'svelte';
@@ -58,8 +59,8 @@
     const updatedMappings = mappings.map(mapping => {
       const emojiValue = emojiService.getEmoji(mapping.emoji);
       if (!emojiValue) {
-        // Try to find a similar emoji
-        const searchResults = emojiService.searchEmojis(mapping.emoji);
+        // Try to find a similar emoji using the advanced search service
+        const searchResults = emojiSearchService.search(mapping.emoji, 5);
         if (searchResults.length > 0) {
           console.log(`[EmojiSettings] Auto-fixing "${mapping.emoji}" -> "${searchResults[0].name}"`);
           fixedCount++;
@@ -302,14 +303,14 @@
                 class="search-input"
               />
               {#if searchQuery}
-                {@const searchResults = emojiService.searchEmojis(searchQuery).slice(0, 12)}
+                {@const searchResults = emojiSearchService.search(searchQuery, 12)}
                 {#if searchResults.length > 0}
                   <div class="emoji-grid">
                     {#each searchResults as result}
                       <button
                         class="emoji-option"
                         on:click={() => selectCustomEmoji(index, result.name)}
-                        title={result.name}
+                        title="{result.name}{result.matchedOn ? ' (matched: ' + result.matchedOn + ')' : ''}"
                       >
                         <span class="emoji-display">
                           {#if result.value.startsWith('http')}
@@ -319,6 +320,9 @@
                           {/if}
                         </span>
                         <span class="emoji-name">{result.name}</span>
+                        {#if result.matchType !== 'exact'}
+                          <span class="match-type">{result.matchType}</span>
+                        {/if}
                       </button>
                     {/each}
                   </div>
@@ -663,6 +667,15 @@
   .emoji-option .emoji-name {
     font-size: 10px;
     color: var(--text-secondary);
+  }
+  
+  .emoji-option .match-type {
+    font-size: 8px;
+    color: var(--text-tertiary);
+    background: var(--bg-hover);
+    padding: 1px 3px;
+    border-radius: 2px;
+    margin-top: 2px;
   }
   
   .suggestions-section {
