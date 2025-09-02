@@ -684,6 +684,63 @@ impl SlackClient {
 
         Ok(result)
     }
+
+    pub async fn get_emoji_list(&self) -> Result<HashMap<String, String>> {
+        let url = format!("{}/emoji.list", SLACK_API_BASE);
+        
+        debug!("Fetching emoji list from Slack");
+        
+        let response = self.client.get(&url).send().await?;
+        
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await?;
+            error!("Slack API error when fetching emojis: {} - {}", status, text);
+            
+            if status == 401 {
+                return Err(anyhow!(
+                    "Authentication failed. Your Slack token may be invalid or expired."
+                ));
+            } else if status == 403 {
+                return Err(anyhow!(
+                    "Access denied. Your token may not have the required permissions for emoji.list."
+                ));
+            }
+            
+            return Err(anyhow!("Slack API error: {} - {}", status, text));
+        }
+        
+        #[derive(Deserialize)]
+        struct EmojiListResponse {
+            ok: bool,
+            emoji: Option<HashMap<String, String>>,
+            error: Option<String>,
+        }
+        
+        let result: EmojiListResponse = response.json().await?;
+        
+        if !result.ok {
+            let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
+            error!("Slack API returned error for emoji.list: {}", error_msg);
+            
+            if error_msg.contains("invalid_auth") {
+                return Err(anyhow!(
+                    "Invalid authentication token. Please check your Slack token in Settings."
+                ));
+            } else if error_msg.contains("missing_scope") {
+                return Err(anyhow!(
+                    "Your token doesn't have the required permissions. Please ensure it has 'emoji:read' scope."
+                ));
+            }
+            
+            return Err(anyhow!("Slack API error: {}", error_msg));
+        }
+        
+        let emoji_map = result.emoji.unwrap_or_default();
+        info!("Successfully fetched {} emojis", emoji_map.len());
+        
+        Ok(emoji_map)
+    }
 }
 
 // Helper functions for building search queries

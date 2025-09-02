@@ -1,6 +1,8 @@
 <script lang="ts">
   import { createEventDispatcher, onMount, onDestroy, tick } from 'svelte';
   import { reactionMappings, recentReactions } from '../services/reactionService';
+  import { emojiService } from '../services/emojiService';
+  import EmojiImage from './EmojiImage.svelte';
   import type { ReactionMapping } from '../types/slack';
   
   // Remove x and y props - we'll use fixed center positioning
@@ -34,17 +36,18 @@
   $: recent = $recentReactions.slice(0, 5);
   
   // Common emojis not in default mappings
+  // Let's get these from the emoji service to ensure consistency
   const additionalEmojis = [
-    { emoji: 'clap', display: '👏' },
-    { emoji: 'fire', display: '🔥' },
-    { emoji: 'heart_eyes', display: '😍' },
-    { emoji: 'joy', display: '😂' },
-    { emoji: 'ok_hand', display: '👌' },
-    { emoji: 'pray', display: '🙏' },
-    { emoji: 'raised_hands', display: '🙌' },
-    { emoji: 'wave', display: '👋' },
-    { emoji: 'muscle', display: '💪' },
-    { emoji: 'sparkles', display: '✨' },
+    { emoji: 'clap', display: emojiService.getEmoji('clap') || '👏' },
+    { emoji: 'fire', display: emojiService.getEmoji('fire') || '🔥' },
+    { emoji: 'heart_eyes', display: emojiService.getEmoji('heart_eyes') || '😍' },
+    { emoji: 'joy', display: emojiService.getEmoji('joy') || '😂' },
+    { emoji: 'ok_hand', display: emojiService.getEmoji('ok_hand') || '👌' },
+    { emoji: 'pray', display: emojiService.getEmoji('pray') || '🙏' },
+    { emoji: 'raised_hands', display: emojiService.getEmoji('raised_hands') || '🙌' },
+    { emoji: 'wave', display: emojiService.getEmoji('wave') || '👋' },
+    { emoji: 'muscle', display: emojiService.getEmoji('muscle') || '💪' },
+    { emoji: 'sparkles', display: emojiService.getEmoji('sparkles') || '✨' },
   ];
   
   // Combine all available emojis for filtering
@@ -222,6 +225,7 @@
         <div class="section-title">Recent</div>
         <div class="emoji-grid">
           {#each recent.slice(0, 6) as emoji, index}
+            {@const emojiValue = emojiService.getEmoji(emoji)}
             <button
               bind:this={emojiButtons[index]}
               class="emoji-button"
@@ -231,7 +235,15 @@
               title={emoji}
               tabindex="-1"
             >
-              <span class="emoji">{emoji}</span>
+              <span class="emoji">
+                {#if emojiValue && emojiValue.startsWith('http')}
+                  <EmojiImage emoji={emoji} url={emojiValue} size="medium" />
+                {:else if emojiValue}
+                  {emojiValue}
+                {:else}
+                  {emoji}
+                {/if}
+              </span>
             </button>
           {/each}
         </div>
@@ -246,6 +258,8 @@
         {#each filteredEmojis as item, index}
           {@const startIndex = recent.length > 0 && !searchQuery ? 6 : 0}
           {@const actualIndex = startIndex + index}
+          {@const emojiName = 'emoji' in item ? item.emoji : item}
+          {@const emojiValue = emojiService.getEmoji(emojiName)}
           <button
             bind:this={emojiButtons[actualIndex]}
             class="emoji-button"
@@ -258,7 +272,17 @@
             {#if 'shortcut' in item && item.shortcut}
               <span class="shortcut">{item.shortcut}</span>
             {/if}
-            <span class="emoji">{'display' in item ? item.display : item}</span>
+            <span class="emoji">
+              {#if emojiValue && emojiValue.startsWith('http')}
+                <EmojiImage emoji={emojiName} url={emojiValue} size="medium" />
+              {:else if emojiValue}
+                {emojiValue}
+              {:else if 'display' in item}
+                {item.display}
+              {:else}
+                {item}
+              {/if}
+            </span>
           </button>
         {/each}
       </div>

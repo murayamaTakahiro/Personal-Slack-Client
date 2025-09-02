@@ -1,12 +1,26 @@
 <script lang="ts">
   import { reactionMappings, DEFAULT_REACTION_MAPPINGS } from '../services/reactionService';
   import { updateSettings } from '../stores/settings';
+  import { emojiService, emojiLoading, emojiData } from '../services/emojiService';
   import type { ReactionMapping } from '../types/slack';
   
   // Use DEFAULT_REACTION_MAPPINGS directly as the single source of truth
   let mappings: ReactionMapping[] = [...DEFAULT_REACTION_MAPPINGS];
   let editingIndex: number | null = null;
   let newEmoji = '';
+  
+  // Function to manually refresh emojis for debugging
+  async function refreshEmojis() {
+    console.log('[EmojiSettings] Manually refreshing emojis...');
+    await emojiService.refresh();
+    const data = $emojiData;
+    console.log('[EmojiSettings] Emoji refresh complete:', {
+      customCount: Object.keys(data.custom).length,
+      standardCount: Object.keys(data.standard).length,
+      sampleCustom: Object.entries(data.custom).slice(0, 5)
+    });
+    alert(`Emojis refreshed! Custom: ${Object.keys(data.custom).length}, Standard: ${Object.keys(data.standard).length}`);
+  }
   
   // Common emoji suggestions
   const emojiSuggestions = [
@@ -111,6 +125,9 @@
   <div class="header">
     <h3>絵文字リアクション設定</h3>
     <div class="header-buttons">
+      <button class="refresh-emoji-button" on:click={refreshEmojis} disabled={$emojiLoading}>
+        {$emojiLoading ? 'Loading...' : 'Refresh Emojis'}
+      </button>
       <button class="reload-button" on:click={reloadConfig}>
         設定を再読み込み
       </button>
@@ -118,6 +135,11 @@
         デフォルトに戻す
       </button>
     </div>
+  </div>
+  
+  <div class="emoji-status">
+    <span>Custom emojis: {Object.keys($emojiData.custom).length}</span>
+    <span>Standard emojis: {Object.keys($emojiData.standard).length}</span>
   </div>
   
   <div class="config-notice">
@@ -207,7 +229,7 @@
     gap: 8px;
   }
   
-  .reset-button, .reload-button {
+  .reset-button, .reload-button, .refresh-emoji-button {
     padding: 8px 16px;
     background: var(--button-secondary);
     color: var(--text-primary);
@@ -217,7 +239,7 @@
     font-size: 14px;
   }
   
-  .reset-button:hover, .reload-button:hover {
+  .reset-button:hover, .reload-button:hover, .refresh-emoji-button:hover:not(:disabled) {
     background: var(--button-secondary-hover);
   }
   
@@ -229,6 +251,32 @@
   
   .reload-button:hover {
     background: var(--primary-hover, #0052a3);
+  }
+  
+  .refresh-emoji-button {
+    background: #4CAF50;
+    color: white;
+    border: none;
+  }
+  
+  .refresh-emoji-button:hover:not(:disabled) {
+    background: #45a049;
+  }
+  
+  .refresh-emoji-button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+  }
+  
+  .emoji-status {
+    display: flex;
+    gap: 20px;
+    padding: 10px;
+    background: var(--bg-secondary, #f5f5f5);
+    border-radius: 4px;
+    margin-bottom: 15px;
+    font-size: 13px;
+    color: var(--text-secondary);
   }
   
   .description {

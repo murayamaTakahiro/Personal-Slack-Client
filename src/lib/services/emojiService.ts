@@ -1,0 +1,502 @@
+import { invoke } from '@tauri-apps/api/core';
+import { writable, get } from 'svelte/store';
+import { loadFromStore, saveToStore } from '../stores/persistentStore';
+
+export interface SlackEmoji {
+  name: string;
+  url?: string;
+  unicode?: string;
+  alias?: string;
+}
+
+export interface EmojiData {
+  custom: Record<string, string>;  // name -> URL mapping for custom emojis
+  standard: Record<string, string>; // name -> unicode mapping for standard emojis
+  lastFetched?: number;
+}
+
+// Cache duration: 24 hours
+const CACHE_DURATION = 24 * 60 * 60 * 1000;
+
+// Store for emoji data
+export const emojiData = writable<EmojiData>({
+  custom: {},
+  standard: {}
+});
+
+// Store for loading state
+export const emojiLoading = writable<boolean>(false);
+
+// Standard Slack emojis mapped to Unicode (common ones)
+const STANDARD_EMOJIS: Record<string, string> = {
+  '+1': '👍',
+  'thumbsup': '👍',
+  '-1': '👎',
+  'thumbsdown': '👎',
+  'heart': '❤️',
+  'eyes': '👀',
+  'raised_hands': '🙌',
+  'clap': '👏',
+  'wave': '👋',
+  'ok_hand': '👌',
+  'pray': '🙏',
+  'fire': '🔥',
+  'tada': '🎉',
+  'rocket': '🚀',
+  'white_check_mark': '✅',
+  'x': '❌',
+  'joy': '😂',
+  'smile': '😊',
+  'sweat_smile': '😅',
+  'laughing': '😆',
+  'wink': '😉',
+  'heart_eyes': '😍',
+  'sob': '😭',
+  'thinking_face': '🤔',
+  'confused': '😕',
+  'neutral_face': '😐',
+  'expressionless': '😑',
+  'no_mouth': '😶',
+  'rolling_eyes': '🙄',
+  'grimacing': '😬',
+  'lying_face': '🤥',
+  'relieved': '😌',
+  'pensive': '😔',
+  'sleepy': '😪',
+  'drooling_face': '🤤',
+  'sleeping': '😴',
+  'mask': '😷',
+  'face_with_thermometer': '🤒',
+  'face_with_head_bandage': '🤕',
+  'nauseated_face': '🤢',
+  'face_vomiting': '🤮',
+  'sneezing_face': '🤧',
+  'hot_face': '🥵',
+  'cold_face': '🥶',
+  'woozy_face': '🥴',
+  'dizzy_face': '😵',
+  'exploding_head': '🤯',
+  'cowboy_hat_face': '🤠',
+  'party': '🥳',
+  'partying_face': '🥳',
+  'sunglasses': '😎',
+  'nerd_face': '🤓',
+  'monocle': '🧐',
+  'face_with_monocle': '🧐',
+  'confused': '😕',
+  'worried': '😟',
+  'slightly_frowning_face': '🙁',
+  'frowning_face': '☹️',
+  'face_with_open_mouth': '😮',
+  'hushed': '😯',
+  'astonished': '😲',
+  'flushed': '😳',
+  'pleading_face': '🥺',
+  'frowning': '😦',
+  'anguished': '😧',
+  'fearful': '😨',
+  'cold_sweat': '😰',
+  'disappointed_relieved': '😥',
+  'cry': '😢',
+  'sob': '😭',
+  'scream': '😱',
+  'confounded': '😖',
+  'persevere': '😣',
+  'disappointed': '😞',
+  'sweat': '😓',
+  'weary': '😩',
+  'tired_face': '😫',
+  'yawning_face': '🥱',
+  'triumph': '😤',
+  'rage': '😡',
+  'angry': '😠',
+  'symbols_over_mouth': '🤬',
+  'smiling_imp': '😈',
+  'imp': '👿',
+  'skull': '💀',
+  'skull_and_crossbones': '☠️',
+  'hankey': '💩',
+  'poop': '💩',
+  'shit': '💩',
+  'clown_face': '🤡',
+  'japanese_ogre': '👹',
+  'japanese_goblin': '👺',
+  'ghost': '👻',
+  'alien': '👽',
+  'space_invader': '👾',
+  'robot': '🤖',
+  'robot_face': '🤖',
+  'smiley_cat': '😺',
+  'smile_cat': '😸',
+  'joy_cat': '😹',
+  'heart_eyes_cat': '😻',
+  'smirk_cat': '😼',
+  'kissing_cat': '😽',
+  'scream_cat': '🙀',
+  'crying_cat_face': '😿',
+  'pouting_cat': '😾',
+  'palms_up_together': '🤲',
+  'open_hands': '👐',
+  'raised_hands': '🙌',
+  'clap': '👏',
+  'handshake': '🤝',
+  'thumbsup': '👍',
+  '+1': '👍',
+  'thumbsdown': '👎',
+  '-1': '👎',
+  'fist': '👊',
+  'oncoming_fist': '👊',
+  'punch': '👊',
+  'left_facing_fist': '🤛',
+  'right_facing_fist': '🤜',
+  'crossed_fingers': '🤞',
+  'v': '✌️',
+  'victory': '✌️',
+  'love_you_gesture': '🤟',
+  'metal': '🤘',
+  'ok_hand': '👌',
+  'pinched_fingers': '🤌',
+  'pinching_hand': '🤏',
+  'point_left': '👈',
+  'point_right': '👉',
+  'point_up_2': '👆',
+  'point_down': '👇',
+  'point_up': '☝️',
+  'hand': '✋',
+  'raised_hand': '✋',
+  'raised_back_of_hand': '🤚',
+  'raised_hand_with_fingers_splayed': '🖐️',
+  'vulcan_salute': '🖖',
+  'wave': '👋',
+  'call_me_hand': '🤙',
+  'muscle': '💪',
+  'middle_finger': '🖕',
+  'writing_hand': '✍️',
+  'pray': '🙏',
+  'folded_hands': '🙏',
+  'sparkles': '✨',
+  'star': '⭐',
+  'star2': '🌟',
+  'zap': '⚡',
+  'boom': '💥',
+  'collision': '💥',
+  'fire': '🔥',
+  'hundred': '💯',
+  '100': '💯'
+};
+
+export class EmojiService {
+  private static instance: EmojiService;
+  private fetchPromise: Promise<void> | null = null;
+
+  private constructor() {}
+
+  static getInstance(): EmojiService {
+    if (!EmojiService.instance) {
+      EmojiService.instance = new EmojiService();
+    }
+    return EmojiService.instance;
+  }
+
+  /**
+   * Initialize emoji service and load cached data
+   */
+  async initialize(): Promise<void> {
+    console.log('[EmojiService] Starting initialization...');
+    try {
+      // Load cached emoji data
+      const cached = await loadFromStore<EmojiData>('emojiData', null);
+      console.log('[EmojiService] Cached data loaded:', {
+        hasCached: !!cached,
+        customCount: cached?.custom ? Object.keys(cached.custom).length : 0,
+        lastFetched: cached?.lastFetched ? new Date(cached.lastFetched).toISOString() : 'never'
+      });
+      
+      if (cached && cached.lastFetched) {
+        const now = Date.now();
+        const age = now - cached.lastFetched;
+        
+        if (age < CACHE_DURATION) {
+          console.log('[EmojiService] Using cached emoji data (age:', Math.round(age / 1000 / 60), 'minutes)');
+          emojiData.set(cached);
+          return;
+        } else {
+          console.log('[EmojiService] Cache is stale (age:', Math.round(age / 1000 / 60), 'minutes), fetching fresh data...');
+        }
+      } else {
+        console.log('[EmojiService] No valid cache found, fetching fresh data...');
+      }
+      
+      // Fetch fresh data if cache is stale or missing
+      await this.fetchEmojis();
+    } catch (error) {
+      console.error('[EmojiService] Failed to initialize:', error);
+      // Use standard emojis as fallback
+      console.log('[EmojiService] Using fallback standard emojis only');
+      emojiData.set({
+        custom: {},
+        standard: STANDARD_EMOJIS
+      });
+    }
+  }
+
+  /**
+   * Fetch emoji list from Slack API
+   */
+  async fetchEmojis(): Promise<void> {
+    // Prevent duplicate fetches
+    if (this.fetchPromise) {
+      console.log('[EmojiService] Fetch already in progress, waiting...');
+      return this.fetchPromise;
+    }
+
+    this.fetchPromise = (async () => {
+      emojiLoading.set(true);
+      try {
+        console.log('[EmojiService] Fetching emoji list from Slack API...');
+        
+        // Call Rust backend to get emoji list
+        const response = await invoke<{
+          ok: boolean;
+          emoji?: Record<string, string>;
+          error?: string;
+        }>('get_emoji_list');
+
+        console.log('[EmojiService] API Response:', {
+          ok: response.ok,
+          hasEmoji: !!response.emoji,
+          emojiCount: response.emoji ? Object.keys(response.emoji).length : 0,
+          error: response.error
+        });
+
+        if (!response.ok || !response.emoji) {
+          throw new Error(response.error || 'Failed to fetch emoji list');
+        }
+
+        // Process emoji data
+        const customEmojis: Record<string, string> = {};
+        const aliasMap: Record<string, string> = {};
+        let standardCount = 0;
+        let customCount = 0;
+        let aliasCount = 0;
+        
+        console.log('[EmojiService] Processing emoji data...');
+        for (const [name, value] of Object.entries(response.emoji)) {
+          if (value.startsWith('alias:')) {
+            // This is an alias to another emoji
+            aliasMap[name] = value.replace('alias:', '');
+            aliasCount++;
+          } else if (value.startsWith('http')) {
+            // This is a custom emoji with URL
+            customEmojis[name] = value;
+            customCount++;
+          } else {
+            // Might be a unicode emoji
+            standardCount++;
+          }
+        }
+
+        console.log('[EmojiService] Initial processing:', {
+          custom: customCount,
+          aliases: aliasCount,
+          standard: standardCount
+        });
+
+        // Resolve aliases
+        let resolvedAliases = 0;
+        for (const [alias, target] of Object.entries(aliasMap)) {
+          if (customEmojis[target]) {
+            customEmojis[alias] = customEmojis[target];
+            resolvedAliases++;
+          } else if (STANDARD_EMOJIS[target]) {
+            // Alias points to a standard emoji
+            customEmojis[alias] = STANDARD_EMOJIS[target];
+            resolvedAliases++;
+          }
+        }
+
+        console.log('[EmojiService] Resolved', resolvedAliases, 'aliases');
+
+        const data: EmojiData = {
+          custom: customEmojis,
+          standard: STANDARD_EMOJIS,
+          lastFetched: Date.now()
+        };
+
+        emojiData.set(data);
+        
+        // Cache the data
+        await saveToStore('emojiData', data);
+        
+        console.log('[EmojiService] Successfully loaded emojis:', {
+          customEmojis: Object.keys(customEmojis).length,
+          standardEmojis: Object.keys(STANDARD_EMOJIS).length,
+          cachedAt: new Date(data.lastFetched).toISOString()
+        });
+        
+        // Log some sample custom emojis for debugging
+        const sampleEmojis = Object.entries(customEmojis).slice(0, 5);
+        console.log('[EmojiService] Sample custom emojis:', sampleEmojis);
+      } catch (error) {
+        console.error('[EmojiService] Failed to fetch emojis:', error);
+        
+        // Fallback to standard emojis only
+        const fallbackData: EmojiData = {
+          custom: {},
+          standard: STANDARD_EMOJIS,
+          lastFetched: Date.now()
+        };
+        emojiData.set(fallbackData);
+        console.log('[EmojiService] Using fallback with standard emojis only');
+      } finally {
+        emojiLoading.set(false);
+        this.fetchPromise = null;
+      }
+    })();
+
+    return this.fetchPromise;
+  }
+
+  /**
+   * Get emoji URL or Unicode character
+   */
+  getEmoji(name: string): string | null {
+    const data = get(emojiData);
+    
+    // Remove colons if present
+    const cleanName = name.replace(/^:/, '').replace(/:$/, '');
+    
+    // Log first few lookups for debugging
+    if (Math.random() < 0.05) { // Log 5% of lookups to avoid spam
+      console.log('[EmojiService] getEmoji lookup:', {
+        name: cleanName,
+        hasCustom: !!data.custom[cleanName],
+        hasStandard: !!data.standard[cleanName],
+        customCount: Object.keys(data.custom).length,
+        standardCount: Object.keys(data.standard).length
+      });
+    }
+    
+    // Check custom emojis first
+    if (data.custom[cleanName]) {
+      return data.custom[cleanName];
+    }
+    
+    // Check standard emojis
+    if (data.standard[cleanName]) {
+      return data.standard[cleanName];
+    }
+    
+    // Handle special cases
+    if (cleanName === 'thumbsup' || cleanName === '+1') {
+      return data.standard['thumbsup'] || '👍';
+    }
+    if (cleanName === 'thumbsdown' || cleanName === '-1') {
+      return data.standard['thumbsdown'] || '👎';
+    }
+    
+    // Log when emoji is not found (only for custom workspace emojis)
+    if (cleanName.includes('_') || cleanName.length > 15) { // Likely a custom emoji
+      console.log('[EmojiService] Custom emoji not found:', cleanName);
+    }
+    
+    return null;
+  }
+
+  /**
+   * Check if an emoji exists
+   */
+  hasEmoji(name: string): boolean {
+    return this.getEmoji(name) !== null;
+  }
+
+  /**
+   * Parse text and replace emoji codes with actual emojis
+   */
+  parseEmojis(text: string): Array<{type: 'text' | 'emoji', content: string, emoji?: string}> {
+    const segments: Array<{type: 'text' | 'emoji', content: string, emoji?: string}> = [];
+    const emojiRegex = /:([a-zA-Z0-9_+-]+):/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = emojiRegex.exec(text)) !== null) {
+      // Add text before emoji
+      if (match.index > lastIndex) {
+        segments.push({
+          type: 'text',
+          content: text.substring(lastIndex, match.index)
+        });
+      }
+
+      const emojiName = match[1];
+      const emojiValue = this.getEmoji(emojiName);
+      
+      if (emojiValue) {
+        segments.push({
+          type: 'emoji',
+          content: match[0], // Original :emoji: text
+          emoji: emojiValue  // URL or Unicode
+        });
+      } else {
+        // Keep as text if emoji not found
+        segments.push({
+          type: 'text',
+          content: match[0]
+        });
+      }
+
+      lastIndex = emojiRegex.lastIndex;
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      segments.push({
+        type: 'text',
+        content: text.substring(lastIndex)
+      });
+    }
+
+    return segments;
+  }
+
+  /**
+   * Force refresh emoji data
+   */
+  async refresh(): Promise<void> {
+    this.fetchPromise = null;
+    await this.fetchEmojis();
+  }
+
+  /**
+   * Get all available emojis (for emoji picker)
+   */
+  getAllEmojis(): Array<{name: string, value: string, isCustom: boolean}> {
+    const data = get(emojiData);
+    const all: Array<{name: string, value: string, isCustom: boolean}> = [];
+    
+    // Add custom emojis
+    for (const [name, url] of Object.entries(data.custom)) {
+      all.push({ name, value: url, isCustom: true });
+    }
+    
+    // Add standard emojis
+    for (const [name, unicode] of Object.entries(data.standard)) {
+      all.push({ name, value: unicode, isCustom: false });
+    }
+    
+    return all;
+  }
+
+  /**
+   * Search emojis by name
+   */
+  searchEmojis(query: string): Array<{name: string, value: string, isCustom: boolean}> {
+    const lowerQuery = query.toLowerCase();
+    return this.getAllEmojis().filter(emoji => 
+      emoji.name.toLowerCase().includes(lowerQuery)
+    );
+  }
+}
+
+// Export singleton instance
+export const emojiService = EmojiService.getInstance();

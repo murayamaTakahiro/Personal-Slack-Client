@@ -8,7 +8,8 @@
   import { urlService } from '../services/urlService';
   import { showSuccess, showError, showInfo } from '../stores/toast';
   import ReactionPicker from './ReactionPicker.svelte';
-  import { parseMessageWithMentions } from '../utils/mentionParser';
+  import EmojiImage from './EmojiImage.svelte';
+  import { parseMessageWithEmojis, parseEmoji } from '../utils/emojiParser';
   import { decodeSlackText } from '../utils/htmlEntities';
   
   export let message: Message;
@@ -57,7 +58,7 @@
     return text.substring(0, maxLength) + '...';
   }
   
-  $: messageSegments = parseMessageWithMentions(truncateText(decodeSlackText(message.text)));
+  $: messageSegments = parseMessageWithEmojis(truncateText(decodeSlackText(message.text)));
   
   function generateSlackUrl(): string {
     // Generate correct Slack URL using current workspace domain
@@ -422,13 +423,22 @@
   {#if reactions && reactions.length > 0}
     <div class="reactions">
       {#each reactions as reaction}
+        {@const emojiData = parseEmoji(reaction.name)}
         <button
           class="reaction-badge"
           class:user-reacted={reaction.users.includes(message.user)}
           on:click|stopPropagation={() => handleReactionClick(reaction.name)}
           title={`${reaction.users.length} reaction${reaction.users.length > 1 ? 's' : ''}`}
         >
-          <span class="reaction-emoji">{reaction.name}</span>
+          <span class="reaction-emoji">
+            {#if emojiData.isCustom}
+              <EmojiImage emoji={reaction.name} url={emojiData.value} size="small" />
+            {:else if emojiData.value.startsWith(':')}
+              {emojiData.value}
+            {:else}
+              {emojiData.value}
+            {/if}
+          </span>
           <span class="reaction-count">{reaction.count}</span>
         </button>
       {/each}
@@ -443,6 +453,8 @@
         <a href={segment.url || segment.content} target="_blank" rel="noopener noreferrer" class="url-link">
           {segment.content}
         </a>
+      {:else if segment.type === 'emoji'}
+        <EmojiImage emoji={segment.content.replace(/:/g, '')} url={segment.emoji} size="small" />
       {:else}
         <span>{segment.content}</span>
       {/if}

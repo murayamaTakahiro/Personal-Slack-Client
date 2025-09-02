@@ -39,6 +39,7 @@
   import userStore from './lib/stores/users';
   import { userService } from './lib/services/userService';
   import { reactionService, initializeReactionMappings } from './lib/services/reactionService';
+  import { emojiService } from './lib/services/emojiService';
   import { initializeConfig, watchConfigFile } from './lib/services/configService';
   import { realtimeStore, timeUntilUpdate, formattedLastUpdate } from './lib/stores/realtime';
   import { zoomStore } from './lib/stores/zoom';
@@ -63,6 +64,11 @@
     
     // Initialize settings from persistent store
     const currentSettings = await initializeSettings();
+    
+    // Initialize emoji service to fetch and cache emoji data
+    console.log('[App] Initializing emoji service...');
+    await emojiService.initialize();
+    console.log('[App] Emoji service initialized');
     
     // Initialize zoom store
     await zoomStore.initialize();
