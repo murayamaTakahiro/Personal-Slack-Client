@@ -15,10 +15,23 @@
   
   // Check if this is a Unicode emoji or custom emoji with URL
   $: isUnicode = !url || !url.startsWith('http');
+  
+  // Track image load failures
+  let imageFailed = false;
+  
+  function handleImageError() {
+    console.warn(`Failed to load emoji image: ${emoji}`);
+    imageFailed = true;
+  }
+  
+  // Reset imageFailed when URL changes
+  $: if (url) {
+    imageFailed = false;
+  }
 </script>
 
-{#if isUnicode}
-  <!-- Unicode emoji -->
+{#if isUnicode || imageFailed}
+  <!-- Unicode emoji or fallback when image fails -->
   <span 
     class="emoji-unicode" 
     style="font-size: {computedSize};"
@@ -37,10 +50,7 @@
     title={alt}
     style="width: {computedSize}; height: {computedSize};"
     loading="lazy"
-    on:error={() => {
-      // Fallback to text if image fails to load
-      console.warn(`Failed to load emoji image: ${url}`);
-    }}
+    on:error={handleImageError}
   />
 {/if}
 

@@ -1,13 +1,30 @@
 <script lang="ts">
-  import { reactionMappings, DEFAULT_REACTION_MAPPINGS } from '../services/reactionService';
-  import { updateSettings } from '../stores/settings';
+  import { reactionMappings, DEFAULT_REACTION_MAPPINGS, reactionService } from '../services/reactionService';
+  import { updateSettings, settings } from '../stores/settings';
   import { emojiService, emojiLoading, emojiData } from '../services/emojiService';
   import type { ReactionMapping } from '../types/slack';
+  import { get } from 'svelte/store';
+  import { onMount } from 'svelte';
+  import EmojiImage from './EmojiImage.svelte';
   
-  // Use DEFAULT_REACTION_MAPPINGS directly as the single source of truth
-  let mappings: ReactionMapping[] = [...DEFAULT_REACTION_MAPPINGS];
+  // Get current mappings from store or use defaults
+  let mappings: ReactionMapping[] = [];
   let editingIndex: number | null = null;
   let newEmoji = '';
+  let searchQuery = '';
+  
+  // Subscribe to the reaction mappings
+  $: mappings = $reactionMappings;
+  
+  onMount(() => {
+    // Initialize with current settings
+    const currentSettings = get(settings);
+    if (currentSettings.reactionMappings && currentSettings.reactionMappings.length > 0) {
+      mappings = [...currentSettings.reactionMappings];
+    } else {
+      mappings = [...DEFAULT_REACTION_MAPPINGS];
+    }
+  });
   
   // Function to manually refresh emojis for debugging
   async function refreshEmojis() {
@@ -66,11 +83,15 @@
   
   function saveEmoji(index: number) {
     if (newEmoji.trim()) {
-      const suggestion = emojiSuggestions.find(s => s.name === newEmoji.trim());
+      const emojiName = newEmoji.trim().replace(/^:/, '').replace(/:$/, '');
+      const emojiValue = emojiService.getEmoji(emojiName);
+      
+      // For custom emojis, use the same name for both emoji and display
+      // For standard emojis, use the unicode for display
       mappings[index] = {
         ...mappings[index],
-        emoji: newEmoji.trim(),
-        display: suggestion?.display || mappings[index].display
+        emoji: emojiName,
+        display: emojiValue && !emojiValue.startsWith('http') ? emojiValue : emojiName
       };
       mappings = [...mappings];
       saveSettings();
@@ -79,10 +100,28 @@
   }
   
   function selectEmoji(index: number, emoji: { name: string; display: string }) {
+    const emojiValue = emojiService.getEmoji(emoji.name);
+    
+    // For custom emojis, use the same name for both emoji and display
+    // For standard emojis, use the unicode for display
     mappings[index] = {
       ...mappings[index],
       emoji: emoji.name,
-      display: emoji.display
+      display: emojiValue && !emojiValue.startsWith('http') ? emojiValue : emoji.name
+    };
+    mappings = [...mappings];
+    saveSettings();
+    cancelEditing();
+  }
+  
+  function selectCustomEmoji(index: number, emojiName: string) {
+    const cleanName = emojiName.replace(/^:/, '').replace(/:$/, '');
+    const emojiValue = emojiService.getEmoji(cleanName);
+    
+    mappings[index] = {
+      ...mappings[index],
+      emoji: cleanName,
+      display: cleanName  // Always use the emoji name for custom emojis
     };
     mappings = [...mappings];
     saveSettings();
@@ -104,10 +143,10 @@
   }
   
   async function saveSettings() {
-    // Since we're using direct code modification, this is now a no-op
-    // The user should edit reactionService.ts directly
-    console.log('[EmojiSettings] Note: To persist changes, edit DEFAULT_REACTION_MAPPINGS in reactionService.ts');
-    alert('注意: 永続的な変更はsrc/lib/services/reactionService.tsのDEFAULT_REACTION_MAPPINGSを直接編集してください');
+    // Save to both the reaction service and settings store
+    reactionService.updateMappings(mappings);
+    await updateSettings({ reactionMappings: mappings });
+    console.log('[EmojiSettings] Saved reaction mappings:', mappings);
   }
   
   function handleKeydown(event: KeyboardEvent, index: number) {
@@ -176,23 +215,69 @@
           </div>
           
           <div class="suggestions">
-            <p class="suggestions-label">よく使われる絵文字:</p>
-            <div class="emoji-grid">
-              {#each emojiSuggestions as emoji}
-                <button
-                  class="emoji-option"
-                  on:click={() => selectEmoji(index, emoji)}
-                  title={emoji.name}
-                >
-                  <span class="emoji-display">{emoji.display}</span>
-                  <span class="emoji-name">{emoji.name}</span>
-                </button>
-              {/each}
+            <div class="suggestions-section">
+              <p class="suggestions-label">検索して選択:</p>
+              <input
+                type="text"
+                bind:value={searchQuery}
+                placeholder="絵文字名で検索..."
+                class="search-input"
+              />
+              {#if searchQuery}
+                {@const searchResults = emojiService.searchEmojis(searchQuery).slice(0, 12)}
+                {#if searchResults.length > 0}
+                  <div class="emoji-grid">
+                    {#each searchResults as result}
+                      <button
+                        class="emoji-option"
+                        on:click={() => selectCustomEmoji(index, result.name)}
+                        title={result.name}
+                      >
+                        <span class="emoji-display">
+                          {#if result.value.startsWith('http')}
+                            <EmojiImage emoji={result.name} url={result.value} size="small" />
+                          {:else}
+                            {result.value}
+                          {/if}
+                        </span>
+                        <span class="emoji-name">{result.name}</span>
+                      </button>
+                    {/each}
+                  </div>
+                {:else}
+                  <p class="no-results">絵文字が見つかりません</p>
+                {/if}
+              {/if}
+            </div>
+            
+            <div class="suggestions-section">
+              <p class="suggestions-label">よく使われる絵文字:</p>
+              <div class="emoji-grid">
+                {#each emojiSuggestions as emoji}
+                  <button
+                    class="emoji-option"
+                    on:click={() => selectEmoji(index, emoji)}
+                    title={emoji.name}
+                  >
+                    <span class="emoji-display">{emoji.display}</span>
+                    <span class="emoji-name">{emoji.name}</span>
+                  </button>
+                {/each}
+              </div>
             </div>
           </div>
         {:else}
+          {@const emojiValue = emojiService.getEmoji(mapping.emoji)}
           <div class="current-emoji">
-            <span class="emoji-display">{mapping.display}</span>
+            <span class="emoji-display">
+              {#if emojiValue && emojiValue.startsWith('http')}
+                <EmojiImage emoji={mapping.emoji} url={emojiValue} size="medium" />
+              {:else if emojiValue}
+                {emojiValue}
+              {:else}
+                :{mapping.emoji}:
+              {/if}
+            </span>
             <span class="emoji-name">{mapping.emoji}</span>
           </div>
           <button class="edit-button" on:click={() => startEditing(index)}>
@@ -464,5 +549,31 @@
   .emoji-option .emoji-name {
     font-size: 10px;
     color: var(--text-secondary);
+  }
+  
+  .suggestions-section {
+    margin-bottom: 16px;
+  }
+  
+  .suggestions-section:last-child {
+    margin-bottom: 0;
+  }
+  
+  .search-input {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 8px;
+    background: var(--background-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 14px;
+  }
+  
+  .no-results {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 12px;
+    font-size: 14px;
   }
 </style>

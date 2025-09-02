@@ -464,9 +464,18 @@
   {#if selected && enableReactions}
     <div class="reaction-shortcuts">
       {#each mappings.slice(0, 9) as mapping}
+        {@const emojiData = parseEmoji(mapping.display)}
         <span class="shortcut-hint">
           <kbd>{mapping.shortcut}</kbd>
-          <span>{mapping.display}</span>
+          <span class="emoji-shortcut">
+            {#if emojiData.isCustom}
+              <EmojiImage emoji={mapping.display} url={emojiData.value} size="small" />
+            {:else if emojiData.value.startsWith(':')}
+              <span class="emoji-text">{emojiData.value}</span>
+            {:else}
+              <span class="emoji-unicode">{emojiData.value}</span>
+            {/if}
+          </span>
         </span>
       {/each}
     </div>
@@ -713,5 +722,21 @@
     background: rgba(29, 155, 209, 0.08);
     padding: 0 0.125rem;
     border-radius: 3px;
+  }
+  
+  .emoji-shortcut {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+  }
+  
+  .emoji-text {
+    font-family: monospace;
+    font-size: 0.9em;
+    color: var(--text-secondary);
+  }
+  
+  .emoji-unicode {
+    font-size: 1.1em;
   }
 </style>

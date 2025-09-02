@@ -65,13 +65,10 @@
     // Initialize settings from persistent store
     const currentSettings = await initializeSettings();
     
-    // Initialize emoji service to fetch and cache emoji data
-    console.log('[App] Initializing emoji service...');
-    await emojiService.initialize();
-    console.log('[App] Emoji service initialized');
-    
     // Initialize zoom store
     await zoomStore.initialize();
+    
+    // Note: Emoji service will be initialized after token is loaded
     
     // Request notification permission if needed
     if ('Notification' in window && Notification.permission === 'default') {
@@ -208,12 +205,19 @@
             try {
               const initialized = await initTokenFromStorage();
               if (initialized) {
+                // Initialize emoji service after token is loaded
+                console.log('[App] Initializing emoji service after token load...');
+                await emojiService.initialize();
+                console.log('[App] Emoji service initialized');
+                
                 await loadChannels();
               } else {
                 // Token found in frontend but not initialized in backend
+                console.warn('[App] Token not initialized in backend, skipping emoji service initialization');
               }
             } catch (err) {
               // Failed to initialize token
+              console.error('[App] Failed to initialize token:', err);
             }
           }
         } else {
@@ -337,6 +341,11 @@
                   
                   const initialized = await initTokenFromStorage();
                   if (initialized) {
+                    // Re-initialize emoji service after re-authentication
+                    console.log('[App] Re-initializing emoji service after re-auth...');
+                    await emojiService.refresh();
+                    console.log('[App] Emoji service re-initialized');
+                    
                     // Reload channels for current workspace
                     await loadChannels();
                     
@@ -358,6 +367,11 @@
               if (token) {
                 const initialized = await initTokenFromStorage();
                 if (initialized) {
+                  // Initialize emoji service for legacy mode
+                  console.log('[App] Initializing emoji service for legacy mode...');
+                  await emojiService.initialize();
+                  console.log('[App] Emoji service initialized');
+                  
                   await loadChannels();
                   channels = [...channels];
                   
@@ -497,9 +511,15 @@
           
           const initialized = await initTokenFromStorage();
           if (initialized) {
+            // Initialize emoji service after token is loaded
+            console.log('[App] Initializing emoji service after workspace switch...');
+            await emojiService.initialize();
+            console.log('[App] Emoji service initialized');
+            
             await loadChannels();
           } else {
             // Failed to initialize backend with token
+            console.warn('[App] Failed to initialize backend with token, skipping emoji service initialization');
           }
         } catch (err) {
           console.error('Failed to initialize token:', err);
@@ -564,6 +584,11 @@
         // Initialize the backend with the new token
         const initialized = await initTokenFromStorage();
         if (initialized) {
+          // Re-initialize emoji service for the new workspace
+          console.log('[App] Re-initializing emoji service for workspace switch...');
+          await emojiService.refresh(); // Force refresh to get new workspace emojis
+          console.log('[App] Emoji service re-initialized');
+          
           // Load new channels for the switched workspace
           await loadChannels();
           

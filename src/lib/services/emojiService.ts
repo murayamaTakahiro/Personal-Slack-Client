@@ -83,7 +83,6 @@ const STANDARD_EMOJIS: Record<string, string> = {
   'nerd_face': '🤓',
   'monocle': '🧐',
   'face_with_monocle': '🧐',
-  'confused': '😕',
   'worried': '😟',
   'slightly_frowning_face': '🙁',
   'frowning_face': '☹️',
@@ -98,7 +97,6 @@ const STANDARD_EMOJIS: Record<string, string> = {
   'cold_sweat': '😰',
   'disappointed_relieved': '😥',
   'cry': '😢',
-  'sob': '😭',
   'scream': '😱',
   'confounded': '😖',
   'persevere': '😣',
@@ -137,13 +135,7 @@ const STANDARD_EMOJIS: Record<string, string> = {
   'pouting_cat': '😾',
   'palms_up_together': '🤲',
   'open_hands': '👐',
-  'raised_hands': '🙌',
-  'clap': '👏',
   'handshake': '🤝',
-  'thumbsup': '👍',
-  '+1': '👍',
-  'thumbsdown': '👎',
-  '-1': '👎',
   'fist': '👊',
   'oncoming_fist': '👊',
   'punch': '👊',
@@ -154,7 +146,6 @@ const STANDARD_EMOJIS: Record<string, string> = {
   'victory': '✌️',
   'love_you_gesture': '🤟',
   'metal': '🤘',
-  'ok_hand': '👌',
   'pinched_fingers': '🤌',
   'pinching_hand': '🤏',
   'point_left': '👈',
@@ -167,13 +158,10 @@ const STANDARD_EMOJIS: Record<string, string> = {
   'raised_back_of_hand': '🤚',
   'raised_hand_with_fingers_splayed': '🖐️',
   'vulcan_salute': '🖖',
-  'wave': '👋',
   'call_me_hand': '🤙',
   'muscle': '💪',
   'middle_finger': '🖕',
   'writing_hand': '✍️',
-  'pray': '🙏',
-  'folded_hands': '🙏',
   'sparkles': '✨',
   'star': '⭐',
   'star2': '🌟',
@@ -182,7 +170,18 @@ const STANDARD_EMOJIS: Record<string, string> = {
   'collision': '💥',
   'fire': '🔥',
   'hundred': '💯',
-  '100': '💯'
+  '100': '💯',
+  'raised_hands': '🙌',
+  'clap': '👏',
+  'thumbsup': '👍',
+  '+1': '👍',
+  'thumbsdown': '👎',
+  '-1': '👎',
+  'ok_hand': '👌',
+  'wave': '👋',
+  'pray': '🙏',
+  'sob': '😭',
+  'confused': '😕'
 };
 
 export class EmojiService {
@@ -219,6 +218,9 @@ export class EmojiService {
         if (age < CACHE_DURATION) {
           console.log('[EmojiService] Using cached emoji data (age:', Math.round(age / 1000 / 60), 'minutes)');
           emojiData.set(cached);
+          
+          // Auto-detect correct emoji names for quick reactions
+          this.autoDetectQuickReactionEmojis(cached);
           return;
         } else {
           console.log('[EmojiService] Cache is stale (age:', Math.round(age / 1000 / 60), 'minutes), fetching fresh data...');
@@ -229,6 +231,10 @@ export class EmojiService {
       
       // Fetch fresh data if cache is stale or missing
       await this.fetchEmojis();
+      
+      // Auto-detect after fresh fetch
+      const currentData = get(emojiData);
+      this.autoDetectQuickReactionEmojis(currentData);
     } catch (error) {
       console.error('[EmojiService] Failed to initialize:', error);
       // Use standard emojis as fallback
@@ -281,6 +287,44 @@ export class EmojiService {
         let aliasCount = 0;
         
         console.log('[EmojiService] Processing emoji data...');
+        
+        // Log all emoji names for debugging quick reactions
+        const quickReactionNames = [
+          'kakuninshimasu', 'kakunin', 
+          'sasuga', 'sasuga2',
+          'tasukarimasu', 'tasukaru', 'tsukaru',
+          'otsukaresamadesu', 'otsukaresama', 'otsukare',
+          'ohayougozaimasu', 'ohayou', 'oha',
+          'arigataya'
+        ];
+        
+        console.log('[EmojiService] 🔍 Looking for quick reaction emojis in response:');
+        for (const name of quickReactionNames) {
+          if (response.emoji[name]) {
+            const value = response.emoji[name];
+            if (value.startsWith('alias:')) {
+              console.log(`  📎 Found "${name}" as alias to: ${value}`);
+            } else if (value.startsWith('http')) {
+              console.log(`  ✅ Found "${name}": ${value.substring(0, 60)}...`);
+            } else {
+              console.log(`  ⚠️ Found "${name}" with unexpected value: ${value}`);
+            }
+          }
+        }
+        
+        // Also check for variations
+        console.log('[EmojiService] 🔍 All emoji names containing relevant keywords:');
+        const keywords = ['kakunin', 'sasuga', 'tsuka', 'oha', 'arigataya', 'otsukare'];
+        for (const [name, value] of Object.entries(response.emoji)) {
+          for (const keyword of keywords) {
+            if (name.toLowerCase().includes(keyword)) {
+              const valuePreview = value.startsWith('http') ? value.substring(0, 50) + '...' : value;
+              console.log(`  - "${name}": ${valuePreview}`);
+              break;
+            }
+          }
+        }
+        
         for (const [name, value] of Object.entries(response.emoji)) {
           if (value.startsWith('alias:')) {
             // This is an alias to another emoji
@@ -365,17 +409,6 @@ export class EmojiService {
     
     // Remove colons if present
     const cleanName = name.replace(/^:/, '').replace(/:$/, '');
-    
-    // Log first few lookups for debugging
-    if (Math.random() < 0.05) { // Log 5% of lookups to avoid spam
-      console.log('[EmojiService] getEmoji lookup:', {
-        name: cleanName,
-        hasCustom: !!data.custom[cleanName],
-        hasStandard: !!data.standard[cleanName],
-        customCount: Object.keys(data.custom).length,
-        standardCount: Object.keys(data.standard).length
-      });
-    }
     
     // Check custom emojis first
     if (data.custom[cleanName]) {
@@ -465,6 +498,82 @@ export class EmojiService {
   async refresh(): Promise<void> {
     this.fetchPromise = null;
     await this.fetchEmojis();
+  }
+  
+  /**
+   * Try to find an emoji by trying multiple name variations
+   */
+  findEmojiWithVariations(baseName: string): string | null {
+    const data = get(emojiData);
+    const variations = [
+      baseName,
+      baseName + '2',
+      baseName + '1',
+      baseName.replace('_', ''),
+      baseName.replace('-', ''),
+      baseName + '_ja',
+      baseName + '_jp'
+    ];
+    
+    for (const variant of variations) {
+      // Check custom emojis
+      if (data.custom[variant]) {
+        console.log(`[EmojiService] Found emoji "${baseName}" as "${variant}"`);
+        return data.custom[variant];
+      }
+      // Check standard emojis
+      if (data.standard[variant]) {
+        return data.standard[variant];
+      }
+    }
+    
+    return null;
+  }
+  
+  /**
+   * Auto-detect and suggest correct emoji names for quick reactions
+   */
+  private autoDetectQuickReactionEmojis(data: EmojiData): void {
+    const quickReactionPatterns = [
+      { base: 'kakunin', variations: ['kakuninshimasu', 'kakunin', 'kakunin_shimasu', 'kakunin-shimasu'] },
+      { base: 'sasuga', variations: ['sasuga', 'sasuga2', 'sasuga1', 'sasuga_', 'sasuga-'] },
+      { base: 'tsukaru', variations: ['tasukarimasu', 'tasukaru', 'tsukaru', 'tasukari', 'tasukarimasu'] },
+      { base: 'otsukare', variations: ['otsukaresamadesu', 'otsukaresama', 'otsukare', 'otsukaresama_desu', 'otsukaresamadeshita'] },
+      { base: 'oha', variations: ['ohayougozaimasu', 'ohayou', 'oha', 'ohayo', 'ohayou_gozaimasu'] },
+      { base: 'arigataya', variations: ['arigataya', 'arigatai', 'arigata', 'arigataya_'] }
+    ];
+    
+    console.log('[EmojiService] 🔍 Auto-detecting quick reaction emoji names...');
+    const suggestions: Record<string, string> = {};
+    
+    for (const pattern of quickReactionPatterns) {
+      let found = false;
+      for (const variant of pattern.variations) {
+        if (data.custom[variant]) {
+          console.log(`  ✅ Found "${pattern.base}": using "${variant}"`);
+          suggestions[pattern.base] = variant;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        // Try fuzzy matching
+        const fuzzyMatches = Object.keys(data.custom).filter(name => 
+          name.toLowerCase().includes(pattern.base.toLowerCase())
+        );
+        if (fuzzyMatches.length > 0) {
+          console.log(`  ⚠️ Fuzzy matches for "${pattern.base}": ${fuzzyMatches.join(', ')}`);
+          suggestions[pattern.base] = fuzzyMatches[0];
+        } else {
+          console.log(`  ❌ Not found: "${pattern.base}"`);
+        }
+      }
+    }
+    
+    // Store suggestions for later use
+    if (Object.keys(suggestions).length > 0) {
+      console.log('[EmojiService] Suggested emoji name corrections:', suggestions);
+    }
   }
 
   /**

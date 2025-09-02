@@ -389,7 +389,9 @@
           {@const startIndex = recent.length > 0 && !searchQuery ? 6 : 0}
           {@const actualIndex = startIndex + index}
           {@const emojiName = 'emoji' in item ? item.emoji : item}
+          {@const displayName = 'display' in item ? item.display : item}
           {@const emojiValue = emojiService.getEmoji(emojiName)}
+          {@const displayValue = emojiService.getEmoji(displayName)}
           <button
             bind:this={emojiButtons[actualIndex]}
             class="emoji-button"
@@ -405,14 +407,20 @@
               <span class="shortcut">{item.shortcut}</span>
             {/if}
             <span class="emoji">
-              {#if emojiValue && emojiValue.startsWith('http')}
+              {#if displayValue && displayValue.startsWith('http')}
+                <!-- For custom emojis, use the display value URL -->
+                <EmojiImage emoji={displayName} url={displayValue} size="medium" />
+              {:else if displayValue}
+                <!-- For standard emojis, show the unicode -->
+                {displayValue}
+              {:else if emojiValue && emojiValue.startsWith('http')}
+                <!-- Fallback to emoji value if display not found -->
                 <EmojiImage emoji={emojiName} url={emojiValue} size="medium" />
               {:else if emojiValue}
                 {emojiValue}
-              {:else if 'display' in item}
-                {item.display}
               {:else}
-                {item}
+                <!-- Last resort: show the name as text -->
+                :{displayName}:
               {/if}
             </span>
           </button>
