@@ -192,7 +192,7 @@
   
   <div class="mappings-list">
     {#each mappings as mapping, index}
-      <div class="mapping-item">
+      <div class="mapping-item" class:editing={editingIndex === index}>
         <div class="shortcut-key">{mapping.shortcut}</div>
         
         {#if editingIndex === index}
@@ -416,6 +416,10 @@
     position: relative;
   }
   
+  .mapping-item.editing {
+    margin-bottom: 420px; /* Add space for the suggestions popup when editing */
+  }
+  
   .shortcut-key {
     width: 40px;
     height: 40px;
@@ -509,8 +513,10 @@
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 12px;
-    z-index: 100;
+    z-index: 1000;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    max-height: 400px;
+    overflow-y: auto;
   }
   
   .suggestions-label {
@@ -575,5 +581,24 @@
     color: var(--text-secondary);
     padding: 12px;
     font-size: 14px;
+  }
+  
+  /* Scrollbar styling for suggestions popup */
+  .suggestions::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .suggestions::-webkit-scrollbar-track {
+    background: var(--bg-secondary, #f5f5f5);
+    border-radius: 4px;
+  }
+  
+  .suggestions::-webkit-scrollbar-thumb {
+    background: var(--border-color, #ddd);
+    border-radius: 4px;
+  }
+  
+  .suggestions::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary, #666);
   }
 </style>
