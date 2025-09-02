@@ -163,6 +163,20 @@ export function parseMessageWithEmojis(text: string): MessageSegment[] {
  * Parse emojis only (for reaction display)
  */
 export function parseEmoji(emojiCode: string): { isCustom: boolean; value: string } {
+  // First check if this looks like an emoji name (alphanumeric with underscores/dashes)
+  // vs already being a Unicode emoji
+  const isEmojiName = /^:?[a-zA-Z0-9_+-]+:?$/.test(emojiCode);
+  
+  if (!isEmojiName) {
+    // If it doesn't look like an emoji name, it's probably already a Unicode emoji
+    // Just return it as-is
+    return {
+      isCustom: false,
+      value: emojiCode
+    };
+  }
+  
+  // It looks like an emoji name, try to look it up
   const cleanName = emojiCode.replace(/^:/, '').replace(/:$/, '');
   const emojiValue = emojiService.getEmoji(cleanName);
   
@@ -173,7 +187,7 @@ export function parseEmoji(emojiCode: string): { isCustom: boolean; value: strin
     };
   }
   
-  // Return the original code if not found
+  // Return the original code with colons if not found
   return {
     isCustom: false,
     value: `:${cleanName}:`
