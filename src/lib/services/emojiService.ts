@@ -428,6 +428,39 @@ export class EmojiService {
       return data.standard['thumbsdown'] || '👎';
     }
     
+    // Try to find variations for custom emojis that might not match exactly
+    if (!data.standard[cleanName]) {
+      // Try common variations
+      const variations = [
+        cleanName.replace('amadesu', 'ama'),  // otsukaresamadesu -> otsukaresama
+        cleanName.replace('desu', ''),         // Remove 'desu' suffix
+        cleanName.replace('shimasu', ''),      // kakuninshimasu -> kakunin
+        cleanName + '2',                       // Try with number suffix
+        cleanName + '1',
+        cleanName.replace('2', ''),            // Remove number suffix
+        cleanName.replace('1', ''),
+        cleanName.replace(/_/g, ''),           // Remove underscores
+        cleanName.replace(/-/g, ''),           // Remove dashes
+      ];
+      
+      for (const variant of variations) {
+        if (data.custom[variant]) {
+          console.log(`[EmojiService] Found emoji "${cleanName}" as variant "${variant}"`);
+          return data.custom[variant];
+        }
+      }
+      
+      // Try partial matching for Japanese-style emojis
+      const partialMatches = Object.keys(data.custom).filter(key => {
+        return key.includes(cleanName) || cleanName.includes(key);
+      });
+      
+      if (partialMatches.length > 0) {
+        console.log(`[EmojiService] Found partial match for "${cleanName}": "${partialMatches[0]}"`);
+        return data.custom[partialMatches[0]];
+      }
+    }
+    
     // Log when emoji is not found (only for custom workspace emojis)
     if (cleanName.includes('_') || cleanName.length > 15) { // Likely a custom emoji
       console.log('[EmojiService] Custom emoji not found:', cleanName);
@@ -604,6 +637,49 @@ export class EmojiService {
     return this.getAllEmojis().filter(emoji => 
       emoji.name.toLowerCase().includes(lowerQuery)
     );
+  }
+  
+  /**
+   * Find Japanese/custom emojis that might be useful for quick reactions
+   */
+  findJapaneseEmojis(): Array<{name: string, url: string}> {
+    const data = get(emojiData);
+    const japaneseKeywords = [
+      'arigatou', 'arigato', 'arigataya',
+      'kakunin', 'check',
+      'sasuga', 'sugoi', 'subarashi',
+      'ohayou', 'ohayo', 'oha',
+      'otsukare', 'otsu',
+      'tasuka', 'tsuka', 'help',
+      'naruhodo', 'naru',
+      'yoroshiku', 'yoro',
+      'ganbatte', 'ganba', 'ganbaru',
+      'ii', 'good', 'ok',
+      'hai', 'yes',
+      'wakarimashita', 'wakari', 'wakatta',
+      'doumo', 'domo',
+      'sumimasen', 'sumi',
+      'gomennasai', 'gomen'
+    ];
+    
+    const found: Array<{name: string, url: string}> = [];
+    const seen = new Set<string>();
+    
+    for (const [name, url] of Object.entries(data.custom)) {
+      const lowerName = name.toLowerCase();
+      for (const keyword of japaneseKeywords) {
+        if (lowerName.includes(keyword) && !seen.has(name)) {
+          found.push({ name, url });
+          seen.add(name);
+          break;
+        }
+      }
+    }
+    
+    // Sort by name length (shorter names first)
+    found.sort((a, b) => a.name.length - b.name.length);
+    
+    return found;
   }
 }
 

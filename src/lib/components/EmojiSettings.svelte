@@ -24,6 +24,19 @@
     } else {
       mappings = [...DEFAULT_REACTION_MAPPINGS];
     }
+    
+    // Debug: Log what emojis are actually available for the current mappings
+    console.log('[EmojiSettings] Current mappings and their availability:');
+    mappings.forEach(mapping => {
+      const emojiValue = emojiService.getEmoji(mapping.emoji);
+      if (!emojiValue) {
+        console.warn(`  ❌ "${mapping.emoji}" - NOT FOUND`);
+      } else if (emojiValue.startsWith('http')) {
+        console.log(`  ✅ "${mapping.emoji}" - Custom emoji with URL`);
+      } else {
+        console.log(`  ✅ "${mapping.emoji}" - Unicode: ${emojiValue}`);
+      }
+    });
   });
   
   // Function to manually refresh emojis for debugging
@@ -39,7 +52,38 @@
     alert(`Emojis refreshed! Custom: ${Object.keys(data.custom).length}, Standard: ${Object.keys(data.standard).length}`);
   }
   
-  // Common emoji suggestions
+  // Function to auto-fix missing emojis
+  function autoFixMissingEmojis() {
+    let fixedCount = 0;
+    const updatedMappings = mappings.map(mapping => {
+      const emojiValue = emojiService.getEmoji(mapping.emoji);
+      if (!emojiValue) {
+        // Try to find a similar emoji
+        const searchResults = emojiService.searchEmojis(mapping.emoji);
+        if (searchResults.length > 0) {
+          console.log(`[EmojiSettings] Auto-fixing "${mapping.emoji}" -> "${searchResults[0].name}"`);
+          fixedCount++;
+          return {
+            ...mapping,
+            emoji: searchResults[0].name,
+            display: searchResults[0].isCustom ? searchResults[0].name : searchResults[0].value
+          };
+        }
+      }
+      return mapping;
+    });
+    
+    if (fixedCount > 0) {
+      mappings = updatedMappings;
+      saveSettings();
+      alert(`Auto-fixed ${fixedCount} missing emoji(s)`);
+    } else {
+      alert('All emojis are already valid!');
+    }
+  }
+  
+  // Common emoji suggestions - only include standard Unicode emojis
+  // Custom emojis will be shown in the search results when searching
   const emojiSuggestions = [
     { name: '+1', display: '👍' },
     { name: 'heart', display: '❤️' },
@@ -60,16 +104,47 @@
     { name: 'joy', display: '😂' },
     { name: 'sob', display: '😭' },
     { name: 'heart_eyes', display: '😍' },
-    { name: 'raised_hands', display: '🙌' },
-    // Additional emojis from screenshot
-    { name: 'arigataya', display: '🙏' },
-    { name: 'kakuninshimasu', display: '確認' },
-    { name: 'ohayougozaimasu', display: '☀️' },
-    { name: 'sasuga2', display: '拍手' },
-    { name: 'otsukareamadesu', display: 'お疲れ様でした' },
-    { name: 'tasikani', display: 'たしかに' },
-    { name: 'tasukarimasu', display: '助かります!' }
+    { name: 'raised_hands', display: '🙌' }
   ];
+  
+  // Get popular custom emojis dynamically from the emoji service
+  function getPopularCustomEmojis() {
+    // Use the new findJapaneseEmojis method to get actual available emojis
+    const japaneseEmojis = emojiService.findJapaneseEmojis();
+    
+    // Also try to find specific emojis if they exist
+    const specificNames = [
+      'arigataya', 'kakuninshimasu', 'sasuga2', 'ohayougozaimasu',
+      'otsukaresamadesu', 'tasukarimasu', 'tasikani', 'yokatta',
+      'naruhodo', 'sugoi', 'ganbatte', 'ii'
+    ];
+    
+    const customEmojis = [];
+    const addedNames = new Set();
+    
+    // Add Japanese emojis found (limit to 12)
+    for (const emoji of japaneseEmojis.slice(0, 12)) {
+      if (!addedNames.has(emoji.name)) {
+        customEmojis.push(emoji);
+        addedNames.add(emoji.name);
+      }
+    }
+    
+    // Try to add specific ones if not already added
+    for (const name of specificNames) {
+      if (!addedNames.has(name)) {
+        const emojiUrl = emojiService.getEmoji(name);
+        if (emojiUrl && emojiUrl.startsWith('http')) {
+          customEmojis.push({ name, url: emojiUrl });
+          addedNames.add(name);
+        }
+      }
+    }
+    
+    return customEmojis.slice(0, 12); // Limit to 12 emojis
+  }
+  
+  $: popularCustomEmojis = getPopularCustomEmojis();
   
   function startEditing(index: number) {
     editingIndex = index;
@@ -164,6 +239,9 @@
   <div class="header">
     <h3>絵文字リアクション設定</h3>
     <div class="header-buttons">
+      <button class="auto-fix-button" on:click={autoFixMissingEmojis} title="Find and fix missing emojis">
+        🔧 Auto-Fix
+      </button>
       <button class="refresh-emoji-button" on:click={refreshEmojis} disabled={$emojiLoading}>
         {$emojiLoading ? 'Loading...' : 'Refresh Emojis'}
       </button>
@@ -265,6 +343,26 @@
                 {/each}
               </div>
             </div>
+            
+            {#if popularCustomEmojis.length > 0}
+              <div class="suggestions-section">
+                <p class="suggestions-label">カスタム絵文字:</p>
+                <div class="emoji-grid">
+                  {#each popularCustomEmojis as emoji}
+                    <button
+                      class="emoji-option"
+                      on:click={() => selectCustomEmoji(index, emoji.name)}
+                      title={emoji.name}
+                    >
+                      <span class="emoji-display">
+                        <EmojiImage emoji={emoji.name} url={emoji.url} size="small" />
+                      </span>
+                      <span class="emoji-name">{emoji.name}</span>
+                    </button>
+                  {/each}
+                </div>
+              </div>
+            {/if}
           </div>
         {:else}
           {@const emojiValue = emojiService.getEmoji(mapping.emoji)}
@@ -314,7 +412,7 @@
     gap: 8px;
   }
   
-  .reset-button, .reload-button, .refresh-emoji-button {
+  .reset-button, .reload-button, .refresh-emoji-button, .auto-fix-button {
     padding: 8px 16px;
     background: var(--button-secondary);
     color: var(--text-primary);
@@ -324,8 +422,18 @@
     font-size: 14px;
   }
   
-  .reset-button:hover, .reload-button:hover, .refresh-emoji-button:hover:not(:disabled) {
+  .reset-button:hover, .reload-button:hover, .refresh-emoji-button:hover:not(:disabled), .auto-fix-button:hover {
     background: var(--button-secondary-hover);
+  }
+  
+  .auto-fix-button {
+    background: #ff9800;
+    color: white;
+    border: none;
+  }
+  
+  .auto-fix-button:hover {
+    background: #f57c00;
   }
   
   .reload-button {
