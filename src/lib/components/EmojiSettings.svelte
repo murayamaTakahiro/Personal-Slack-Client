@@ -13,6 +13,7 @@
   let editingIndex: number | null = null;
   let newEmoji = '';
   let searchQuery = '';
+  let emojiGrid: HTMLElement;
   
   // Subscribe to the reaction mappings
   $: mappings = $reactionMappings;
@@ -236,6 +237,91 @@
       cancelEditing();
     }
   }
+  
+  function handleGridNavigation(event: KeyboardEvent) {
+    // Only handle navigation if focus is on an emoji button
+    const target = event.target as HTMLElement;
+    if (!target.classList.contains('emoji-option')) return;
+    
+    // Don't interfere with search input
+    if (target.tagName === 'INPUT') return;
+    
+    const allButtons = Array.from(event.currentTarget.querySelectorAll('.emoji-option:not([disabled])')) as HTMLElement[];
+    const currentIndex = allButtons.indexOf(target);
+    if (currentIndex === -1) return;
+    
+    let nextIndex = -1;
+    
+    // Calculate grid columns
+    const getColumns = () => {
+      if (!emojiGrid) return 4; // Default fallback
+      const gridStyle = window.getComputedStyle(emojiGrid);
+      const columnTemplate = gridStyle.getPropertyValue('grid-template-columns');
+      if (!columnTemplate) return 4;
+      const columns = columnTemplate.split(' ').length;
+      return columns > 0 ? columns : 4;
+    };
+    
+    const columns = getColumns();
+    
+    switch (event.key) {
+      case 'ArrowLeft':
+      case 'h':
+      case 'H':
+        event.preventDefault();
+        nextIndex = currentIndex > 0 ? currentIndex - 1 : allButtons.length - 1;
+        break;
+      case 'ArrowRight':
+      case 'l':
+      case 'L':
+        event.preventDefault();
+        nextIndex = currentIndex < allButtons.length - 1 ? currentIndex + 1 : 0;
+        break;
+      case 'ArrowUp':
+      case 'k':
+      case 'K':
+        event.preventDefault();
+        nextIndex = currentIndex - columns;
+        if (nextIndex < 0) {
+          // If moving up from first row, wrap to last row same column
+          const lastRowStart = Math.floor((allButtons.length - 1) / columns) * columns;
+          const column = currentIndex % columns;
+          nextIndex = Math.min(lastRowStart + column, allButtons.length - 1);
+        }
+        break;
+      case 'ArrowDown':
+      case 'j':
+      case 'J':
+        event.preventDefault();
+        nextIndex = currentIndex + columns;
+        if (nextIndex >= allButtons.length) {
+          // If moving down from last row, wrap to first row same column
+          nextIndex = currentIndex % columns;
+        }
+        break;
+      case 'Home':
+        event.preventDefault();
+        nextIndex = 0;
+        break;
+      case 'End':
+        event.preventDefault();
+        nextIndex = allButtons.length - 1;
+        break;
+      case 'PageUp':
+        event.preventDefault();
+        nextIndex = Math.max(0, currentIndex - columns * 3);
+        break;
+      case 'PageDown':
+        event.preventDefault();
+        nextIndex = Math.min(allButtons.length - 1, currentIndex + columns * 3);
+        break;
+    }
+    
+    if (nextIndex >= 0 && nextIndex < allButtons.length) {
+      allButtons[nextIndex].focus();
+      allButtons[nextIndex].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+  }
 </script>
 
 <div class="emoji-settings">
@@ -295,7 +381,7 @@
             </div>
           </div>
           
-          <div class="suggestions">
+          <div class="suggestions" on:keydown={handleGridNavigation}>
             <div class="suggestions-section">
               <p class="suggestions-label">検索して選択:</p>
               <input
@@ -307,7 +393,7 @@
               {#if searchQuery}
                 {@const searchResults = emojiSearchService.search(searchQuery, 12)}
                 {#if searchResults.length > 0}
-                  <div class="emoji-grid">
+                  <div class="emoji-grid" bind:this={emojiGrid}>
                     {#each searchResults as result}
                       <button
                         class="emoji-option"
@@ -336,7 +422,7 @@
             
             <div class="suggestions-section">
               <p class="suggestions-label">よく使われる絵文字:</p>
-              <div class="emoji-grid">
+              <div class="emoji-grid" bind:this={emojiGrid}>
                 {#each emojiSuggestions as emoji}
                   <button
                     class="emoji-option"
@@ -353,7 +439,7 @@
             {#if popularCustomEmojis.length > 0}
               <div class="suggestions-section">
                 <p class="suggestions-label">カスタム絵文字:</p>
-                <div class="emoji-grid">
+                <div class="emoji-grid" bind:this={emojiGrid}>
                   {#each popularCustomEmojis as emoji}
                     <button
                       class="emoji-option"
@@ -369,6 +455,9 @@
                 </div>
               </div>
             {/if}
+            <div class="navigation-hint">
+              💡 ナビゲーション: 矢印キー(↑↓←→) または HJKL | Home/End | PageUp/Down
+            </div>
           </div>
         {:else}
           {@const emojiValue = emojiService.getEmoji(mapping.emoji)}
@@ -723,5 +812,15 @@
   
   .suggestions::-webkit-scrollbar-thumb:hover {
     background: var(--text-secondary, #666);
+  }
+  
+  .navigation-hint {
+    margin-top: 12px;
+    padding: 8px;
+    background: var(--background-tertiary, #f5f5f5);
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-align: center;
   }
 </style>

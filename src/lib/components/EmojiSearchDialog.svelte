@@ -19,6 +19,7 @@
   let categories = ['greetings', 'thanks', 'work', 'emotions', 'gestures', 'celebrations'];
   let selectedCategory = '';
   let showHelp = false;
+  let gridElement: HTMLDivElement;
   
   const searchTips = emojiSearchService.getSearchTips();
   
@@ -70,28 +71,133 @@
     dispatch('close');
   }
   
+  function getGridColumns(): number {
+    if (!gridElement) return 8; // Default fallback
+    
+    // Get the first emoji button to measure column width
+    const firstButton = gridElement.querySelector('.emoji-result');
+    if (!firstButton) return 8;
+    
+    const gridWidth = gridElement.offsetWidth;
+    const buttonWidth = firstButton.offsetWidth;
+    const gap = 8; // Gap between items (0.5rem = 8px)
+    
+    // Calculate how many columns fit
+    return Math.floor((gridWidth + gap) / (buttonWidth + gap)) || 8;
+  }
+  
   function handleKeydown(event: KeyboardEvent) {
-    switch (event.key) {
+    const columns = getGridColumns();
+    const totalItems = searchResults.length;
+    
+    // Handle vim-style navigation (convert to arrow keys)
+    let key = event.key;
+    if (!event.ctrlKey && !event.altKey && !event.metaKey) {
+      switch (key.toLowerCase()) {
+        case 'h': key = 'ArrowLeft'; break;
+        case 'j': key = 'ArrowDown'; break;
+        case 'k': key = 'ArrowUp'; break;
+        case 'l': key = 'ArrowRight'; break;
+      }
+    }
+    
+    switch (key) {
       case 'Escape':
         event.preventDefault();
         close();
         break;
+        
       case 'Enter':
         event.preventDefault();
         if (searchResults[selectedIndex]) {
           selectEmoji(searchResults[selectedIndex]);
         }
         break;
-      case 'ArrowUp':
+        
+      case 'ArrowUp': {
         event.preventDefault();
-        selectedIndex = Math.max(0, selectedIndex - 1);
+        const newIndex = selectedIndex - columns;
+        if (newIndex >= 0) {
+          selectedIndex = newIndex;
+        } else {
+          // Move to top row, same column
+          selectedIndex = selectedIndex % columns;
+        }
         scrollToSelected();
         break;
-      case 'ArrowDown':
+      }
+      
+      case 'ArrowDown': {
         event.preventDefault();
-        selectedIndex = Math.min(searchResults.length - 1, selectedIndex + 1);
+        const newIndex = selectedIndex + columns;
+        if (newIndex < totalItems) {
+          selectedIndex = newIndex;
+        } else {
+          // Move to last row, same column or last item
+          const currentColumn = selectedIndex % columns;
+          const lastRowStart = Math.floor((totalItems - 1) / columns) * columns;
+          selectedIndex = Math.min(lastRowStart + currentColumn, totalItems - 1);
+        }
         scrollToSelected();
         break;
+      }
+      
+      case 'ArrowLeft': {
+        event.preventDefault();
+        if (selectedIndex > 0) {
+          selectedIndex--;
+        } else {
+          // Wrap to end
+          selectedIndex = totalItems - 1;
+        }
+        scrollToSelected();
+        break;
+      }
+      
+      case 'ArrowRight': {
+        event.preventDefault();
+        if (selectedIndex < totalItems - 1) {
+          selectedIndex++;
+        } else {
+          // Wrap to beginning
+          selectedIndex = 0;
+        }
+        scrollToSelected();
+        break;
+      }
+      
+      case 'Home': {
+        event.preventDefault();
+        selectedIndex = 0;
+        scrollToSelected();
+        break;
+      }
+      
+      case 'End': {
+        event.preventDefault();
+        selectedIndex = totalItems - 1;
+        scrollToSelected();
+        break;
+      }
+      
+      case 'PageUp': {
+        event.preventDefault();
+        // Move up by 3 rows
+        const newIndex = selectedIndex - (columns * 3);
+        selectedIndex = Math.max(0, newIndex);
+        scrollToSelected();
+        break;
+      }
+      
+      case 'PageDown': {
+        event.preventDefault();
+        // Move down by 3 rows
+        const newIndex = selectedIndex + (columns * 3);
+        selectedIndex = Math.min(totalItems - 1, newIndex);
+        scrollToSelected();
+        break;
+      }
+      
       case 'Tab':
         if (!event.shiftKey && activeTab === 'search') {
           event.preventDefault();
@@ -236,7 +342,7 @@
               <div class="results-header">
                 {searchQuery ? `Found ${searchResults.length} results` : 'Popular emojis'}
               </div>
-              <div class="emoji-grid">
+              <div class="emoji-grid" bind:this={gridElement}>
                 {#each searchResults as result, index}
                   <button
                     class="emoji-result"
@@ -283,7 +389,7 @@
             {/each}
           </div>
           
-          <div class="emoji-grid">
+          <div class="emoji-grid" bind:this={gridElement}>
             {#each searchResults as result, index}
               <button
                 class="emoji-result"
@@ -317,7 +423,10 @@
       
       <div class="dialog-footer">
         <div class="footer-hint">
-          Use ↑↓ to navigate • Enter to select • Esc to close
+          <span>Arrow keys or HJKL to navigate</span> • 
+          <span>Enter to select</span> • 
+          <span>Home/End for first/last</span> • 
+          <span>Esc to close</span>
         </div>
       </div>
     </div>
@@ -655,6 +764,14 @@
     font-size: 0.8125rem;
     color: var(--text-secondary);
     text-align: center;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+  
+  .footer-hint span {
+    white-space: nowrap;
   }
   
   /* Scrollbar styling */
