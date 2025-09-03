@@ -129,6 +129,146 @@
       handleSearch();
     }
   }
+  
+  // Store the last valid date values to restore if needed
+  let lastValidFromDate = '';
+  let lastValidToDate = '';
+  
+  // Helper function to get the maximum day for a given month/year
+  function getMaxDayInMonth(year: number, month: number): number {
+    return new Date(year, month, 0).getDate();
+  }
+  
+  // Helper function to adjust date when it would be invalid
+  function adjustDateForValidRange(year: number, month: number, day: number): { year: number; month: number; day: number } {
+    // Handle month overflow/underflow
+    if (month > 12) {
+      year += Math.floor((month - 1) / 12);
+      month = ((month - 1) % 12) + 1;
+    } else if (month < 1) {
+      year -= Math.floor((12 - month) / 12);
+      month = 12 - (Math.abs(month) % 12);
+      if (month === 0) month = 12;
+    }
+    
+    // Ensure day is valid for the month
+    const maxDay = getMaxDayInMonth(year, month);
+    if (day > maxDay) {
+      day = maxDay;
+    } else if (day < 1) {
+      day = 1;
+    }
+    
+    return { year, month, day };
+  }
+  
+  function handleDateKeydown(e: KeyboardEvent) {
+    const input = e.target as HTMLInputElement;
+    const currentValue = input.value;
+    
+    // Handle arrow keys to prevent invalid date clearing
+    if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && currentValue) {
+      const dateParts = currentValue.split('-');
+      if (dateParts.length === 3) {
+        const [year, month, day] = dateParts.map(Number);
+        const currentMaxDay = getMaxDayInMonth(year, month);
+        
+        // Check if we're at the end of month boundary
+        if (day === currentMaxDay || day === 30 || day === 31) {
+          const increment = e.key === 'ArrowUp' ? 1 : -1;
+          let newDay = day + increment;
+          let newMonth = month;
+          let newYear = year;
+          
+          // Handle day overflow (e.g., Sep 30 -> Oct 1)
+          if (newDay > currentMaxDay) {
+            newDay = 1;
+            newMonth++;
+            if (newMonth > 12) {
+              newMonth = 1;
+              newYear++;
+            }
+          } else if (newDay < 1) {
+            // Handle day underflow (e.g., Oct 1 -> Sep 30)
+            newMonth--;
+            if (newMonth < 1) {
+              newMonth = 12;
+              newYear--;
+            }
+            newDay = getMaxDayInMonth(newYear, newMonth);
+          }
+          
+          // Validate and adjust the new date
+          const adjusted = adjustDateForValidRange(newYear, newMonth, newDay);
+          
+          // Format and set the new date
+          const formattedDate = `${adjusted.year}-${String(adjusted.month).padStart(2, '0')}-${String(adjusted.day).padStart(2, '0')}`;
+          
+          // Set the value immediately to prevent browser default behavior
+          setTimeout(() => {
+            if (input.id === 'fromDate') {
+              fromDate = formattedDate;
+            } else if (input.id === 'toDate') {
+              toDate = formattedDate;
+            }
+          }, 0);
+          
+          // Prevent the default behavior that would clear the input
+          e.preventDefault();
+        }
+      }
+    } else if (e.key === 'Enter' && !$searchLoading) {
+      handleSearch();
+    }
+    
+    // Store the current valid value
+    if (currentValue) {
+      if (input.id === 'fromDate') {
+        lastValidFromDate = currentValue;
+      } else if (input.id === 'toDate') {
+        lastValidToDate = currentValue;
+      }
+    }
+  }
+  
+  function handleDateInput(e: Event) {
+    const input = e.target as HTMLInputElement;
+    
+    // If the input becomes empty (which happens when an invalid date is entered)
+    // restore the last valid value
+    if (!input.value) {
+      if (input.id === 'fromDate' && lastValidFromDate) {
+        // Use a microtask to restore the value after the browser clears it
+        Promise.resolve().then(() => {
+          fromDate = lastValidFromDate;
+        });
+      } else if (input.id === 'toDate' && lastValidToDate) {
+        Promise.resolve().then(() => {
+          toDate = lastValidToDate;
+        });
+      }
+    } else {
+      // Update the last valid value
+      if (input.id === 'fromDate') {
+        lastValidFromDate = input.value;
+      } else if (input.id === 'toDate') {
+        lastValidToDate = input.value;
+      }
+    }
+  }
+  
+  function handleDateChange(e: Event) {
+    const input = e.target as HTMLInputElement;
+    
+    // Update the last valid value on successful change
+    if (input.value) {
+      if (input.id === 'fromDate') {
+        lastValidFromDate = input.value;
+      } else if (input.id === 'toDate') {
+        lastValidToDate = input.value;
+      }
+    }
+  }
 
   function handleUrlKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter' && !urlLoading) {
@@ -418,8 +558,12 @@
           From:
           <input
             type="date"
+            id="fromDate"
+            name="fromDate"
             bind:value={fromDate}
-            on:keydown={handleKeydown}
+            on:keydown={handleDateKeydown}
+            on:input={handleDateInput}
+            on:change={handleDateChange}
           />
         </label>
         
@@ -427,8 +571,12 @@
           To:
           <input
             type="date"
+            id="toDate"
+            name="toDate"
             bind:value={toDate}
-            on:keydown={handleKeydown}
+            on:keydown={handleDateKeydown}
+            on:input={handleDateInput}
+            on:change={handleDateChange}
           />
         </label>
         
