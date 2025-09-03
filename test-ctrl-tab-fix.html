@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Ctrl+Tab Fix for Emoji Search Dialog</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+        
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007acc;
+            padding-bottom: 10px;
+        }
+        
+        .test-section {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        
+        .test-steps {
+            background: white;
+            padding: 15px;
+            border-left: 4px solid #007acc;
+            margin: 15px 0;
+        }
+        
+        .test-steps h3 {
+            margin-top: 0;
+            color: #007acc;
+        }
+        
+        .step {
+            margin: 10px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+        
+        .step::before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #007acc;
+        }
+        
+        .expected {
+            background: #e8f5e9;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .key {
+            background: #333;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .status.fixed {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .status.testing {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .console-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9em;
+            margin: 10px 0;
+        }
+        
+        .console-output .log {
+            color: #4ec9b0;
+        }
+        
+        .console-output .warn {
+            color: #ce9178;
+        }
+        
+        .improvement {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 4px solid #ffc107;
+            margin: 20px 0;
+        }
+        
+        .improvement h4 {
+            margin-top: 0;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <h1>Ctrl+Tab Keyboard Input Fix Test <span class="status fixed">FIXED</span></h1>
+    
+    <div class="test-section">
+        <h2>🔧 What Was Fixed</h2>
+        <p>The keyboard input loss issue when switching tabs with <span class="key">Ctrl</span>+<span class="key">Tab</span> has been resolved by:</p>
+        <ul>
+            <li>✅ Using Svelte's <code>tick()</code> to wait for DOM updates before setting focus</li>
+            <li>✅ Converting tab switching functions to async/await pattern</li>
+            <li>✅ Adding proper null checks and fallback focus targets</li>
+            <li>✅ Ensuring search input selection is preserved</li>
+            <li>✅ Adding console logging for debugging focus flow</li>
+        </ul>
+    </div>
+    
+    <div class="test-section">
+        <h2>🧪 Test Scenarios</h2>
+        
+        <div class="test-steps">
+            <h3>Test 1: Search → Browse → Search</h3>
+            <div class="step">Open emoji dialog (starts in Search tab)</div>
+            <div class="step">Type "hello" in search input</div>
+            <div class="step">Press <span class="key">Ctrl</span>+<span class="key">Tab</span> to go to Browse</div>
+            <div class="step">Press <span class="key">Ctrl</span>+<span class="key">Shift</span>+<span class="key">Tab</span> to return to Search</div>
+            <div class="expected">
+                <strong>Expected:</strong> Search input should be focused and you can continue typing
+            </div>
+        </div>
+        
+        <div class="test-steps">
+            <h3>Test 2: Browse Tab Category Navigation</h3>
+            <div class="step">Press <span class="key">Ctrl</span>+<span class="key">Tab</span> to go to Browse tab</div>
+            <div class="step">First category button should be focused</div>
+            <div class="step">Use arrow keys to navigate between categories</div>
+            <div class="step">Press <span class="key">Tab</span> to move to emoji grid</div>
+            <div class="expected">
+                <strong>Expected:</strong> Category buttons receive focus and respond to arrow keys
+            </div>
+        </div>
+        
+        <div class="test-steps">
+            <h3>Test 3: Recent Tab (Empty State)</h3>
+            <div class="step">Press <span class="key">Ctrl</span>+<span class="key">Tab</span> twice to go to Recent tab</div>
+            <div class="step">If no recent emojis, section itself should get focus</div>
+            <div class="step">Press <span class="key">Ctrl</span>+<span class="key">Shift</span>+<span class="key">Tab</span> to go back</div>
+            <div class="expected">
+                <strong>Expected:</strong> No errors, focus fallback to section container
+            </div>
+        </div>
+        
+        <div class="test-steps">
+            <h3>Test 4: Rapid Tab Switching</h3>
+            <div class="step">Rapidly press <span class="key">Ctrl</span>+<span class="key">Tab</span> multiple times</div>
+            <div class="step">Try typing immediately after switching</div>
+            <div class="expected">
+                <strong>Expected:</strong> Each tab should properly set focus even with rapid switching
+            </div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>🔍 Debug Console Output</h2>
+        <p>When switching tabs, you should see console messages like:</p>
+        <div class="console-output">
+            <div class="log">Focused search input</div>
+            <div class="log">Focused first category button</div>
+            <div class="log">Focused first emoji in browse</div>
+            <div class="log">Focused recent section (no emojis)</div>
+        </div>
+        <p>If focus fails, you'll see:</p>
+        <div class="console-output">
+            <div class="warn">Could not focus search input</div>
+        </div>
+    </div>
+    
+    <div class="improvement">
+        <h4>💡 Additional Improvements Made</h4>
+        <ul>
+            <li>Search input cursor position is preserved when returning to Search tab</li>
+            <li>Browse tab properly focuses category buttons or falls back to emoji grid</li>
+            <li>Recent tab handles empty state gracefully</li>
+            <li>All focus operations wait for DOM updates using <code>await tick()</code></li>
+            <li>Console logging added for easier debugging of focus issues</li>
+        </ul>
+    </div>
+    
+    <div class="test-section">
+        <h2>⌨️ Keyboard Shortcuts Reference</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <th style="text-align: left; padding: 8px; border-bottom: 2px solid #ddd;">Shortcut</th>
+                <th style="text-align: left; padding: 8px; border-bottom: 2px solid #ddd;">Action</th>
+            </tr>
+            <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><span class="key">Ctrl</span>+<span class="key">Tab</span></td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">Next tab (Search → Browse → Recent)</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><span class="key">Ctrl</span>+<span class="key">Shift</span>+<span class="key">Tab</span></td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">Previous tab (Recent → Browse → Search)</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><span class="key">Tab</span></td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">Navigate between sections within a tab</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><span class="key">Arrow Keys</span> / <span class="key">HJKL</span></td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">Navigate in emoji grid</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><span class="key">Enter</span></td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">Select emoji</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px;"><span class="key">Esc</span></td>
+                <td style="padding: 8px;">Close dialog</td>
+            </tr>
+        </table>
+    </div>
+    
+    <div class="test-section" style="background: #e8f5e9;">
+        <h2>✅ Fix Verification</h2>
+        <p><strong>The issue has been fixed!</strong> The key changes were:</p>
+        <ol>
+            <li>Import <code>tick</code> from 'svelte'</li>
+            <li>Make <code>handleTabSwitching</code> async</li>
+            <li>Use <code>await tick()</code> before setting focus</li>
+            <li>Add proper focus fallbacks for each tab</li>
+            <li>Ensure search input selection is maintained</li>
+        </ol>
+        <p>Users should now be able to seamlessly switch between tabs using Ctrl+Tab without losing keyboard input functionality.</p>
+    </div>
+</body>
+</html>

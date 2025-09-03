@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
+  import { createEventDispatcher, onMount, onDestroy, tick } from 'svelte';
   import { emojiSearchService, type EmojiSearchResult } from '../services/emojiSearchService';
   import { emojiService } from '../services/emojiService';
   import EmojiImage from './EmojiImage.svelte';
@@ -38,6 +38,13 @@
     selectedIndex = 0;
     showTips = false;
     activeTab = 'search';
+    // Ensure proper focus after dialog opens
+    tick().then(() => {
+      const searchInput = document.querySelector('.search-input') as HTMLInputElement;
+      if (searchInput) {
+        searchInput.focus();
+      }
+    });
   }
   
   $: if (searchQuery) {
@@ -147,11 +154,11 @@
     handleGridNavigation(event);
   }
   
-  function handleTabButtonNavigation(event: KeyboardEvent) {
+  async function handleTabButtonNavigation(event: KeyboardEvent) {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
     
     event.preventDefault();
-    const tabs = ['search', 'browse', 'recent'];
+    const tabs = ['search', 'browse', 'recent'] as const;
     const currentIndex = tabs.indexOf(activeTab);
     
     if (event.key === 'ArrowLeft') {
@@ -160,11 +167,12 @@
       activeTab = tabs[currentIndex < tabs.length - 1 ? currentIndex + 1 : 0];
     }
     
+    // Wait for DOM update
+    await tick();
+    
     // Focus the newly active tab
-    setTimeout(() => {
-      const newActiveTab = document.querySelector('.tab.active') as HTMLElement;
-      if (newActiveTab) newActiveTab.focus();
-    }, 10);
+    const newActiveTab = document.querySelector('.tab.active') as HTMLElement;
+    if (newActiveTab) newActiveTab.focus();
   }
   
   function handleCategoryButtonNavigation(event: KeyboardEvent) {
@@ -298,7 +306,7 @@
   }
   
   // Handle Ctrl+Tab / Ctrl+Shift+Tab for switching between main tabs
-  function handleTabSwitching(isShiftTab: boolean) {
+  async function handleTabSwitching(isShiftTab: boolean) {
     const tabs: Array<'search' | 'browse' | 'recent'> = ['search', 'browse', 'recent'];
     const currentIndex = tabs.indexOf(activeTab);
     
@@ -310,24 +318,64 @@
       activeTab = tabs[currentIndex < tabs.length - 1 ? currentIndex + 1 : 0];
     }
     
-    // Focus appropriate element in new tab
-    setTimeout(() => {
-      if (activeTab === 'search') {
-        const searchInput = document.querySelector('.search-input') as HTMLElement;
-        if (searchInput) searchInput.focus();
-      } else if (activeTab === 'browse') {
-        const firstCategory = document.querySelector('.category-button') as HTMLElement;
-        if (firstCategory) {
-          firstCategory.focus();
-        } else {
-          const firstEmoji = document.querySelector('.emoji-result') as HTMLElement;
-          if (firstEmoji) firstEmoji.focus();
-        }
-      } else if (activeTab === 'recent') {
-        const firstEmoji = document.querySelector('.emoji-result') as HTMLElement;
-        if (firstEmoji) firstEmoji.focus();
+    // Wait for Svelte to update the DOM
+    await tick();
+    
+    // Focus appropriate element in new tab with proper fallbacks
+    const dialogElement = document.querySelector('.emoji-search-dialog') as HTMLElement;
+    if (!dialogElement) return;
+    
+    if (activeTab === 'search') {
+      // Focus search input in search tab
+      const searchInput = dialogElement.querySelector('.search-input') as HTMLInputElement;
+      if (searchInput && !searchInput.disabled) {
+        searchInput.focus();
+        // Ensure cursor is at the end of the input
+        searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+        console.log('Focused search input');
+      } else {
+        console.warn('Could not focus search input');
       }
-    }, 10);
+    } else if (activeTab === 'browse') {
+      // Focus first category button or fallback to first emoji
+      const firstCategory = dialogElement.querySelector('.category-button') as HTMLElement;
+      if (firstCategory) {
+        firstCategory.focus();
+        console.log('Focused first category button');
+      } else {
+        // Fallback to emoji grid if no categories
+        const firstEmoji = dialogElement.querySelector('.browse-section .emoji-result') as HTMLElement;
+        if (firstEmoji) {
+          firstEmoji.focus();
+          selectedIndex = 0;
+          console.log('Focused first emoji in browse');
+        } else {
+          // Last resort: focus the section itself to maintain keyboard navigation
+          const browseSection = dialogElement.querySelector('.browse-section') as HTMLElement;
+          if (browseSection) {
+            browseSection.tabIndex = -1;
+            browseSection.focus();
+            console.log('Focused browse section');
+          }
+        }
+      }
+    } else if (activeTab === 'recent') {
+      // Focus first recent emoji or fallback to section
+      const firstEmoji = dialogElement.querySelector('.recent-section .emoji-result') as HTMLElement;
+      if (firstEmoji) {
+        firstEmoji.focus();
+        selectedIndex = 0;
+        console.log('Focused first recent emoji');
+      } else {
+        // Fallback when no recent emojis exist
+        const recentSection = dialogElement.querySelector('.recent-section') as HTMLElement;
+        if (recentSection) {
+          recentSection.tabIndex = -1;
+          recentSection.focus();
+          console.log('Focused recent section (no emojis)');
+        }
+      }
+    }
   }
   
   function handleTabNavigation(isShiftTab: boolean) {
@@ -468,16 +516,17 @@
   // Focus trap implementation
   let previousFocus: HTMLElement | null = null;
   
-  function setupFocusTrap() {
+  async function setupFocusTrap() {
     // Store the previously focused element
     previousFocus = document.activeElement as HTMLElement;
     
+    // Wait for DOM to be ready
+    await tick();
+    
     // Focus search input when dialog opens
-    setTimeout(() => {
-      if (searchInput) {
-        searchInput.focus();
-      }
-    }, 100);
+    if (searchInput) {
+      searchInput.focus();
+    }
   }
   
   function cleanupFocusTrap() {
