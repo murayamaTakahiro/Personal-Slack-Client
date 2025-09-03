@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emoji Search Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #333;
+            margin-top: 0;
+        }
+        .search-input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .results {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+        }
+        .emoji-card {
+            padding: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            text-align: center;
+            transition: background-color 0.2s;
+        }
+        .emoji-card:hover {
+            background-color: #f0f0f0;
+        }
+        .emoji-display {
+            font-size: 32px;
+            margin-bottom: 5px;
+        }
+        .emoji-name {
+            font-size: 12px;
+            color: #666;
+            word-break: break-all;
+        }
+        .match-type {
+            font-size: 10px;
+            color: #999;
+            margin-top: 3px;
+        }
+        .status {
+            padding: 10px;
+            background: #e7f3ff;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .error {
+            background: #ffe7e7;
+            color: #d00;
+        }
+        .success {
+            background: #e7ffe7;
+            color: #080;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 10px;
+        }
+        .stat {
+            padding: 5px 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Emoji Search Test</h1>
+    
+    <div class="test-section">
+        <h2>Search Test</h2>
+        <div id="status" class="status">Initializing...</div>
+        <div id="stats" class="stats"></div>
+        <input type="text" id="searchInput" class="search-input" placeholder="Search emojis... (e.g., 'ojigi', 'man', 'bow')">
+        <div id="results" class="results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Known Standard Emojis (Sample)</h2>
+        <div id="standardEmojis" class="results"></div>
+    </div>
+
+    <script type="module">
+        // Mock Svelte stores
+        const writable = (initialValue) => {
+            let value = initialValue;
+            const subscribers = [];
+            
+            return {
+                subscribe: (fn) => {
+                    fn(value);
+                    subscribers.push(fn);
+                    return () => {
+                        const index = subscribers.indexOf(fn);
+                        if (index >= 0) subscribers.splice(index, 1);
+                    };
+                },
+                set: (newValue) => {
+                    value = newValue;
+                    subscribers.forEach(fn => fn(value));
+                },
+                update: (fn) => {
+                    value = fn(value);
+                    subscribers.forEach(sub => sub(value));
+                }
+            };
+        };
+
+        const get = (store) => {
+            let value;
+            store.subscribe(v => value = v)();
+            return value;
+        };
+
+        // Import the emoji data
+        const STANDARD_EMOJIS = {
+            '+1': '👍',
+            'thumbsup': '👍',
+            'heart': '❤️',
+            'eyes': '👀',
+            'raised_hands': '🙌',
+            'clap': '👏',
+            'wave': '👋',
+            'ok_hand': '👌',
+            'pray': '🙏',
+            'fire': '🔥',
+            'tada': '🎉',
+            'rocket': '🚀',
+            'joy': '😂',
+            'smile': '😊',
+            '100': '💯',
+            'man': '👨',
+            'woman': '👩',
+            'person': '🧑',
+            'person_bowing': '🙇',
+            'man_bowing': '🙇‍♂️',
+            'woman_bowing': '🙇‍♀️',
+            'person_facepalming': '🤦',
+            'person_shrugging': '🤷',
+            'person_raising_hand': '🙋',
+            'thinking_face': '🤔',
+            'confused': '😕',
+            'neutral_face': '😐'
+        };
+
+        // Initialize emoji data store with standard emojis
+        const emojiData = writable({
+            custom: {},
+            standard: STANDARD_EMOJIS
+        });
+
+        // Simplified search service
+        class SimpleEmojiSearchService {
+            constructor() {
+                this.searchIndex = new Map();
+                this.emojiCache = new Map();
+                
+                // Subscribe to data changes
+                emojiData.subscribe(() => {
+                    this.rebuildIndex();
+                });
+            }
+
+            rebuildIndex() {
+                this.searchIndex.clear();
+                this.emojiCache.clear();
+                
+                const data = get(emojiData);
+                console.log('Building index with:', {
+                    custom: Object.keys(data.custom).length,
+                    standard: Object.keys(data.standard).length
+                });
+
+                // Process standard emojis
+                for (const [name, unicode] of Object.entries(data.standard)) {
+                    this.emojiCache.set(name, {
+                        name,
+                        value: unicode,
+                        isCustom: false
+                    });
+                    
+                    // Index by name
+                    this.addToIndex(name.toLowerCase(), name);
+                    
+                    // Add aliases for bowing emojis
+                    if (name.includes('bowing')) {
+                        this.addToIndex('ojigi', name);
+                        this.addToIndex('bow', name);
+                    }
+                    
+                    // Add parts of name
+                    const parts = name.split('_');
+                    for (const part of parts) {
+                        if (part.length > 2) {
+                            this.addToIndex(part.toLowerCase(), name);
+                        }
+                    }
+                }
+
+                // Process custom emojis
+                for (const [name, url] of Object.entries(data.custom)) {
+                    this.emojiCache.set(name, {
+                        name,
+                        value: url,
+                        isCustom: true
+                    });
+                    
+                    this.addToIndex(name.toLowerCase(), name);
+                }
+
+                console.log('Index built:', {
+                    cache: this.emojiCache.size,
+                    index: this.searchIndex.size
+                });
+            }
+
+            addToIndex(key, emojiName) {
+                if (!this.searchIndex.has(key)) {
+                    this.searchIndex.set(key, []);
+                }
+                const list = this.searchIndex.get(key);
+                if (!list.includes(emojiName)) {
+                    list.push(emojiName);
+                }
+            }
+
+            search(query) {
+                const normalized = query.toLowerCase().trim();
+                const results = new Map();
+
+                // Exact match
+                if (this.emojiCache.has(normalized)) {
+                    const emoji = this.emojiCache.get(normalized);
+                    results.set(emoji.name, {
+                        ...emoji,
+                        matchType: 'exact'
+                    });
+                }
+
+                // Index match
+                if (this.searchIndex.has(normalized)) {
+                    for (const name of this.searchIndex.get(normalized)) {
+                        if (!results.has(name)) {
+                            const emoji = this.emojiCache.get(name);
+                            results.set(name, {
+                                ...emoji,
+                                matchType: 'index'
+                            });
+                        }
+                    }
+                }
+
+                // Partial match
+                for (const [key, names] of this.searchIndex.entries()) {
+                    if (key.includes(normalized) || normalized.includes(key)) {
+                        for (const name of names) {
+                            if (!results.has(name)) {
+                                const emoji = this.emojiCache.get(name);
+                                results.set(name, {
+                                    ...emoji,
+                                    matchType: 'partial'
+                                });
+                            }
+                        }
+                    }
+                }
+
+                return Array.from(results.values());
+            }
+        }
+
+        // Initialize search service
+        const searchService = new SimpleEmojiSearchService();
+
+        // UI functions
+        function updateStatus(message, isError = false) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + (isError ? 'error' : 'success');
+        }
+
+        function updateStats() {
+            const data = get(emojiData);
+            const stats = document.getElementById('stats');
+            stats.innerHTML = `
+                <div class="stat">Standard: ${Object.keys(data.standard).length}</div>
+                <div class="stat">Custom: ${Object.keys(data.custom).length}</div>
+                <div class="stat">Cache: ${searchService.emojiCache.size}</div>
+                <div class="stat">Index: ${searchService.searchIndex.size}</div>
+            `;
+        }
+
+        function displayResults(results, container) {
+            container.innerHTML = results.map(r => `
+                <div class="emoji-card">
+                    <div class="emoji-display">${r.isCustom ? '🖼️' : r.value}</div>
+                    <div class="emoji-name">${r.name}</div>
+                    ${r.matchType ? `<div class="match-type">${r.matchType}</div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        // Initialize
+        updateStatus('Ready! Try searching for "ojigi", "man", "bow", etc.');
+        updateStats();
+
+        // Show sample standard emojis
+        const sampleEmojis = ['person_bowing', 'man_bowing', 'woman_bowing', 'man', 'woman', 'person', 'thumbsup', 'heart', 'fire'];
+        const standardContainer = document.getElementById('standardEmojis');
+        displayResults(
+            sampleEmojis.map(name => ({
+                name,
+                value: STANDARD_EMOJIS[name] || '?',
+                isCustom: false
+            })),
+            standardContainer
+        );
+
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const resultsContainer = document.getElementById('results');
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value;
+            if (!query) {
+                resultsContainer.innerHTML = '<p style="color: #999; text-align: center;">Type to search...</p>';
+                return;
+            }
+
+            console.log('Searching for:', query);
+            const results = searchService.search(query);
+            console.log('Results:', results);
+
+            if (results.length > 0) {
+                displayResults(results, resultsContainer);
+                updateStatus(`Found ${results.length} result(s) for "${query}"`);
+            } else {
+                resultsContainer.innerHTML = '<p style="color: #999; text-align: center;">No results found</p>';
+                updateStatus(`No results for "${query}"`, true);
+            }
+        });
+
+        // Test searches
+        const testSearches = ['ojigi', 'man', 'bow', 'bowing'];
+        console.log('Running test searches:');
+        for (const query of testSearches) {
+            const results = searchService.search(query);
+            console.log(`"${query}":`, results.map(r => r.name));
+        }
+    </script>
+</body>
+</html>
