@@ -62,14 +62,6 @@
         cleanChannel = cleanChannel.substring(1);
       }
       
-      console.log('Channel value in SearchBar handleSearch:', channel);
-      console.log('Clean channel:', cleanChannel);
-      console.log('Realtime mode:', $realtimeStore.isEnabled);
-      
-      if (!cleanChannel) {
-        console.warn('No channel selected despite UI showing selection!');
-      }
-      
       // Record channel usage for recent channels tracking
       if (cleanChannel) {
         // For multi-channel mode, channel might be comma-separated
@@ -399,8 +391,6 @@
               } else {
                 channel = '';
               }
-              console.log('Channel changed to:', channel);
-              console.log('Event detail:', e.detail);
             }}
             on:enableRealtime={() => {
               // When realtime mode is enabled, trigger an immediate search

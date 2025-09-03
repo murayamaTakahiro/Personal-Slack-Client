@@ -22,15 +22,11 @@
     const cursorPos = textarea.selectionStart;
     mentionContext = mentionService.detectMentionTrigger(value, cursorPos);
     
-    // Debug log
-    console.log('Input detected:', { value, cursorPos, mentionContext });
-    
     if (mentionContext && textarea) {
       // Calculate cursor coordinates for dropdown positioning
       const coords = mentionService.getCursorCoordinates(textarea);
       mentionContext.cursorCoordinates = coords;
       showAutocomplete = true;
-      console.log('Showing autocomplete', { coords, searchQuery: mentionContext.searchQuery });
     } else {
       showAutocomplete = false;
     }
@@ -117,13 +113,6 @@
   />
   
   {#if showAutocomplete && mentionContext}
-    <!-- Debug: Autocomplete should be visible -->
-    {console.log('Rendering MentionAutocomplete with:', { 
-      showAutocomplete, 
-      mentionContext,
-      searchQuery: mentionContext.searchQuery,
-      position: mentionContext.cursorCoordinates 
-    })}
     <MentionAutocomplete
       searchQuery={mentionContext.searchQuery}
       position={mentionContext.cursorCoordinates}

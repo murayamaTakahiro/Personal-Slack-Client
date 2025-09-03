@@ -332,30 +332,24 @@
         searchInput.focus();
         // Ensure cursor is at the end of the input
         searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
-        console.log('Focused search input');
-      } else {
-        console.warn('Could not focus search input');
       }
     } else if (activeTab === 'browse') {
       // Focus first category button or fallback to first emoji
       const firstCategory = dialogElement.querySelector('.category-button') as HTMLElement;
       if (firstCategory) {
         firstCategory.focus();
-        console.log('Focused first category button');
       } else {
         // Fallback to emoji grid if no categories
         const firstEmoji = dialogElement.querySelector('.browse-section .emoji-result') as HTMLElement;
         if (firstEmoji) {
           firstEmoji.focus();
           selectedIndex = 0;
-          console.log('Focused first emoji in browse');
         } else {
           // Last resort: focus the section itself to maintain keyboard navigation
           const browseSection = dialogElement.querySelector('.browse-section') as HTMLElement;
           if (browseSection) {
             browseSection.tabIndex = -1;
             browseSection.focus();
-            console.log('Focused browse section');
           }
         }
       }
@@ -365,14 +359,12 @@
       if (firstEmoji) {
         firstEmoji.focus();
         selectedIndex = 0;
-        console.log('Focused first recent emoji');
       } else {
         // Fallback when no recent emojis exist
         const recentSection = dialogElement.querySelector('.recent-section') as HTMLElement;
         if (recentSection) {
           recentSection.tabIndex = -1;
           recentSection.focus();
-          console.log('Focused recent section (no emojis)');
         }
       }
     }

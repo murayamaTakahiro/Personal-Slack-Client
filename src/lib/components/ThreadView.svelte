@@ -81,7 +81,6 @@
     try {
       // Extract URLs from message text (use decoded text for URL extraction)
       const extractedUrls = urlService.extractUrls(decodeSlackText(messageToOpen.text));
-      console.log('🔍 DEBUG: Thread - Extracted URLs:', extractedUrls);
       
       // Check if we have URLs to open
       if (extractedUrls.slackUrls.length === 0 && extractedUrls.externalUrls.length === 0) {
@@ -114,8 +113,6 @@
         prepared.externalUrls,
         200 // 200ms delay between openings
       );
-      
-      console.log('🔍 DEBUG: Thread - URL opening result:', result);
       
       // Handle any errors
       if (result.errors.length > 0) {

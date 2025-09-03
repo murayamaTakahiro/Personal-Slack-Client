@@ -43,3 +43,6 @@ Cargo.lock
 
 # User configuration (keep example only)
 public/config.json
+
+# Vite temporary files
+*.timestamp-*

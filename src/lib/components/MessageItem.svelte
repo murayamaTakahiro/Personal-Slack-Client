@@ -31,11 +31,6 @@
     // Re-register handlers if this message is selected but handlers aren't registered
     // This can happen during Live mode when components are updated
     if (selected && enableReactions && !handlersRegistered) {
-      console.log('🔍 DEBUG: Message updated, re-registering handlers for selected message', {
-        messageTs: message.ts,
-        selected,
-        handlersRegistered
-      });
       // Use setTimeout to avoid issues with reactive updates
       setTimeout(() => {
         if (selected && enableReactions && !handlersRegistered) {
@@ -100,7 +95,6 @@
     try {
       // Extract URLs from message text (use decoded text for URL extraction)
       const extractedUrls = urlService.extractUrls(decodeSlackText(message.text));
-      console.log('🔍 DEBUG: Extracted URLs:', extractedUrls);
       
       // Check if we have URLs to open
       if (extractedUrls.slackUrls.length === 0 && extractedUrls.externalUrls.length === 0) {
@@ -133,8 +127,6 @@
         prepared.externalUrls,
         200 // 200ms delay between openings
       );
-      
-      console.log('🔍 DEBUG: URL opening result:', result);
       
       // Handle any errors
       if (result.errors.length > 0) {
@@ -186,17 +178,9 @@
     event.stopPropagation();
     showReactionPicker = true;
     isPickerOpen = true;
-    console.log('🔍 DEBUG: Reaction picker opened via mouse click');
   }
   
   function closeReactionPicker() {
-    console.log('🔍 DEBUG: closeReactionPicker called', {
-      showReactionPicker: showReactionPicker,
-      isPickerOpen,
-      selected,
-      enableReactions,
-      handlersRegistered
-    });
     showReactionPicker = false;
     isPickerOpen = false;
     // NOTE: No re-registration needed here - handlers should remain registered
@@ -205,14 +189,6 @@
   
   async function handleEmojiSelect(event: CustomEvent<{emoji: string}>) {
     const { emoji } = event.detail;
-    console.log('🔍 DEBUG: handleEmojiSelect called', {
-      emoji,
-      showReactionPicker: showReactionPicker,
-      isPickerOpen,
-      selected,
-      enableReactions,
-      handlersRegistered
-    });
     showReactionPicker = false;
     isPickerOpen = false;
     
@@ -235,16 +211,8 @@
   
   function registerKeyboardHandlers() {
     const keyboardService = getKeyboardService();
-    console.log('🔍 DEBUG: registerKeyboardHandlers called', {
-      keyboardService: !!keyboardService,
-      handlersRegistered,
-      selected,
-      enableReactions,
-      messageTs: message.ts
-    });
     
     if (!keyboardService) {
-      console.log('🔍 DEBUG: No keyboard service available');
       return;
     }
     
@@ -255,25 +223,14 @@
       // Register 'r' key for opening reaction picker
       keyboardService.registerHandler('openReactionPicker', {
         action: () => {
-          console.log('🔍 DEBUG: openReactionPicker action triggered', { 
-            showReactionPicker, 
-            isPickerOpen,
-            selected, 
-            enableReactions 
-          });
-          
           // Prevent opening if picker is already open
           if (isPickerOpen || showReactionPicker) {
-            console.log('🔍 DEBUG: Picker already open, ignoring keyboard trigger');
             return;
           }
           
           // Reset picker state before opening
           showReactionPicker = true;
           isPickerOpen = true;
-          console.log('🔍 DEBUG: Reaction picker opened via keyboard', { 
-            showReactionPicker: true
-          });
         },
         allowInInput: false
       });
@@ -292,7 +249,6 @@
       // 3. The ResultList's handler properly gets the focused message
       
       handlersRegistered = true;
-      console.log('🔍 DEBUG: Keyboard handlers registered successfully');
     } catch (error) {
       console.error('Failed to register keyboard handlers:', error);
     }
@@ -300,15 +256,8 @@
   
   function unregisterKeyboardHandlers() {
     const keyboardService = getKeyboardService();
-    console.log('🔍 DEBUG: unregisterKeyboardHandlers called', {
-      keyboardService: !!keyboardService,
-      handlersRegistered,
-      selected,
-      messageTs: message.ts
-    });
     
     if (!keyboardService) {
-      console.log('🔍 DEBUG: No keyboard service available');
       handlersRegistered = false; // Reset state even if service unavailable
       return;
     }
@@ -322,7 +271,6 @@
         keyboardService.unregisterHandler(`reaction${i}` as any);
       }
       handlersRegistered = false;
-      console.log('🔍 DEBUG: Keyboard handlers unregistered successfully');
     } catch (error) {
       console.error('Failed to unregister keyboard handlers:', error);
       handlersRegistered = false; // Reset state even on error

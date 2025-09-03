@@ -16,8 +16,6 @@
   let userFavorites: UserFavorite[] = [];
   
   onMount(() => {
-    console.log('MentionAutocomplete mounted with searchQuery:', searchQuery);
-    
     // Load favorites
     userFavorites = userService.getUserFavorites();
     
@@ -40,7 +38,6 @@
   $: searchUsers(searchQuery);
   
   async function searchUsers(query: string) {
-    console.log('Searching users with query:', query);
     loading = true;
     
     try {
@@ -49,12 +46,10 @@
       // If query is empty, show frequently mentioned users first
       if (query.length === 0) {
         const allUsers = await userService.getAllUsers();
-        console.log('Got all users:', allUsers.length);
         users = allUsers;
       } else {
         // Search for users matching the query
         const searchResults = await userService.searchUsers(query);
-        console.log('Search results:', searchResults.length);
         users = searchResults;
       }
       
@@ -80,12 +75,6 @@
         const bName = b.displayName || b.realName || b.name;
         return aName.localeCompare(bName);
       }).slice(0, 10);
-      
-      console.log('Filtered users:', filteredUsers.length);
-      console.log('Top user mention counts:', filteredUsers.slice(0, 3).map(u => ({
-        name: u.name,
-        count: mentionService.getUserMentionCount(u.id)
-      })));
       
       // Reset selection index if needed
       if (selectedIndex >= filteredUsers.length) {

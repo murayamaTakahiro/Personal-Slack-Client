@@ -45,18 +45,6 @@
       mappings = [...DEFAULT_REACTION_MAPPINGS];
     }
     
-    // Debug: Log what emojis are actually available for the current mappings
-    console.log('[EmojiSettings] Current mappings and their availability:');
-    mappings.forEach(mapping => {
-      const emojiValue = emojiService.getEmoji(mapping.emoji);
-      if (!emojiValue) {
-        console.warn(`  ❌ "${mapping.emoji}" - NOT FOUND`);
-      } else if (emojiValue.startsWith('http')) {
-        console.log(`  ✅ "${mapping.emoji}" - Custom emoji with URL`);
-      } else {
-        console.log(`  ✅ "${mapping.emoji}" - Unicode: ${emojiValue}`);
-      }
-    });
   });
   
   onDestroy(() => {
@@ -66,14 +54,8 @@
   
   // Function to manually refresh emojis for debugging
   async function refreshEmojis() {
-    console.log('[EmojiSettings] Manually refreshing emojis...');
     await emojiService.refresh();
     const data = $emojiData;
-    console.log('[EmojiSettings] Emoji refresh complete:', {
-      customCount: Object.keys(data.custom).length,
-      standardCount: Object.keys(data.standard).length,
-      sampleCustom: Object.entries(data.custom).slice(0, 5)
-    });
     alert(`Emojis refreshed! Custom: ${Object.keys(data.custom).length}, Standard: ${Object.keys(data.standard).length}`);
   }
   
@@ -86,7 +68,6 @@
         // Try to find a similar emoji using the advanced search service
         const searchResults = emojiSearchService.search(mapping.emoji, 5);
         if (searchResults.length > 0) {
-          console.log(`[EmojiSettings] Auto-fixing "${mapping.emoji}" -> "${searchResults[0].name}"`);
           fixedCount++;
           return {
             ...mapping,
@@ -241,14 +222,12 @@
     // Reload the current DEFAULT_REACTION_MAPPINGS after code edit
     mappings = [...DEFAULT_REACTION_MAPPINGS];
     reactionMappings.set(mappings);
-    console.log('[EmojiSettings] Reloaded DEFAULT_REACTION_MAPPINGS from reactionService.ts');
   }
   
   async function saveSettings() {
     // Save to both the reaction service and settings store
     reactionService.updateMappings(mappings);
     await updateSettings({ reactionMappings: mappings });
-    console.log('[EmojiSettings] Saved reaction mappings:', mappings);
   }
   
   function handleKeydown(event: KeyboardEvent, index: number) {

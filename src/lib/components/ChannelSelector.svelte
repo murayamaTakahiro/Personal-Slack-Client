@@ -319,8 +319,6 @@
     // Clear search input to allow further searching
     searchInput = '';
     showDropdown = false;
-    console.log('Applying multi-select with channels:', selectedChannels);
-    console.log('Channel string:', channelString);
     // Dispatch both formats for compatibility
     dispatch('change', { 
       channels: selectedChannels,

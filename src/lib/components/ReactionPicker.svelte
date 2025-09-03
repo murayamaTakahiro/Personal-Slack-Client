@@ -23,7 +23,6 @@
   
   // Reset state when component mounts (picker opens)
   onMount(() => {
-    console.log('🔍 DEBUG: ReactionPicker mounted');
     searchQuery = '';
     selectedIndex = 0;
     emojiButtons = [];
@@ -47,10 +46,8 @@
     if (searchInput) {
       searchInput.focus();
       currentFocusIndex = focusableElements.indexOf(searchInput);
-      console.log('🔍 DEBUG: Initial focus on search input, index:', currentFocusIndex);
     } else if (pickerElement) {
       pickerElement.focus();
-      console.log('🔍 DEBUG: ReactionPicker focused (no search input)');
     }
   }
   
@@ -66,8 +63,6 @@
     if (pickerElement.getAttribute('tabindex') !== '-1') {
       focusableElements.unshift(pickerElement);
     }
-    
-    console.log('🔍 DEBUG: Found focusable elements:', focusableElements.length);
   }
   
   function handleTabKey(event: KeyboardEvent, isShift: boolean) {
@@ -78,20 +73,12 @@
     updateFocusableElements();
     
     if (focusableElements.length === 0) {
-      console.log('🔍 DEBUG: No focusable elements found');
       return;
     }
     
     // Get current focus index
     const currentElement = document.activeElement as HTMLElement;
     currentFocusIndex = focusableElements.indexOf(currentElement);
-    
-    console.log('🔍 DEBUG: Tab navigation', {
-      isShift,
-      currentFocusIndex,
-      totalElements: focusableElements.length,
-      currentElement: currentElement?.tagName
-    });
     
     if (isShift) {
       // Move backwards
@@ -111,7 +98,6 @@
     const nextElement = focusableElements[currentFocusIndex];
     if (nextElement) {
       nextElement.focus();
-      console.log('🔍 DEBUG: Focused element at index', currentFocusIndex, nextElement.tagName);
       
       // If we focused an emoji button, update selectedIndex
       const buttonIndex = emojiButtons.indexOf(nextElement as HTMLButtonElement);
@@ -124,7 +110,6 @@
   function restorePreviousFocus() {
     if (previousFocusElement && document.body.contains(previousFocusElement)) {
       previousFocusElement.focus();
-      console.log('🔍 DEBUG: Restored focus to previous element');
     }
   }
   
@@ -183,13 +168,11 @@
   }
   
   function selectEmoji(emoji: string) {
-    console.log('🔍 DEBUG: ReactionPicker selectEmoji called', { emoji });
     dispatch('select', { emoji });
     close();
   }
   
   function close() {
-    console.log('🔍 DEBUG: ReactionPicker close called');
     // Restore focus to previous element
     restorePreviousFocus();
     // Reset all state when closing
@@ -286,13 +269,7 @@
   }
   
   function handleClickOutside(event: MouseEvent) {
-    console.log('🔍 DEBUG: ReactionPicker handleClickOutside', {
-      target: event.target,
-      pickerElement: !!pickerElement,
-      contains: pickerElement?.contains(event.target as Node)
-    });
     if (pickerElement && !pickerElement.contains(event.target as Node)) {
-      console.log('🔍 DEBUG: Click outside detected, closing picker');
       close();
     }
   }
@@ -307,19 +284,15 @@
   }
   
   onMount(() => {
-    console.log('🔍 DEBUG: ReactionPicker onMount - setting up event listeners');
-    
     // Add global escape listener
     document.addEventListener('keydown', handleGlobalEscape, true);
     
     // Add click outside listener with a slight delay to avoid immediate triggers
     const timeoutId = setTimeout(() => {
-      console.log('🔍 DEBUG: Adding click outside listener');
       document.addEventListener('click', handleClickOutside, true); // Use capture phase
     }, 100); // Increased delay to ensure proper setup
     
     return () => {
-      console.log('🔍 DEBUG: ReactionPicker cleanup - removing event listeners');
       clearTimeout(timeoutId);
       document.removeEventListener('click', handleClickOutside, true);
       document.removeEventListener('keydown', handleGlobalEscape, true);
