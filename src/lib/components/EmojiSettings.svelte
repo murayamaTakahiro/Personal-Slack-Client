@@ -150,11 +150,13 @@
   function startEditing(index: number) {
     editingIndex = index;
     newEmoji = mappings[index].emoji;
+    searchQuery = ''; // Clear search query when starting to edit
   }
   
   function cancelEditing() {
     editingIndex = null;
     newEmoji = '';
+    searchQuery = ''; // Clear search query when canceling edit
   }
   
   function saveEmoji(index: number) {
