@@ -28,6 +28,7 @@
   let workspaceButtonElement: HTMLButtonElement;
   let focusedIndex = -1;
   let focusableElements: HTMLElement[] = [];
+  let selectedWorkspaceForAction: Workspace | null = null;
   
   $: currentWorkspace = $activeWorkspace;
   $: workspaceList = $sortedWorkspaces;
@@ -237,7 +238,8 @@
   function updateFocusableElements() {
     if (!dropdownElement) return;
     
-    const selector = 'button:not([disabled]):not(.delete-button):not(.edit-button), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    // Include all interactive elements for better keyboard navigation
+    const selector = 'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
     focusableElements = Array.from(dropdownElement.querySelectorAll(selector));
   }
   
@@ -253,6 +255,27 @@
       return;
     }
     
+    // Get the currently focused workspace item
+    const focusedElement = document.activeElement;
+    const workspaceItem = focusedElement?.closest('.workspace-item');
+    if (workspaceItem) {
+      const workspaceId = workspaceItem.getAttribute('data-workspace-id');
+      const workspace = workspaceList.find(w => w.id === workspaceId);
+      
+      // Handle keyboard shortcuts for workspace actions
+      if (workspace && (event.key === 'e' || event.key === 'E')) {
+        event.preventDefault();
+        startEditingWorkspace(event, workspace);
+        return;
+      }
+      
+      if (workspace && event.key === 'Delete' && workspaceList.length > 1) {
+        event.preventDefault();
+        deleteWorkspace(event, workspace);
+        return;
+      }
+    }
+    
     switch (event.key) {
       case 'Escape':
         event.preventDefault();
@@ -260,13 +283,8 @@
         break;
         
       case 'Tab':
-        // Trap focus within dropdown
-        event.preventDefault();
-        if (event.shiftKey) {
-          navigateFocus('prev');
-        } else {
-          navigateFocus('next');
-        }
+        // Allow natural tab navigation through all buttons
+        // Don't prevent default to allow browser's natural tab order
         break;
         
       case 'ArrowDown':
@@ -410,57 +428,73 @@
     >
       {#if !addingWorkspace}
         <div class="workspace-list">
+          <div class="workspace-hint">
+            <span>Press <kbd>E</kbd> to edit, <kbd>Del</kbd> to delete</span>
+          </div>
           {#each workspaceList as workspace, index}
-            <button
+            <div
               class="workspace-item"
               class:active={workspace.id === currentWorkspace?.id}
-              on:click={() => switchToWorkspace(workspace)}
+              data-workspace-id={workspace.id}
               role="menuitem"
-              aria-label="Switch to {workspace.name}"
-              tabindex={focusedIndex === index ? 0 : -1}
+              tabindex={0}
+              on:click={() => switchToWorkspace(workspace)}
+              on:keydown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  switchToWorkspace(workspace);
+                }
+              }}
+              on:contextmenu={(e) => {
+                e.preventDefault();
+                selectedWorkspaceForAction = workspace;
+                startEditingWorkspace(e, workspace);
+              }}
             >
-              <div 
-                class="workspace-avatar small"
-                style="background-color: {workspace.color || '#4A90E2'}"
-              >
-                {getWorkspaceInitials(workspace)}
-              </div>
-              <div class="workspace-details">
-                <span class="workspace-name">{workspace.name}</span>
-                <span class="workspace-domain">{workspace.domain}.slack.com</span>
-              </div>
-              {#if workspace.id === currentWorkspace?.id}
-                <svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
-              {/if}
-              <button
-                class="edit-button"
-                on:click={e => startEditingWorkspace(e, workspace)}
-                title="Edit workspace"
-                tabindex="-1"
-                aria-label="Edit {workspace.name}"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                </svg>
-              </button>
-              {#if workspaceList.length > 1}
-                <button
-                  class="delete-button"
-                  on:click={e => deleteWorkspace(e, workspace)}
-                  title="Delete workspace"
-                  tabindex="-1"
-                  aria-label="Delete {workspace.name}"
+              <div class="workspace-content" on:click={() => switchToWorkspace(workspace)}>
+                <div 
+                  class="workspace-avatar"
+                  style="background-color: {workspace.color || '#4A90E2'}"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <line x1="18" y1="6" x2="6" y2="18"/>
-                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  {getWorkspaceInitials(workspace)}
+                </div>
+                <div class="workspace-details">
+                  <span class="workspace-name">{workspace.name}</span>
+                  <span class="workspace-domain">{workspace.domain}.slack.com</span>
+                </div>
+                {#if workspace.id === currentWorkspace?.id}
+                  <svg class="check-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                {/if}
+              </div>
+              <div class="workspace-actions">
+                <button
+                  class="action-button edit-button"
+                  on:click={e => startEditingWorkspace(e, workspace)}
+                  title="Edit workspace (E)"
+                  aria-label="Edit {workspace.name}"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                   </svg>
                 </button>
-              {/if}
-            </button>
+                {#if workspaceList.length > 1}
+                  <button
+                    class="action-button delete-button"
+                    on:click={e => deleteWorkspace(e, workspace)}
+                    title="Delete workspace (Del)"
+                    aria-label="Delete {workspace.name}"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <line x1="18" y1="6" x2="6" y2="18"/>
+                      <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                {/if}
+              </div>
+            </div>
           {/each}
         </div>
         
@@ -668,13 +702,13 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.5rem 0.75rem;
+    padding: 0.625rem 0.875rem;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s;
-    min-width: 200px;
+    min-width: 240px;
   }
   
   .workspace-button:hover {
@@ -693,22 +727,16 @@
   }
   
   .workspace-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 0.875rem;
+    font-size: 0.9rem;
     color: white;
     flex-shrink: 0;
-  }
-  
-  .workspace-avatar.small {
-    width: 28px;
-    height: 28px;
-    font-size: 0.75rem;
   }
   
   .workspace-avatar.empty {
@@ -726,12 +754,18 @@
   .workspace-name {
     font-weight: 500;
     color: var(--text-primary);
-    font-size: 0.875rem;
+    font-size: 0.925rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   
   .workspace-domain {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   
   .dropdown-arrow {
@@ -747,45 +781,73 @@
     position: absolute;
     top: calc(100% + 0.5rem);
     left: 0;
-    right: 0;
+    min-width: 320px;
     background: var(--bg-primary);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
     z-index: 1000;
     overflow: hidden;
   }
   
   .workspace-list {
-    max-height: 300px;
+    max-height: 400px;
     overflow-y: auto;
+  }
+  
+  .workspace-hint {
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+  }
+  
+  .workspace-hint kbd {
+    display: inline-block;
+    padding: 0.125rem 0.375rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-family: monospace;
+    margin: 0 0.125rem;
   }
   
   .workspace-item {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem;
+    justify-content: space-between;
+    padding: 0.875rem 1rem;
     width: 100%;
     background: transparent;
-    border: none;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.2s;
     position: relative;
+    border: 2px solid transparent;
+    margin: 0.25rem 0;
   }
   
-  .workspace-item:hover,
-  .workspace-item:focus {
+  .workspace-item:hover {
     background: var(--bg-hover);
-    outline: none;
   }
   
   .workspace-item:focus {
-    box-shadow: inset 0 0 0 2px var(--primary);
+    outline: none;
+    border-color: var(--primary);
+    background: var(--bg-hover);
   }
   
   .workspace-item.active {
     background: var(--primary-bg);
+  }
+  
+  .workspace-content {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    flex: 1;
+    min-width: 0;
   }
   
   .workspace-details {
@@ -793,6 +855,14 @@
     flex-direction: column;
     align-items: flex-start;
     flex: 1;
+    min-width: 0;
+  }
+  
+  .workspace-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-left: 0.5rem;
   }
   
   .check-icon {
@@ -800,33 +870,44 @@
     flex-shrink: 0;
   }
   
-  .edit-button,
-  .delete-button {
-    padding: 0.25rem;
-    background: transparent;
-    border: none;
+  .action-button {
+    padding: 0.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
     color: var(--text-secondary);
     cursor: pointer;
-    border-radius: 4px;
-    opacity: 0;
+    border-radius: 6px;
     transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
   }
   
-  .workspace-item:hover .edit-button,
-  .workspace-item:hover .delete-button,
-  .workspace-item:focus .edit-button,
-  .workspace-item:focus .delete-button {
+  .workspace-item:hover .action-button,
+  .workspace-item:focus .action-button {
     opacity: 1;
   }
   
+  .action-button:hover {
+    transform: scale(1.05);
+  }
+  
+  .action-button:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--primary);
+  }
+  
   .edit-button:hover {
-    background: var(--bg-hover);
-    color: var(--primary);
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
   }
   
   .delete-button:hover {
-    background: var(--bg-hover);
-    color: var(--danger);
+    background: var(--danger);
+    color: white;
+    border-color: var(--danger);
   }
   
   /* Modal styles */
@@ -1111,15 +1192,16 @@
   .add-workspace-button {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem;
+    gap: 0.75rem;
+    padding: 1rem;
     width: 100%;
     background: transparent;
     border: none;
     color: var(--primary);
     cursor: pointer;
     transition: background 0.2s;
-    font-size: 0.875rem;
+    font-size: 0.925rem;
+    font-weight: 500;
   }
   
   .add-workspace-button:hover,
