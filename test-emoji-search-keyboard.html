@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emoji Search Keyboard Navigation Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 40px;
+            max-width: 900px;
+            margin: 0 auto;
+            line-height: 1.6;
+            background: #1a1d21;
+            color: #d1d2d3;
+        }
+        h1 {
+            color: #fff;
+            border-bottom: 2px solid #4a5568;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #e2e8f0;
+            margin-top: 30px;
+        }
+        .test-section {
+            background: #2c2f33;
+            border: 1px solid #4a5568;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .test-step {
+            margin: 10px 0;
+            padding: 10px;
+            background: #1a1d21;
+            border-left: 3px solid #4a9eff;
+            border-radius: 4px;
+        }
+        .key {
+            display: inline-block;
+            padding: 3px 8px;
+            background: #4a5568;
+            border: 1px solid #718096;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9em;
+            color: #fff;
+            margin: 0 2px;
+        }
+        .success {
+            color: #48bb78;
+        }
+        .fail {
+            color: #f56565;
+        }
+        .note {
+            background: #2d3748;
+            border-left: 3px solid #fbbf24;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .improved {
+            background: #065f46;
+            border: 1px solid #10b981;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .improved h3 {
+            color: #10b981;
+            margin-top: 0;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎯 Emoji Search - Keyboard Navigation Test</h1>
+    
+    <div class="improved">
+        <h3>✨ 実装された改善点</h3>
+        <ul>
+            <li>✅ <span class="key">Tab</span>キーが正しくセクション間を移動するように修正</li>
+            <li>✅ フォーカストラップ実装 - フォーカスがダイアログ外に逃げない</li>
+            <li>✅ ダイアログを閉じた時に元の要素にフォーカスが戻る</li>
+            <li>✅ タブとカテゴリーボタンで矢印キーナビゲーションが使える</li>
+            <li>✅ グリッド内でのみ矢印キーとHJKLが動作</li>
+        </ul>
+    </div>
+
+    <h2>📋 テスト手順</h2>
+
+    <div class="test-section">
+        <h3>1. 基本的な開閉とフォーカス管理</h3>
+        <div class="test-step">
+            <strong>手順:</strong> <span class="key">Ctrl</span> + <span class="key">E</span> で絵文字検索を開く
+        </div>
+        <div class="test-step">
+            <strong>期待:</strong> <span class="success">✓</span> 検索入力欄に自動的にフォーカスされる
+        </div>
+        <div class="test-step">
+            <strong>手順:</strong> <span class="key">Esc</span> キーを押す
+        </div>
+        <div class="test-step">
+            <strong>期待:</strong> <span class="success">✓</span> ダイアログが閉じ、元の要素にフォーカスが戻る
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Tab キーによるセクションナビゲーション</h3>
+        <div class="test-step">
+            <strong>手順:</strong> 絵文字検索を開き、<span class="key">Tab</span> キーを押す
+        </div>
+        <div class="test-step">
+            <strong>期待:</strong> <span class="success">✓</span> フォーカスが以下の順序で移動:
+            <ol>
+                <li>検索入力欄</li>
+                <li>タブボタン (Search/Browse/Recent)</li>
+                <li>絵文字グリッド (最初の絵文字または選択中の絵文字)</li>
+                <li>閉じるボタン (×)</li>
+                <li>検索入力欄に戻る (フォーカストラップ)</li>
+            </ol>
+        </div>
+        <div class="test-step">
+            <strong>手順:</strong> <span class="key">Shift</span> + <span class="key">Tab</span> で逆方向に移動
+        </div>
+        <div class="test-step">
+            <strong>期待:</strong> <span class="success">✓</span> 上記の逆順でフォーカスが移動
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. タブボタンでの矢印キーナビゲーション</h3>
+        <div class="test-step">
+            <strong>手順:</strong> タブボタンにフォーカスして <span class="key">←</span> <span class="key">→</span> 矢印キーを押す
+        </div>
+        <div class="test-step">
+            <strong>期待:</strong> <span class="success">✓</span> タブが切り替わり、表示内容も変更される
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>4. 絵文字グリッド内のナビゲーション</h3>
+        <div class="test-step">
+            <strong>手順:</strong> 絵文字グリッドにフォーカスして矢印キーまたは <span class="key">H</span><span class="key">J</span><span class="key">K</span><span class="key">L</span> を使用
+        </div>
+        <div class="test-step">
+            <strong>期待:</strong> <span class="success">✓</span> グリッド内で絵文字間を移動できる
+        </div>
+        <div class="test-step">
+            <strong>手順:</strong> <span class="key">Home</span> / <span class="key">End</span> キーを押す
+        </div>
+        <div class="test-step">
+            <strong>期待:</strong> <span class="success">✓</span> 最初/最後の絵文字に移動
+        </div>
+        <div class="test-step">
+            <strong>手順:</strong> <span class="key">PageUp</span> / <span class="key">PageDown</span> キーを押す
+        </div>
+        <div class="test-step">
+            <strong>期待:</strong> <span class="success">✓</span> 3行ずつ上下に移動
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>5. Browseタブのカテゴリーナビゲーション</h3>
+        <div class="test-step">
+            <strong>手順:</strong> Browseタブに切り替え、カテゴリーボタンにフォーカス
+        </div>
+        <div class="test-step">
+            <strong>手順:</strong> <span class="key">←</span> <span class="key">→</span> 矢印キーを押す
+        </div>
+        <div class="test-step">
+            <strong>期待:</strong> <span class="success">✓</span> カテゴリー間を移動し、選択されたカテゴリーの絵文字が表示される
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>6. フォーカストラップのテスト</h3>
+        <div class="test-step">
+            <strong>手順:</strong> 絵文字検索を開き、<span class="key">Tab</span> を繰り返し押す
+        </div>
+        <div class="test-step">
+            <strong>期待:</strong> <span class="success">✓</span> フォーカスがダイアログ内で循環し、外部に逃げない
+        </div>
+        <div class="test-step">
+            <strong>手順:</strong> ブラウザのアドレスバーにフォーカスしようとする
+        </div>
+        <div class="test-step">
+            <strong>期待:</strong> <span class="success">✓</span> フォーカスがダイアログ内に留まる
+        </div>
+    </div>
+
+    <div class="note">
+        <strong>📝 注意事項:</strong>
+        <ul>
+            <li>グリッド内でのみ矢印キーとHJKLが絵文字選択に使用される</li>
+            <li>他のセクションでは矢印キーは各セクション固有の動作をする</li>
+            <li>Escキーはどこからでもダイアログを閉じる</li>
+            <li>Enterキーは選択された絵文字を挿入する</li>
+        </ul>
+    </div>
+
+    <div class="improved">
+        <h3>🎉 改善の成果</h3>
+        <p>
+            絵文字検索ダイアログのキーボードナビゲーションが大幅に改善されました。
+            Tabキーによる適切なセクション移動、フォーカストラップの実装、
+            各セクションでの直感的な矢印キー操作により、
+            キーボードのみでの完全な操作が可能になりました。
+        </p>
+    </div>
+</body>
+</html>

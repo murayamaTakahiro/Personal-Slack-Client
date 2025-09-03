@@ -87,6 +87,100 @@
   }
   
   function handleKeydown(event: KeyboardEvent) {
+    // Handle Tab key separately for section navigation
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      event.stopPropagation();
+      handleTabNavigation(event.shiftKey);
+      return;
+    }
+    
+    // Handle Escape key globally
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      close();
+      return;
+    }
+    
+    // Get current element context
+    const currentElement = document.activeElement as HTMLElement;
+    const isInGrid = currentElement?.classList.contains('emoji-result');
+    const isInSearchInput = currentElement?.classList.contains('search-input');
+    const isInTab = currentElement?.classList.contains('tab');
+    const isInCategory = currentElement?.classList.contains('category-button');
+    
+    // Handle arrow navigation in tabs
+    if (isInTab) {
+      handleTabButtonNavigation(event);
+      return;
+    }
+    
+    // Handle arrow navigation in categories
+    if (isInCategory) {
+      handleCategoryButtonNavigation(event);
+      return;
+    }
+    
+    // Handle Enter key in search input
+    if (isInSearchInput && event.key === 'Enter') {
+      event.preventDefault();
+      if (searchResults[selectedIndex]) {
+        selectEmoji(searchResults[selectedIndex]);
+      }
+      return;
+    }
+    
+    // Only handle grid navigation if focus is in the emoji grid
+    if (!isInGrid) {
+      return;
+    }
+    
+    // Grid navigation logic (only when focus is in grid)
+    handleGridNavigation(event);
+  }
+  
+  function handleTabButtonNavigation(event: KeyboardEvent) {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    
+    event.preventDefault();
+    const tabs = ['search', 'browse', 'recent'];
+    const currentIndex = tabs.indexOf(activeTab);
+    
+    if (event.key === 'ArrowLeft') {
+      activeTab = tabs[currentIndex > 0 ? currentIndex - 1 : tabs.length - 1];
+    } else {
+      activeTab = tabs[currentIndex < tabs.length - 1 ? currentIndex + 1 : 0];
+    }
+    
+    // Focus the newly active tab
+    setTimeout(() => {
+      const newActiveTab = document.querySelector('.tab.active') as HTMLElement;
+      if (newActiveTab) newActiveTab.focus();
+    }, 10);
+  }
+  
+  function handleCategoryButtonNavigation(event: KeyboardEvent) {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    
+    event.preventDefault();
+    const currentButton = document.activeElement as HTMLElement;
+    const allButtons = Array.from(document.querySelectorAll('.category-button')) as HTMLElement[];
+    const currentIndex = allButtons.indexOf(currentButton);
+    
+    let nextIndex: number;
+    if (event.key === 'ArrowLeft') {
+      nextIndex = currentIndex > 0 ? currentIndex - 1 : allButtons.length - 1;
+    } else {
+      nextIndex = currentIndex < allButtons.length - 1 ? currentIndex + 1 : 0;
+    }
+    
+    if (allButtons[nextIndex]) {
+      allButtons[nextIndex].focus();
+      allButtons[nextIndex].click();
+    }
+  }
+  
+  function handleGridNavigation(event: KeyboardEvent) {
     const columns = getGridColumns();
     const totalItems = searchResults.length;
     
@@ -102,11 +196,6 @@
     }
     
     switch (key) {
-      case 'Escape':
-        event.preventDefault();
-        close();
-        break;
-        
       case 'Enter':
         event.preventDefault();
         if (searchResults[selectedIndex]) {
@@ -197,17 +286,129 @@
         scrollToSelected();
         break;
       }
-      
-      case 'Tab':
-        if (!event.shiftKey && activeTab === 'search') {
-          event.preventDefault();
-          activeTab = 'browse';
-        } else if (event.shiftKey && activeTab === 'browse') {
-          event.preventDefault();
-          activeTab = 'search';
-        }
-        break;
     }
+  }
+  
+  function handleTabNavigation(isShiftTab: boolean) {
+    const currentElement = document.activeElement as HTMLElement;
+    const dialogElement = document.querySelector('.emoji-search-dialog') as HTMLElement;
+    if (!dialogElement) return;
+    
+    // Define the navigation order for different tabs
+    const navigationOrder = getNavigationOrder();
+    
+    // Find current index in navigation order
+    let currentIndex = -1;
+    for (let i = 0; i < navigationOrder.length; i++) {
+      if (navigationOrder[i] === currentElement) {
+        currentIndex = i;
+        break;
+      }
+    }
+    
+    // If current element is not in navigation order, try to find the section it's in
+    if (currentIndex === -1) {
+      const isInGrid = currentElement?.classList.contains('emoji-result');
+      const isInTab = currentElement?.classList.contains('tab');
+      const isInCategory = currentElement?.classList.contains('category-button');
+      const isInSuggestion = currentElement?.classList.contains('suggestion');
+      const isInExample = currentElement?.classList.contains('example-search');
+      const isInHelp = currentElement?.classList.contains('help-button');
+      
+      // Map grid/other elements to their section in navigation order
+      if (isInGrid) {
+        const grid = dialogElement.querySelector('.emoji-grid') as HTMLElement;
+        currentIndex = navigationOrder.indexOf(grid);
+      } else if (isInTab) {
+        const tabs = dialogElement.querySelector('.dialog-tabs') as HTMLElement;
+        currentIndex = navigationOrder.indexOf(tabs);
+      } else if (isInCategory) {
+        const categories = dialogElement.querySelector('.category-buttons') as HTMLElement;
+        currentIndex = navigationOrder.indexOf(categories);
+      } else if (isInSuggestion || isInExample || isInHelp) {
+        // These are part of the search section, move from search input
+        const searchInput = dialogElement.querySelector('.search-input') as HTMLElement;
+        currentIndex = navigationOrder.indexOf(searchInput);
+      }
+    }
+    
+    // Calculate next index with wrapping
+    let nextIndex: number;
+    if (isShiftTab) {
+      nextIndex = currentIndex <= 0 ? navigationOrder.length - 1 : currentIndex - 1;
+    } else {
+      nextIndex = currentIndex >= navigationOrder.length - 1 ? 0 : currentIndex + 1;
+    }
+    
+    // Focus next element
+    const nextElement = navigationOrder[nextIndex];
+    if (nextElement) {
+      // Special handling for sections
+      if (nextElement.classList.contains('dialog-tabs')) {
+        // Focus active tab
+        const activeTab = nextElement.querySelector('.tab.active') as HTMLElement;
+        if (activeTab) activeTab.focus();
+      } else if (nextElement.classList.contains('emoji-grid')) {
+        // Focus selected emoji in grid
+        const selectedEmoji = nextElement.querySelector('.emoji-result.selected') as HTMLElement;
+        if (selectedEmoji) {
+          selectedEmoji.focus();
+        } else {
+          const firstEmoji = nextElement.querySelector('.emoji-result') as HTMLElement;
+          if (firstEmoji) {
+            firstEmoji.focus();
+            selectedIndex = 0;
+          }
+        }
+      } else if (nextElement.classList.contains('category-buttons')) {
+        // Focus active or first category
+        const activeCategory = nextElement.querySelector('.category-button.active') as HTMLElement;
+        if (activeCategory) {
+          activeCategory.focus();
+        } else {
+          const firstCategory = nextElement.querySelector('.category-button') as HTMLElement;
+          if (firstCategory) firstCategory.focus();
+        }
+      } else {
+        nextElement.focus();
+      }
+    }
+  }
+  
+  function getNavigationOrder(): HTMLElement[] {
+    const dialogElement = document.querySelector('.emoji-search-dialog') as HTMLElement;
+    if (!dialogElement) return [];
+    
+    const elements: HTMLElement[] = [];
+    
+    // Add elements in tab order
+    // 1. Search input (if in search tab)
+    if (activeTab === 'search') {
+      const searchInput = dialogElement.querySelector('.search-input') as HTMLElement;
+      if (searchInput) elements.push(searchInput);
+    }
+    
+    // 2. Tab buttons
+    const tabSection = dialogElement.querySelector('.dialog-tabs') as HTMLElement;
+    if (tabSection) elements.push(tabSection);
+    
+    // 3. Category buttons (if in browse tab)
+    if (activeTab === 'browse') {
+      const categorySection = dialogElement.querySelector('.category-buttons') as HTMLElement;
+      if (categorySection) elements.push(categorySection);
+    }
+    
+    // 4. Emoji grid (if has results)
+    const emojiGrid = dialogElement.querySelector('.emoji-grid') as HTMLElement;
+    if (emojiGrid && searchResults.length > 0) {
+      elements.push(emojiGrid);
+    }
+    
+    // 5. Close button
+    const closeButton = dialogElement.querySelector('.close-button') as HTMLElement;
+    if (closeButton) elements.push(closeButton);
+    
+    return elements;
   }
   
   function scrollToSelected() {
@@ -229,6 +430,36 @@
     }
   }
   
+  // Focus trap implementation
+  let previousFocus: HTMLElement | null = null;
+  
+  function setupFocusTrap() {
+    // Store the previously focused element
+    previousFocus = document.activeElement as HTMLElement;
+    
+    // Focus search input when dialog opens
+    setTimeout(() => {
+      if (searchInput) {
+        searchInput.focus();
+      }
+    }, 100);
+  }
+  
+  function cleanupFocusTrap() {
+    // Restore focus to previous element when dialog closes
+    if (previousFocus && previousFocus.focus) {
+      previousFocus.focus();
+    }
+    previousFocus = null;
+  }
+  
+  // Setup/cleanup focus trap when dialog opens/closes
+  $: if (isOpen) {
+    setupFocusTrap();
+  } else {
+    cleanupFocusTrap();
+  }
+  
   onMount(() => {
     if (isOpen && searchInput) {
       searchInput.focus();
@@ -241,6 +472,7 @@
   
   onDestroy(() => {
     document.removeEventListener('click', handleClickOutside);
+    cleanupFocusTrap();
   });
 </script>
 
@@ -423,9 +655,9 @@
       
       <div class="dialog-footer">
         <div class="footer-hint">
-          <span>Arrow keys or HJKL to navigate</span> • 
+          <span>Tab to navigate sections</span> • 
+          <span>Arrow keys or HJKL in grid</span> • 
           <span>Enter to select</span> • 
-          <span>Home/End for first/last</span> • 
           <span>Esc to close</span>
         </div>
       </div>
