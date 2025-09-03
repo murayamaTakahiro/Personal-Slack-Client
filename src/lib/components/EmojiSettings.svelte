@@ -5,7 +5,7 @@
   import { emojiSearchService } from '../services/emojiSearchService';
   import type { ReactionMapping } from '../types/slack';
   import { get } from 'svelte/store';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import EmojiImage from './EmojiImage.svelte';
   
   // Get current mappings from store or use defaults
@@ -17,6 +17,24 @@
   
   // Subscribe to the reaction mappings
   $: mappings = $reactionMappings;
+  
+  // Global Escape key handler for the emoji selection modal
+  function handleGlobalEscape(event: KeyboardEvent) {
+    if (event.key === 'Escape' && editingIndex !== null) {
+      event.preventDefault();
+      event.stopPropagation();
+      cancelEditing();
+    }
+  }
+  
+  // Add/remove global Escape listener when editing state changes
+  $: {
+    if (editingIndex !== null) {
+      document.addEventListener('keydown', handleGlobalEscape);
+    } else {
+      document.removeEventListener('keydown', handleGlobalEscape);
+    }
+  }
   
   onMount(() => {
     // Initialize with current settings
@@ -39,6 +57,11 @@
         console.log(`  ✅ "${mapping.emoji}" - Unicode: ${emojiValue}`);
       }
     });
+  });
+  
+  onDestroy(() => {
+    // Clean up global event listener
+    document.removeEventListener('keydown', handleGlobalEscape);
   });
   
   // Function to manually refresh emojis for debugging
@@ -239,6 +262,14 @@
   }
   
   function handleGridNavigation(event: KeyboardEvent) {
+    // Handle Escape key to close the emoji selection modal
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      cancelEditing();
+      return;
+    }
+    
     // Handle Tab key separately for section navigation
     if (event.key === 'Tab') {
       event.preventDefault();
