@@ -8,9 +8,15 @@ A powerful desktop application that enhances Slack's search capabilities, allowi
 - **Advanced Filters**: Filter by channel, user, date range
 - **Thread Viewer**: View complete thread conversations
 - **URL Parsing**: Paste a Slack URL to instantly view the thread
-- **Pagination**: Automatically fetches all matching messages
+- **Multi-Workspace Support**: Switch between multiple Slack workspaces
+- **Quick Reactions**: Number key shortcuts (1-9) for emoji reactions
+- **Realtime Mode**: Monitor multiple channels with automatic updates
+- **Customizable Keyboard Shortcuts**: Full keyboard navigation support
+- **Zoom Controls**: Adjustable interface scaling (50%-200%)
 - **Fast Performance**: Built with Rust backend for optimal speed
 - **Secure**: Token stored securely, never exposed
+
+📖 **[View Complete Features Guide](./FEATURES_GUIDE.md)** for detailed documentation of all features
 
 ## Technology Stack
 
@@ -76,28 +82,21 @@ The following OAuth scopes are required:
 - `users:read` - Get user information
 - `channels:history` - Read message history
 
-## Usage
+## Quick Start
 
 1. **Initial Setup**:
-   - Click the Settings button
-   - Enter your Slack User Token
-   - Enter your workspace name
-   - Save settings
+   - Click Settings (⚙️) or press `Ctrl+,`
+   - Enter your Slack User Token (see [Token Guide](./SLACK_TOKEN_GUIDE.md))
+   - Configure your preferences
 
-2. **Search Messages**:
-   - Enter search query in the search bar
-   - Optional: Use advanced filters for channel, user, date range
-   - Click Search or press Enter
-   - Results appear in the left panel
+2. **Basic Usage**:
+   - **Search**: Enter query and press Enter
+   - **Navigate**: Use `j`/`k` or arrow keys
+   - **React**: Press `1-9` for quick reactions
+   - **View Thread**: Click any message
+   - **Keyboard Help**: Press `?`
 
-3. **View Threads**:
-   - Click on any message to view its thread
-   - Thread appears in the right panel
-   - Click "Open in Slack" to view in browser
-
-4. **URL Thread Viewing**:
-   - Paste a Slack message URL in the URL input field
-   - Click "Load Thread" to instantly view the conversation
+For detailed usage instructions, see the [Features Guide](./FEATURES_GUIDE.md).
 
 ## Project Structure
 
