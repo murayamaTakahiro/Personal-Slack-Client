@@ -87,8 +87,16 @@
   }
   
   function handleKeydown(event: KeyboardEvent) {
-    // Handle Tab key separately for section navigation
-    if (event.key === 'Tab') {
+    // Handle Ctrl+Tab for tab switching (like browser tabs)
+    if (event.key === 'Tab' && event.ctrlKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      handleTabSwitching(event.shiftKey);
+      return;
+    }
+    
+    // Handle Tab key for element navigation
+    if (event.key === 'Tab' && !event.ctrlKey) {
       event.preventDefault();
       event.stopPropagation();
       handleTabNavigation(event.shiftKey);
@@ -289,6 +297,39 @@
     }
   }
   
+  // Handle Ctrl+Tab / Ctrl+Shift+Tab for switching between main tabs
+  function handleTabSwitching(isShiftTab: boolean) {
+    const tabs: Array<'search' | 'browse' | 'recent'> = ['search', 'browse', 'recent'];
+    const currentIndex = tabs.indexOf(activeTab);
+    
+    if (isShiftTab) {
+      // Go to previous tab
+      activeTab = tabs[currentIndex > 0 ? currentIndex - 1 : tabs.length - 1];
+    } else {
+      // Go to next tab
+      activeTab = tabs[currentIndex < tabs.length - 1 ? currentIndex + 1 : 0];
+    }
+    
+    // Focus appropriate element in new tab
+    setTimeout(() => {
+      if (activeTab === 'search') {
+        const searchInput = document.querySelector('.search-input') as HTMLElement;
+        if (searchInput) searchInput.focus();
+      } else if (activeTab === 'browse') {
+        const firstCategory = document.querySelector('.category-button') as HTMLElement;
+        if (firstCategory) {
+          firstCategory.focus();
+        } else {
+          const firstEmoji = document.querySelector('.emoji-result') as HTMLElement;
+          if (firstEmoji) firstEmoji.focus();
+        }
+      } else if (activeTab === 'recent') {
+        const firstEmoji = document.querySelector('.emoji-result') as HTMLElement;
+        if (firstEmoji) firstEmoji.focus();
+      }
+    }, 10);
+  }
+  
   function handleTabNavigation(isShiftTab: boolean) {
     const currentElement = document.activeElement as HTMLElement;
     const dialogElement = document.querySelector('.emoji-search-dialog') as HTMLElement;
@@ -320,8 +361,8 @@
         const grid = dialogElement.querySelector('.emoji-grid') as HTMLElement;
         currentIndex = navigationOrder.indexOf(grid);
       } else if (isInTab) {
-        const tabs = dialogElement.querySelector('.dialog-tabs') as HTMLElement;
-        currentIndex = navigationOrder.indexOf(tabs);
+        // Don't navigate with Tab from tab buttons - they're for Ctrl+Tab
+        return;
       } else if (isInCategory) {
         const categories = dialogElement.querySelector('.category-buttons') as HTMLElement;
         currentIndex = navigationOrder.indexOf(categories);
@@ -344,11 +385,7 @@
     const nextElement = navigationOrder[nextIndex];
     if (nextElement) {
       // Special handling for sections
-      if (nextElement.classList.contains('dialog-tabs')) {
-        // Focus active tab
-        const activeTab = nextElement.querySelector('.tab.active') as HTMLElement;
-        if (activeTab) activeTab.focus();
-      } else if (nextElement.classList.contains('emoji-grid')) {
+      if (nextElement.classList.contains('emoji-grid')) {
         // Focus selected emoji in grid
         const selectedEmoji = nextElement.querySelector('.emoji-result.selected') as HTMLElement;
         if (selectedEmoji) {
@@ -381,30 +418,28 @@
     
     const elements: HTMLElement[] = [];
     
-    // Add elements in tab order
+    // Add elements in tab order - SIMPLIFIED without tab buttons
+    // Tab buttons are now controlled via Ctrl+Tab only
+    
     // 1. Search input (if in search tab)
     if (activeTab === 'search') {
       const searchInput = dialogElement.querySelector('.search-input') as HTMLElement;
       if (searchInput) elements.push(searchInput);
     }
     
-    // 2. Tab buttons
-    const tabSection = dialogElement.querySelector('.dialog-tabs') as HTMLElement;
-    if (tabSection) elements.push(tabSection);
-    
-    // 3. Category buttons (if in browse tab)
+    // 2. Category buttons (if in browse tab)
     if (activeTab === 'browse') {
       const categorySection = dialogElement.querySelector('.category-buttons') as HTMLElement;
       if (categorySection) elements.push(categorySection);
     }
     
-    // 4. Emoji grid (if has results)
+    // 3. Emoji grid (if has results) - this is what Tab should go to from search input
     const emojiGrid = dialogElement.querySelector('.emoji-grid') as HTMLElement;
     if (emojiGrid && searchResults.length > 0) {
       elements.push(emojiGrid);
     }
     
-    // 5. Close button
+    // 4. Close button
     const closeButton = dialogElement.querySelector('.close-button') as HTMLElement;
     if (closeButton) elements.push(closeButton);
     
@@ -493,6 +528,7 @@
           class="tab" 
           class:active={activeTab === 'search'}
           on:click={() => activeTab = 'search'}
+          tabindex="-1"
         >
           Search
         </button>
@@ -500,6 +536,7 @@
           class="tab" 
           class:active={activeTab === 'browse'}
           on:click={() => activeTab = 'browse'}
+          tabindex="-1"
         >
           Browse
         </button>
@@ -507,6 +544,7 @@
           class="tab" 
           class:active={activeTab === 'recent'}
           on:click={() => activeTab = 'recent'}
+          tabindex="-1"
         >
           Recent
         </button>
@@ -655,7 +693,8 @@
       
       <div class="dialog-footer">
         <div class="footer-hint">
-          <span>Tab to navigate sections</span> • 
+          <span>Tab to navigate</span> • 
+          <span>Ctrl+Tab to switch tabs</span> • 
           <span>Arrow keys or HJKL in grid</span> • 
           <span>Enter to select</span> • 
           <span>Esc to close</span>

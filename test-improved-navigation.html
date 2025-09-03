@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Improved Emoji Search Navigation</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #1a1d21;
+            color: #d1d2d3;
+        }
+
+        h1, h2 {
+            color: #fff;
+        }
+
+        .test-section {
+            background: #232529;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid #363a3f;
+        }
+
+        .key-combo {
+            display: inline-block;
+            background: #363a3f;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-weight: bold;
+            color: #fff;
+            margin: 0 4px;
+        }
+
+        .test-case {
+            background: #1a1d21;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            border-left: 3px solid #1264a3;
+        }
+
+        .success {
+            color: #2eb67d;
+            font-weight: bold;
+        }
+
+        .fail {
+            color: #e01e5a;
+            font-weight: bold;
+        }
+
+        .expected {
+            color: #36c5f0;
+        }
+
+        .instruction {
+            background: #2d3137;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+
+        button {
+            background: #1264a3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+
+        button:hover {
+            background: #1264a3cc;
+        }
+
+        .navigation-flow {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+
+        .arrow {
+            color: #36c5f0;
+            font-size: 20px;
+        }
+
+        .test-results {
+            background: #2d3137;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+        }
+
+        code {
+            background: #363a3f;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+
+        ul {
+            line-height: 1.8;
+        }
+
+        .highlight {
+            background: #1264a3;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧭 Improved Emoji Search Navigation Testing</h1>
+
+    <div class="test-section">
+        <h2>🎯 Navigation Improvements</h2>
+        <p>This test file validates the new, more intuitive navigation behavior:</p>
+        <ul>
+            <li><span class="key-combo">Tab</span> - Navigate through interactive elements (search → emojis → close)</li>
+            <li><span class="key-combo">Ctrl+Tab</span> - Switch to next tab (Search → Browse → Recent)</li>
+            <li><span class="key-combo">Ctrl+Shift+Tab</span> - Switch to previous tab</li>
+            <li><span class="key-combo">Arrow Keys</span> or <span class="key-combo">HJKL</span> - Navigate within emoji grid</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>✅ Test Cases</h2>
+
+        <div class="test-case">
+            <h3>Test 1: Tab from Search Input</h3>
+            <div class="instruction">
+                <strong>Action:</strong> Open emoji picker, ensure Search tab is active, press <span class="key-combo">Tab</span> from search input
+            </div>
+            <div class="expected">
+                <strong>Expected:</strong> Focus moves to "Popular emojis" section (first emoji in grid), NOT to the tab buttons
+            </div>
+            <div class="navigation-flow">
+                <span>Search Input</span>
+                <span class="arrow">→</span>
+                <span class="highlight">Popular Emojis Grid</span>
+                <span class="arrow">→</span>
+                <span>Close Button</span>
+            </div>
+        </div>
+
+        <div class="test-case">
+            <h3>Test 2: Ctrl+Tab Tab Switching</h3>
+            <div class="instruction">
+                <strong>Action:</strong> From any position, press <span class="key-combo">Ctrl+Tab</span>
+            </div>
+            <div class="expected">
+                <strong>Expected:</strong> Switch between Search, Browse, and Recent tabs (like browser tabs)
+            </div>
+            <div class="navigation-flow">
+                <span>Search Tab</span>
+                <span class="arrow">⟲</span>
+                <span>Browse Tab</span>
+                <span class="arrow">⟲</span>
+                <span>Recent Tab</span>
+                <span class="arrow">⟲</span>
+                <span>Search Tab</span>
+            </div>
+        </div>
+
+        <div class="test-case">
+            <h3>Test 3: Browse Mode Category Navigation</h3>
+            <div class="instruction">
+                <strong>Action:</strong> Switch to Browse tab, press <span class="key-combo">Tab</span>
+            </div>
+            <div class="expected">
+                <strong>Expected:</strong> Focus moves through categories, then to emoji grid, then to close button
+            </div>
+            <div class="navigation-flow">
+                <span>Categories</span>
+                <span class="arrow">→</span>
+                <span>Emoji Grid</span>
+                <span class="arrow">→</span>
+                <span>Close Button</span>
+            </div>
+        </div>
+
+        <div class="test-case">
+            <h3>Test 4: Grid Navigation with Arrow Keys</h3>
+            <div class="instruction">
+                <strong>Action:</strong> When focus is in emoji grid, use arrow keys or HJKL
+            </div>
+            <div class="expected">
+                <strong>Expected:</strong> Navigate through emojis in 2D grid pattern
+            </div>
+            <ul>
+                <li><span class="key-combo">↑</span> / <span class="key-combo">K</span> - Move up one row</li>
+                <li><span class="key-combo">↓</span> / <span class="key-combo">J</span> - Move down one row</li>
+                <li><span class="key-combo">←</span> / <span class="key-combo">H</span> - Move left one emoji</li>
+                <li><span class="key-combo">→</span> / <span class="key-combo">L</span> - Move right one emoji</li>
+            </ul>
+        </div>
+
+        <div class="test-case">
+            <h3>Test 5: Tab Button Exclusion</h3>
+            <div class="instruction">
+                <strong>Action:</strong> Try to Tab to the Search/Browse/Recent tab buttons
+            </div>
+            <div class="expected">
+                <strong>Expected:</strong> Tab buttons are NOT in the Tab navigation flow (they have tabindex="-1")
+            </div>
+            <p>Tab buttons should only be accessible via mouse click or <span class="key-combo">Ctrl+Tab</span></p>
+        </div>
+
+        <div class="test-case">
+            <h3>Test 6: Focus Restoration on Tab Switch</h3>
+            <div class="instruction">
+                <strong>Action:</strong> Press <span class="key-combo">Ctrl+Tab</span> to switch tabs
+            </div>
+            <div class="expected">
+                <strong>Expected:</strong> Focus automatically moves to appropriate element in new tab
+            </div>
+            <ul>
+                <li><strong>Search tab:</strong> Focus goes to search input</li>
+                <li><strong>Browse tab:</strong> Focus goes to first category button</li>
+                <li><strong>Recent tab:</strong> Focus goes to first recent emoji (if any)</li>
+            </ul>
+        </div>
+
+        <div class="test-case">
+            <h3>Test 7: Shift+Tab Reverse Navigation</h3>
+            <div class="instruction">
+                <strong>Action:</strong> Press <span class="key-combo">Shift+Tab</span> from any position
+            </div>
+            <div class="expected">
+                <strong>Expected:</strong> Navigate backwards through the same order
+            </div>
+            <div class="navigation-flow">
+                <span>Close Button</span>
+                <span class="arrow">←</span>
+                <span>Emoji Grid</span>
+                <span class="arrow">←</span>
+                <span>Search Input</span>
+            </div>
+        </div>
+
+        <div class="test-case">
+            <h3>Test 8: Empty State Navigation</h3>
+            <div class="instruction">
+                <strong>Action:</strong> Search for something with no results, press <span class="key-combo">Tab</span>
+            </div>
+            <div class="expected">
+                <strong>Expected:</strong> Skip emoji grid (since it's empty) and go directly to close button
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔍 Manual Testing Instructions</h2>
+        <ol>
+            <li>Open the Slack client and trigger the emoji picker (type <code>:</code> in a message)</li>
+            <li>Test each navigation pattern listed above</li>
+            <li>Verify that the new behavior matches user expectations</li>
+            <li>Ensure no keyboard traps exist (can always escape or tab out)</li>
+            <li>Check that visual focus indicators are clear</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>💡 Key Improvements</h2>
+        <div class="test-results">
+            <h3>Before:</h3>
+            <ul>
+                <li>❌ Tab went from search to tab buttons (confusing)</li>
+                <li>❌ No way to switch tabs with keyboard except Tab navigation</li>
+                <li>❌ Tab buttons were in the Tab flow</li>
+            </ul>
+            
+            <h3>After:</h3>
+            <ul>
+                <li>✅ Tab goes from search directly to emoji grid (intuitive)</li>
+                <li>✅ Ctrl+Tab switches between tabs (like browser tabs)</li>
+                <li>✅ Tab buttons excluded from Tab flow (tabindex="-1")</li>
+                <li>✅ Focus automatically restored when switching tabs</li>
+                <li>✅ Cleaner, more predictable navigation</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🚨 Edge Cases to Test</h2>
+        <ul>
+            <li>Rapid Ctrl+Tab switching</li>
+            <li>Navigation with no search results</li>
+            <li>Navigation in Browse mode with no category selected</li>
+            <li>Navigation in Recent tab with no recent emojis</li>
+            <li>Focus preservation when closing and reopening dialog</li>
+            <li>Interaction with screen readers</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 Test Results</h2>
+        <button onclick="markSuccess()">✅ All Tests Pass</button>
+        <button onclick="markPartial()">⚠️ Partial Success</button>
+        <button onclick="markFailed()">❌ Tests Failed</button>
+        
+        <div id="test-status" style="margin-top: 20px;"></div>
+    </div>
+
+    <script>
+        function markSuccess() {
+            document.getElementById('test-status').innerHTML = `
+                <div class="success">
+                    ✅ All navigation improvements working correctly!<br>
+                    Tab navigation is now intuitive and follows user expectations.
+                </div>
+            `;
+        }
+
+        function markPartial() {
+            document.getElementById('test-status').innerHTML = `
+                <div style="color: #f4b643;">
+                    ⚠️ Some improvements working, but issues remain.<br>
+                    Please document which specific test cases failed.
+                </div>
+            `;
+        }
+
+        function markFailed() {
+            document.getElementById('test-status').innerHTML = `
+                <div class="fail">
+                    ❌ Navigation improvements not working as expected.<br>
+                    Review the implementation and test again.
+                </div>
+            `;
+        }
+
+        // Show keyboard shortcuts being pressed
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Tab') {
+                console.log(`Pressed: Ctrl+${e.shiftKey ? 'Shift+' : ''}Tab`);
+            } else if (e.key === 'Tab') {
+                console.log(`Pressed: ${e.shiftKey ? 'Shift+' : ''}Tab`);
+            }
+        });
+    </script>
+</body>
+</html>
