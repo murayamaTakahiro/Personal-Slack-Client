@@ -18,15 +18,6 @@ export interface EmojiData {
 // Cache duration: 24 hours
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 
-// Store for emoji data
-export const emojiData = writable<EmojiData>({
-  custom: {},
-  standard: {}
-});
-
-// Store for loading state
-export const emojiLoading = writable<boolean>(false);
-
 // Standard Slack emojis mapped to Unicode (common ones)
 const STANDARD_EMOJIS: Record<string, string> = {
   '+1': '👍',
@@ -169,8 +160,183 @@ const STANDARD_EMOJIS: Record<string, string> = {
   'boom': '💥',
   'collision': '💥',
   'hundred': '💯',
-  '100': '💯'
+  '100': '💯',
+  
+  // People & Body
+  'man': '👨',
+  'woman': '👩', 
+  'person': '🧑',
+  'child': '🧒',
+  'boy': '👦',
+  'girl': '👧',
+  'baby': '👶',
+  'older_man': '👴',
+  'older_woman': '👵',
+  'person_red_hair': '🧑‍🦰',
+  'person_curly_hair': '🧑‍🦱',
+  'person_white_hair': '🧑‍🦳',
+  'person_bald': '🧑‍🦲',
+  'bearded_person': '🧔',
+  
+  // Gestures & Activities
+  'person_bowing': '🙇',
+  'man_bowing': '🙇‍♂️',
+  'woman_bowing': '🙇‍♀️',
+  'person_facepalming': '🤦',
+  'man_facepalming': '🤦‍♂️',
+  'woman_facepalming': '🤦‍♀️',
+  'person_shrugging': '🤷',
+  'man_shrugging': '🤷‍♂️',
+  'woman_shrugging': '🤷‍♀️',
+  'person_raising_hand': '🙋',
+  'man_raising_hand': '🙋‍♂️',
+  'woman_raising_hand': '🙋‍♀️',
+  'deaf_person': '🧏',
+  'person_gesturing_no': '🙅',
+  'person_gesturing_ok': '🙆',
+  'person_tipping_hand': '💁',
+  
+  // Professions
+  'health_worker': '🧑‍⚕️',
+  'student': '🧑‍🎓',
+  'teacher': '🧑‍🏫',
+  'judge': '🧑‍⚖️',
+  'farmer': '🧑‍🌾',
+  'cook': '🧑‍🍳',
+  'mechanic': '🧑‍🔧',
+  'factory_worker': '🧑‍🏭',
+  'office_worker': '🧑‍💼',
+  'scientist': '🧑‍🔬',
+  'technologist': '🧑‍💻',
+  'singer': '🧑‍🎤',
+  'artist': '🧑‍🎨',
+  'pilot': '🧑‍✈️',
+  'astronaut': '🧑‍🚀',
+  'firefighter': '🧑‍🚒',
+  'police_officer': '👮',
+  'detective': '🕵️',
+  'guard': '💂',
+  'construction_worker': '👷',
+  'prince': '🤴',
+  'princess': '👸',
+  'person_with_turban': '👳',
+  'person_with_veil': '👰',
+  'person_in_tuxedo': '🤵',
+  'pregnant_woman': '🤰',
+  'breast_feeding': '🤱',
+  
+  // Fantasy
+  'angel': '👼',
+  'santa': '🎅',
+  'mrs_claus': '🤶',
+  'superhero': '🦸',
+  'supervillain': '🦹',
+  'mage': '🧙',
+  'fairy': '🧚',
+  'vampire': '🧛',
+  'merperson': '🧜',
+  'elf': '🧝',
+  'genie': '🧞',
+  'zombie': '🧟',
+  
+  // Activities
+  'person_walking': '🚶',
+  'person_running': '🏃',
+  'dancer': '💃',
+  'man_dancing': '🕺',
+  'people_with_bunny_ears': '👯',
+  'person_in_steamy_room': '🧖',
+  'person_climbing': '🧗',
+  'person_in_lotus_position': '🧘',
+  'bath': '🛀',
+  'sleeping_bed': '🛌',
+  'speaking_head': '🗣️',
+  'bust_in_silhouette': '👤',
+  'busts_in_silhouette': '👥',
+  
+  // Family
+  'family': '👪',
+  'couple': '💑',
+  'couple_with_heart': '💑',
+  'couple_kiss': '💏',
+  'holding_hands': '🧑‍🤝‍🧑',
+  
+  // Body parts
+  'brain': '🧠',
+  'eye': '👁️',
+  'tongue': '👅',
+  'mouth': '👄',
+  'tooth': '🦷',
+  'bone': '🦴',
+  'heart_organ': '🫶',
+  'lungs': '🫁',
+  'ear': '👂',
+  'nose': '👃',
+  'footprints': '👣',
+  'leg': '🦵',
+  'foot': '🦶',
+  
+  // Animals
+  'monkey_face': '🐵',
+  'monkey': '🐒',
+  'gorilla': '🦍',
+  'orangutan': '🦧',
+  'dog': '🐕',
+  'dog_face': '🐶',
+  'cat': '🐈',
+  'cat_face': '🐱',
+  'tiger': '🐯',
+  'tiger_face': '🐅',
+  'leopard': '🐆',
+  'horse': '🐴',
+  'horse_face': '🐎',
+  'unicorn': '🦄',
+  'zebra': '🦓',
+  'cow': '🐮',
+  'cow_face': '🐄',
+  'pig': '🐷',
+  'pig_face': '🐖',
+  'boar': '🐗',
+  'pig_nose': '🐽',
+  'ram': '🐏',
+  'sheep': '🐑',
+  'goat': '🐐',
+  'camel': '🐪',
+  'llama': '🦙',
+  'giraffe': '🦒',
+  'elephant': '🐘',
+  'mammoth': '🦣',
+  'rhinoceros': '🦏',
+  'hippopotamus': '🦛',
+  'mouse': '🐭',
+  'mouse_face': '🐁',
+  'rat': '🐀',
+  'hamster': '🐹',
+  'rabbit': '🐰',
+  'rabbit_face': '🐇',
+  'chipmunk': '🐿️',
+  'beaver': '🦫',
+  'hedgehog': '🦔',
+  'bat': '🦇',
+  'bear': '🐻',
+  'koala': '🐨',
+  'panda': '🐼',
+  'sloth': '🦥',
+  'otter': '🦦',
+  'skunk': '🦨',
+  'kangaroo': '🦘',
+  'badger': '🦡',
+  'paw_prints': '🐾'
 };
+
+// Store for emoji data - initialize with standard emojis
+export const emojiData = writable<EmojiData>({
+  custom: {},
+  standard: STANDARD_EMOJIS
+});
+
+// Store for loading state
+export const emojiLoading = writable<boolean>(false);
 
 export class EmojiService {
   private static instance: EmojiService;
@@ -205,10 +371,15 @@ export class EmojiService {
         
         if (age < CACHE_DURATION) {
           console.log('[EmojiService] Using cached emoji data (age:', Math.round(age / 1000 / 60), 'minutes)');
-          emojiData.set(cached);
+          // Ensure standard emojis are always included
+          const mergedData = {
+            ...cached,
+            standard: { ...STANDARD_EMOJIS, ...cached.standard }
+          };
+          emojiData.set(mergedData);
           
           // Auto-detect correct emoji names for quick reactions
-          this.autoDetectQuickReactionEmojis(cached);
+          this.autoDetectQuickReactionEmojis(mergedData);
           return;
         } else {
           console.log('[EmojiService] Cache is stale (age:', Math.round(age / 1000 / 60), 'minutes), fetching fresh data...');

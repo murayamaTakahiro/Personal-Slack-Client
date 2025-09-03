@@ -111,6 +111,53 @@ const ENGLISH_ALIASES: Record<string, string[]> = {
   'dansei': ['man', 'male', 'gentleman'],
   'josei': ['woman', 'female', 'lady'],
   'hakushu': ['clap', 'applause', 'clapping'],
+  
+  // Standard people emojis
+  'man': ['male', 'guy', 'gentleman', 'dude', 'fellow'],
+  'woman': ['female', 'lady', 'girl', 'gal'],
+  'person': ['human', 'individual', 'people'],
+  'child': ['kid', 'youngster', 'youth'],
+  'boy': ['lad', 'son', 'male child'],
+  'girl': ['daughter', 'female child', 'lass'],
+  'baby': ['infant', 'newborn', 'toddler'],
+  'older_man': ['elderly man', 'grandfather', 'senior'],
+  'older_woman': ['elderly woman', 'grandmother', 'senior'],
+  
+  // Bowing and gestures
+  'person_bowing': ['bow', 'bowing', 'ojigi', 'respect', 'apologize', 'sorry'],
+  'man_bowing': ['man bow', 'male bowing', 'ojigi man'],
+  'woman_bowing': ['woman bow', 'female bowing', 'ojigi woman'],
+  'person_facepalming': ['facepalm', 'disappointed', 'frustrated'],
+  'person_shrugging': ['shrug', 'idk', "don't know", 'whatever'],
+  'person_raising_hand': ['raise hand', 'question', 'volunteer', 'me'],
+  
+  // Professions
+  'police_officer': ['cop', 'police', 'officer'],
+  'detective': ['investigator', 'spy', 'sleuth'],
+  'guard': ['security', 'royal guard', 'british guard'],
+  'construction_worker': ['builder', 'contractor', 'hard hat'],
+  'prince': ['royalty', 'crown prince', 'king'],
+  'princess': ['royalty', 'crown princess', 'queen'],
+  
+  // Activities
+  'person_walking': ['walk', 'walking', 'pedestrian', 'stroll'],
+  'person_running': ['run', 'running', 'jog', 'sprint'],
+  'dancer': ['dance', 'dancing', 'ballet', 'salsa'],
+  'man_dancing': ['disco', 'dance man', 'dancing man'],
+  
+  // Family
+  'family': ['parents', 'household', 'relatives'],
+  'couple': ['relationship', 'partners', 'lovers'],
+  'couple_with_heart': ['love', 'romance', 'relationship'],
+  
+  // Animals (commonly used)
+  'dog': ['puppy', 'doggo', 'pup', 'canine'],
+  'cat': ['kitty', 'kitten', 'feline', 'meow'],
+  'monkey': ['ape', 'chimp', 'primate'],
+  'pig': ['oink', 'swine', 'hog'],
+  'cow': ['moo', 'cattle', 'beef'],
+  'rabbit': ['bunny', 'hare', 'hop'],
+  'bear': ['teddy', 'grizzly', 'panda'],
 };
 
 // Category mappings for better organization
@@ -130,8 +177,7 @@ export class EmojiSearchService {
   private frequencyMap: Map<string, number> = new Map();
 
   constructor() {
-    this.buildSearchIndex();
-    
+    // Initial build will happen via subscription
     // Subscribe to emoji data changes to rebuild index
     emojiData.subscribe(() => {
       this.rebuildIndex();
@@ -141,6 +187,11 @@ export class EmojiSearchService {
   private buildSearchIndex() {
     const data = get(emojiData);
     if (!data) return;
+
+    console.log('[EmojiSearchService] Building search index:', {
+      customCount: Object.keys(data.custom).length,
+      standardCount: Object.keys(data.standard).length
+    });
 
     // Process custom emojis
     for (const [name, url] of Object.entries(data.custom)) {
@@ -155,6 +206,11 @@ export class EmojiSearchService {
       this.emojiCache.set(name, searchable);
       this.indexEmoji(searchable);
     }
+
+    console.log('[EmojiSearchService] Index built:', {
+      totalCached: this.emojiCache.size,
+      totalIndexKeys: this.searchIndex.size
+    });
   }
 
   private createSearchableEmoji(name: string, value: string, isCustom: boolean): SearchableEmoji {
@@ -177,6 +233,18 @@ export class EmojiSearchService {
     // Add English aliases
     if (ENGLISH_ALIASES[name]) {
       aliases.push(...ENGLISH_ALIASES[name]);
+    }
+    
+    // For standard emojis, also check if the name itself should have common aliases
+    // This helps with emojis like "man", "woman", "person_bowing" etc.
+    if (!isCustom) {
+      // Check each part of underscore-separated names
+      const nameParts = name.split('_');
+      for (const part of nameParts) {
+        if (ENGLISH_ALIASES[part]) {
+          aliases.push(...ENGLISH_ALIASES[part]);
+        }
+      }
     }
 
     // Check for partial matches in English aliases
@@ -270,6 +338,11 @@ export class EmojiSearchService {
 
     const normalizedQuery = query.toLowerCase().trim();
     const results = new Map<string, EmojiSearchResult>();
+
+    console.log('[EmojiSearchService] Searching for:', normalizedQuery, {
+      cacheSize: this.emojiCache.size,
+      indexSize: this.searchIndex.size
+    });
 
     // Track this search
     this.recentSearches.unshift(normalizedQuery);
@@ -538,6 +611,7 @@ export class EmojiSearchService {
   }
 
   rebuildIndex() {
+    console.log('[EmojiSearchService] Rebuilding index...');
     this.searchIndex.clear();
     this.emojiCache.clear();
     this.buildSearchIndex();
