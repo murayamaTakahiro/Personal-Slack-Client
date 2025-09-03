@@ -161,9 +161,11 @@
       reaction8: '8',
       reaction9: '9',
       toggleKeyboardHelp: '?',
+      toggleEmojiSearch: 'Ctrl+e',
       zoomIn: 'Ctrl+=',
       zoomOut: 'Ctrl+-',
-      zoomReset: 'Ctrl+0'
+      zoomReset: 'Ctrl+0',
+      toggleChannelFavorite: 'f'
     });
     
     // The reaction service already loads mappings from localStorage

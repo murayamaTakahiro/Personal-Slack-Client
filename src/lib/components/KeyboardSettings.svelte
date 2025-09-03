@@ -37,9 +37,11 @@
     reaction9: '9',
     openUrls: 'Alt+Enter',
     toggleKeyboardHelp: '?',
+    toggleEmojiSearch: 'Ctrl+e',
     zoomIn: 'Ctrl+=',
     zoomOut: 'Ctrl+-',
-    zoomReset: 'Ctrl+0'
+    zoomReset: 'Ctrl+0',
+    toggleChannelFavorite: 'f'
   };
   
   let editingShortcut: keyof KeyboardShortcuts | null = null;
@@ -79,9 +81,11 @@
     reaction9: 'Quick Reaction 9',
     openUrls: 'Open URLs from Message',
     toggleKeyboardHelp: 'Toggle Keyboard Help',
+    toggleEmojiSearch: 'Open Emoji Search',
     zoomIn: 'Zoom In',
     zoomOut: 'Zoom Out',
-    zoomReset: 'Reset Zoom'
+    zoomReset: 'Reset Zoom',
+    toggleChannelFavorite: 'Toggle Channel Favorite'
   };
   
   onMount(() => {
