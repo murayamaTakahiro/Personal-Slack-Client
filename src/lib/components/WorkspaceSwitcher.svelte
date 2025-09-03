@@ -48,10 +48,15 @@
       // Wait for dropdown to render
       await tick();
       updateFocusableElements();
-      // Focus first item
+      // Focus first focusable element in the dropdown
       if (focusableElements.length > 0) {
-        focusedIndex = 0;
-        focusableElements[0]?.focus();
+        // Find first workspace item or add button
+        const firstItem = dropdownElement?.querySelector('.workspace-item, .add-workspace-button') as HTMLElement;
+        if (firstItem) {
+          firstItem.focus();
+        } else if (focusableElements[0]) {
+          focusableElements[0].focus();
+        }
       }
     }
   }
@@ -222,6 +227,30 @@
   function handleEditModalKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
       closeEditModal();
+    } else if (event.key === 'Tab') {
+      // Trap focus within the modal
+      const modal = document.querySelector('.workspace-edit-modal');
+      if (!modal) return;
+      
+      const focusableSelectors = 'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+      const focusableElements = Array.from(modal.querySelectorAll(focusableSelectors)) as HTMLElement[];
+      
+      if (focusableElements.length === 0) return;
+      
+      const currentFocus = document.activeElement;
+      const currentIndex = focusableElements.indexOf(currentFocus as HTMLElement);
+      
+      let nextIndex;
+      if (event.shiftKey) {
+        // Shift+Tab: go backwards
+        nextIndex = currentIndex <= 0 ? focusableElements.length - 1 : currentIndex - 1;
+      } else {
+        // Tab: go forwards
+        nextIndex = currentIndex >= focusableElements.length - 1 ? 0 : currentIndex + 1;
+      }
+      
+      event.preventDefault();
+      focusableElements[nextIndex]?.focus();
     }
   }
   
@@ -283,8 +312,29 @@
         break;
         
       case 'Tab':
-        // Allow natural tab navigation through all buttons
-        // Don't prevent default to allow browser's natural tab order
+        // Trap focus within dropdown
+        event.preventDefault();
+        event.stopPropagation();
+        
+        // Update focusable elements list
+        updateFocusableElements();
+        
+        if (focusableElements.length === 0) return;
+        
+        // Get current focused element
+        const currentFocus = document.activeElement;
+        const currentIndex = focusableElements.indexOf(currentFocus as HTMLElement);
+        
+        let nextIndex;
+        if (event.shiftKey) {
+          // Shift+Tab: go backwards
+          nextIndex = currentIndex <= 0 ? focusableElements.length - 1 : currentIndex - 1;
+        } else {
+          // Tab: go forwards
+          nextIndex = currentIndex >= focusableElements.length - 1 ? 0 : currentIndex + 1;
+        }
+        
+        focusableElements[nextIndex]?.focus();
         break;
         
       case 'ArrowDown':
