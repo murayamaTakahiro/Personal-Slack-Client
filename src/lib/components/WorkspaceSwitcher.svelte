@@ -16,6 +16,11 @@
   let newWorkspaceColor = '#4A90E2';
   let switchingWorkspace = false;
   
+  // Edit mode state
+  let editingWorkspaceId: string | null = null;
+  let editWorkspaceName = '';
+  let editWorkspaceColor = '';
+  
   // Focus management
   let dropdownElement: HTMLElement;
   let workspaceButtonElement: HTMLButtonElement;
@@ -153,6 +158,47 @@
     }
   }
   
+  async function startEditingWorkspace(e: Event, workspace: Workspace) {
+    e.stopPropagation();
+    editingWorkspaceId = workspace.id;
+    editWorkspaceName = workspace.name;
+    editWorkspaceColor = workspace.color || '#4A90E2';
+    
+    // Wait for the input to render and then focus it
+    await tick();
+    const editInput = dropdownElement?.querySelector('.edit-name-input') as HTMLInputElement;
+    if (editInput) {
+      editInput.focus();
+      editInput.select();
+    }
+  }
+  
+  async function saveWorkspaceEdit(workspace: Workspace) {
+    if (!editWorkspaceName.trim()) {
+      alert('Workspace name cannot be empty');
+      return;
+    }
+    
+    try {
+      await workspaceStore.updateWorkspace(workspace.id, {
+        name: editWorkspaceName.trim(),
+        color: editWorkspaceColor
+      });
+      
+      editingWorkspaceId = null;
+      dispatch('workspaceUpdated', { ...workspace, name: editWorkspaceName, color: editWorkspaceColor });
+    } catch (error) {
+      console.error('Error updating workspace:', error);
+      alert('Failed to update workspace: ' + error.message);
+    }
+  }
+  
+  function cancelEditingWorkspace() {
+    editingWorkspaceId = null;
+    editWorkspaceName = '';
+    editWorkspaceColor = '';
+  }
+  
   function getWorkspaceInitials(workspace: Workspace): string {
     return workspace.name
       .split(' ')
@@ -166,7 +212,7 @@
   function updateFocusableElements() {
     if (!dropdownElement) return;
     
-    const selector = 'button:not([disabled]):not(.delete-button), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const selector = 'button:not([disabled]):not(.delete-button):not(.edit-button), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
     focusableElements = Array.from(dropdownElement.querySelectorAll(selector));
   }
   
@@ -340,44 +386,107 @@
       {#if !addingWorkspace}
         <div class="workspace-list">
           {#each workspaceList as workspace, index}
-            <button
-              class="workspace-item"
-              class:active={workspace.id === currentWorkspace?.id}
-              on:click={() => switchToWorkspace(workspace)}
-              role="menuitem"
-              aria-label="Switch to {workspace.name}"
-              tabindex={focusedIndex === index ? 0 : -1}
-            >
-              <div 
-                class="workspace-avatar small"
-                style="background-color: {workspace.color || '#4A90E2'}"
+            {#if editingWorkspaceId === workspace.id}
+              <div class="workspace-edit-item">
+                <div class="color-picker-inline">
+                  {#each defaultColors.slice(0, 4) as color}
+                    <button
+                      class="color-option-small"
+                      class:selected={editWorkspaceColor === color}
+                      style="background-color: {color}"
+                      on:click={() => editWorkspaceColor = color}
+                      tabindex="-1"
+                    />
+                  {/each}
+                </div>
+                <input
+                  type="text"
+                  class="edit-name-input"
+                  bind:value={editWorkspaceName}
+                  placeholder="Workspace name"
+                  on:keydown={(e) => {
+                    if (e.key === 'Enter') {
+                      saveWorkspaceEdit(workspace);
+                    } else if (e.key === 'Escape') {
+                      cancelEditingWorkspace();
+                    }
+                  }}
+                  maxlength="50"
+                />
+                <div class="edit-actions">
+                  <button 
+                    class="save-edit-btn"
+                    on:click={() => saveWorkspaceEdit(workspace)}
+                    title="Save"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  </button>
+                  <button 
+                    class="cancel-edit-btn"
+                    on:click={cancelEditingWorkspace}
+                    title="Cancel"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <line x1="18" y1="6" x2="6" y2="18"/>
+                      <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            {:else}
+              <button
+                class="workspace-item"
+                class:active={workspace.id === currentWorkspace?.id}
+                on:click={() => switchToWorkspace(workspace)}
+                role="menuitem"
+                aria-label="Switch to {workspace.name}"
+                tabindex={focusedIndex === index ? 0 : -1}
               >
-                {getWorkspaceInitials(workspace)}
-              </div>
-              <div class="workspace-details">
-                <span class="workspace-name">{workspace.name}</span>
-                <span class="workspace-domain">{workspace.domain}.slack.com</span>
-              </div>
-              {#if workspace.id === currentWorkspace?.id}
-                <svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
-              {/if}
-              {#if workspaceList.length > 1}
+                <div 
+                  class="workspace-avatar small"
+                  style="background-color: {workspace.color || '#4A90E2'}"
+                >
+                  {getWorkspaceInitials(workspace)}
+                </div>
+                <div class="workspace-details">
+                  <span class="workspace-name">{workspace.name}</span>
+                  <span class="workspace-domain">{workspace.domain}.slack.com</span>
+                </div>
+                {#if workspace.id === currentWorkspace?.id}
+                  <svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                {/if}
                 <button
-                  class="delete-button"
-                  on:click={e => deleteWorkspace(e, workspace)}
-                  title="Delete workspace"
+                  class="edit-button"
+                  on:click={e => startEditingWorkspace(e, workspace)}
+                  title="Edit workspace"
                   tabindex="-1"
-                  aria-label="Delete {workspace.name}"
+                  aria-label="Edit {workspace.name}"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <line x1="18" y1="6" x2="6" y2="18"/>
-                    <line x1="6" y1="6" x2="18" y2="18"/>
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                   </svg>
                 </button>
-              {/if}
-            </button>
+                {#if workspaceList.length > 1}
+                  <button
+                    class="delete-button"
+                    on:click={e => deleteWorkspace(e, workspace)}
+                    title="Delete workspace"
+                    tabindex="-1"
+                    aria-label="Delete {workspace.name}"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <line x1="18" y1="6" x2="6" y2="18"/>
+                      <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                {/if}
+              </button>
+            {/if}
           {/each}
         </div>
         
@@ -623,6 +732,7 @@
     flex-shrink: 0;
   }
   
+  .edit-button,
   .delete-button {
     padding: 0.25rem;
     background: transparent;
@@ -634,12 +744,98 @@
     transition: all 0.2s;
   }
   
+  .workspace-item:hover .edit-button,
   .workspace-item:hover .delete-button,
+  .workspace-item:focus .edit-button,
   .workspace-item:focus .delete-button {
     opacity: 1;
   }
   
+  .edit-button:hover {
+    background: var(--bg-hover);
+    color: var(--primary);
+  }
+  
   .delete-button:hover {
+    background: var(--bg-hover);
+    color: var(--danger);
+  }
+  
+  /* Edit mode styles */
+  .workspace-edit-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: var(--bg-hover);
+    border-left: 2px solid var(--primary);
+  }
+  
+  .color-picker-inline {
+    display: flex;
+    gap: 0.25rem;
+  }
+  
+  .color-option-small {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .color-option-small:hover {
+    transform: scale(1.1);
+  }
+  
+  .color-option-small.selected {
+    border-color: var(--text-primary);
+  }
+  
+  .edit-name-input {
+    flex: 1;
+    padding: 0.25rem 0.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--primary);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+  }
+  
+  .edit-name-input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--primary-bg);
+  }
+  
+  .edit-actions {
+    display: flex;
+    gap: 0.25rem;
+  }
+  
+  .save-edit-btn,
+  .cancel-edit-btn {
+    padding: 0.25rem;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .save-edit-btn {
+    color: var(--success, #10B981);
+  }
+  
+  .save-edit-btn:hover {
+    background: var(--bg-hover);
+  }
+  
+  .cancel-edit-btn {
+    color: var(--text-secondary);
+  }
+  
+  .cancel-edit-btn:hover {
     background: var(--bg-hover);
     color: var(--danger);
   }
