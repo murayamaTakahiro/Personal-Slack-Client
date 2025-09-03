@@ -239,6 +239,133 @@
   }
   
   function handleGridNavigation(event: KeyboardEvent) {
+    // Handle Tab key separately for section navigation
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      event.stopPropagation();
+      
+      const container = event.currentTarget as HTMLElement;
+      const currentElement = document.activeElement as HTMLElement;
+      
+      // Identify current location
+      const isInSearchInput = currentElement.classList.contains('search-input');
+      const currentSection = currentElement.closest('.suggestions-section');
+      let isInPopularEmojis = false;
+      let isInCustomEmojis = false;
+      let isInSearchResults = false;
+      
+      if (currentSection && !isInSearchInput) {
+        const sectionLabel = currentSection.querySelector('.suggestions-label');
+        if (sectionLabel) {
+          const labelText = sectionLabel.textContent || '';
+          isInPopularEmojis = labelText.includes('よく使われる');
+          isInCustomEmojis = labelText.includes('カスタム');
+          isInSearchResults = labelText.includes('検索して選択');
+        }
+      }
+      
+      // Get section elements
+      const searchInput = container.querySelector('.search-input') as HTMLInputElement;
+      const sections = Array.from(container.querySelectorAll('.suggestions-section'));
+      const searchResultsSection = sections.find(s => s.querySelector('.suggestions-label')?.textContent?.includes('検索して選択'));
+      const popularSection = sections.find(s => s.querySelector('.suggestions-label')?.textContent?.includes('よく使われる'));
+      const customSection = sections.find(s => s.querySelector('.suggestions-label')?.textContent?.includes('カスタム'));
+      
+      // Helper function to focus first emoji in a section
+      const focusFirstEmojiInSection = (section: Element | undefined) => {
+        if (!section) return false;
+        const firstEmoji = section.querySelector('.emoji-option:not([disabled])') as HTMLElement;
+        if (firstEmoji) {
+          firstEmoji.focus();
+          firstEmoji.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          return true;
+        }
+        return false;
+      };
+      
+      // Helper function to focus last emoji in a section
+      const focusLastEmojiInSection = (section: Element | undefined) => {
+        if (!section) return false;
+        const emojis = section.querySelectorAll('.emoji-option:not([disabled])');
+        const lastEmoji = emojis[emojis.length - 1] as HTMLElement;
+        if (lastEmoji) {
+          lastEmoji.focus();
+          lastEmoji.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          return true;
+        }
+        return false;
+      };
+      
+      // Determine next focus target
+      if (event.shiftKey) {
+        // Shift+Tab navigation (backwards)
+        if (isInSearchInput) {
+          // From search input -> wrap to last section (custom > popular > search results)
+          if (!focusLastEmojiInSection(customSection)) {
+            if (!focusLastEmojiInSection(popularSection)) {
+              focusLastEmojiInSection(searchResultsSection);
+            }
+          }
+        } else if (isInSearchResults) {
+          // From search results -> go to search input
+          if (searchInput) {
+            searchInput.focus();
+          }
+        } else if (isInPopularEmojis) {
+          // From popular emojis -> go to search results (if exists) or search input
+          if (searchResultsSection && searchQuery) {
+            focusFirstEmojiInSection(searchResultsSection);
+          } else if (searchInput) {
+            searchInput.focus();
+          }
+        } else if (isInCustomEmojis) {
+          // From custom emojis -> go to popular emojis (if exists) or search results or search input
+          if (!focusFirstEmojiInSection(popularSection)) {
+            if (searchResultsSection && searchQuery) {
+              focusFirstEmojiInSection(searchResultsSection);
+            } else if (searchInput) {
+              searchInput.focus();
+            }
+          }
+        }
+      } else {
+        // Tab navigation (forwards)
+        if (isInSearchInput) {
+          // From search input -> go to first available section
+          if (searchResultsSection && searchQuery) {
+            focusFirstEmojiInSection(searchResultsSection);
+          } else if (!focusFirstEmojiInSection(popularSection)) {
+            focusFirstEmojiInSection(customSection);
+          }
+        } else if (isInSearchResults) {
+          // From search results -> go to popular emojis (if exists) or custom emojis or wrap to search input
+          if (!focusFirstEmojiInSection(popularSection)) {
+            if (!focusFirstEmojiInSection(customSection)) {
+              // Wrap back to search input
+              if (searchInput) {
+                searchInput.focus();
+              }
+            }
+          }
+        } else if (isInPopularEmojis) {
+          // From popular emojis -> go to custom emojis (if exists) or wrap to search input
+          if (!focusFirstEmojiInSection(customSection)) {
+            // Wrap back to search input
+            if (searchInput) {
+              searchInput.focus();
+            }
+          }
+        } else if (isInCustomEmojis) {
+          // From custom emojis -> wrap back to search input (focus trap)
+          if (searchInput) {
+            searchInput.focus();
+          }
+        }
+      }
+      
+      return;
+    }
+    
     // Only handle navigation if focus is on an emoji button
     const target = event.target as HTMLElement;
     if (!target.classList.contains('emoji-option')) return;
@@ -246,16 +373,21 @@
     // Don't interfere with search input
     if (target.tagName === 'INPUT') return;
     
-    const allButtons = Array.from(event.currentTarget.querySelectorAll('.emoji-option:not([disabled])')) as HTMLElement[];
-    const currentIndex = allButtons.indexOf(target);
+    // Get emojis only from the current section
+    const currentSection = target.closest('.suggestions-section');
+    if (!currentSection) return;
+    
+    const sectionButtons = Array.from(currentSection.querySelectorAll('.emoji-option:not([disabled])')) as HTMLElement[];
+    const currentIndex = sectionButtons.indexOf(target);
     if (currentIndex === -1) return;
     
     let nextIndex = -1;
     
-    // Calculate grid columns
+    // Calculate grid columns for the current section
     const getColumns = () => {
-      if (!emojiGrid) return 4; // Default fallback
-      const gridStyle = window.getComputedStyle(emojiGrid);
+      const sectionGrid = currentSection.querySelector('.emoji-grid');
+      if (!sectionGrid) return 4; // Default fallback
+      const gridStyle = window.getComputedStyle(sectionGrid);
       const columnTemplate = gridStyle.getPropertyValue('grid-template-columns');
       if (!columnTemplate) return 4;
       const columns = columnTemplate.split(' ').length;
@@ -269,13 +401,15 @@
       case 'h':
       case 'H':
         event.preventDefault();
-        nextIndex = currentIndex > 0 ? currentIndex - 1 : allButtons.length - 1;
+        // Move left within the current section only
+        nextIndex = currentIndex > 0 ? currentIndex - 1 : sectionButtons.length - 1;
         break;
       case 'ArrowRight':
       case 'l':
       case 'L':
         event.preventDefault();
-        nextIndex = currentIndex < allButtons.length - 1 ? currentIndex + 1 : 0;
+        // Move right within the current section only
+        nextIndex = currentIndex < sectionButtons.length - 1 ? currentIndex + 1 : 0;
         break;
       case 'ArrowUp':
       case 'k':
@@ -283,10 +417,10 @@
         event.preventDefault();
         nextIndex = currentIndex - columns;
         if (nextIndex < 0) {
-          // If moving up from first row, wrap to last row same column
-          const lastRowStart = Math.floor((allButtons.length - 1) / columns) * columns;
+          // If moving up from first row, wrap to last row same column within section
+          const lastRowStart = Math.floor((sectionButtons.length - 1) / columns) * columns;
           const column = currentIndex % columns;
-          nextIndex = Math.min(lastRowStart + column, allButtons.length - 1);
+          nextIndex = Math.min(lastRowStart + column, sectionButtons.length - 1);
         }
         break;
       case 'ArrowDown':
@@ -294,32 +428,39 @@
       case 'J':
         event.preventDefault();
         nextIndex = currentIndex + columns;
-        if (nextIndex >= allButtons.length) {
-          // If moving down from last row, wrap to first row same column
+        if (nextIndex >= sectionButtons.length) {
+          // If moving down from last row, wrap to first row same column within section
           nextIndex = currentIndex % columns;
+          if (nextIndex >= sectionButtons.length) {
+            nextIndex = sectionButtons.length - 1;
+          }
         }
         break;
       case 'Home':
         event.preventDefault();
+        // Go to first emoji in current section
         nextIndex = 0;
         break;
       case 'End':
         event.preventDefault();
-        nextIndex = allButtons.length - 1;
+        // Go to last emoji in current section
+        nextIndex = sectionButtons.length - 1;
         break;
       case 'PageUp':
         event.preventDefault();
+        // Move up by 3 rows within current section
         nextIndex = Math.max(0, currentIndex - columns * 3);
         break;
       case 'PageDown':
         event.preventDefault();
-        nextIndex = Math.min(allButtons.length - 1, currentIndex + columns * 3);
+        // Move down by 3 rows within current section
+        nextIndex = Math.min(sectionButtons.length - 1, currentIndex + columns * 3);
         break;
     }
     
-    if (nextIndex >= 0 && nextIndex < allButtons.length) {
-      allButtons[nextIndex].focus();
-      allButtons[nextIndex].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    if (nextIndex >= 0 && nextIndex < sectionButtons.length) {
+      sectionButtons[nextIndex].focus();
+      sectionButtons[nextIndex].scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
   }
 </script>
@@ -456,7 +597,7 @@
               </div>
             {/if}
             <div class="navigation-hint">
-              💡 ナビゲーション: 矢印キー(↑↓←→) または HJKL | Home/End | PageUp/Down
+              💡 ナビゲーション: Tab(セクション切替) | 矢印キー(↑↓←→) または HJKL | Home/End | PageUp/Down
             </div>
           </div>
         {:else}
