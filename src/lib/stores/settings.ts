@@ -20,6 +20,7 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   toggleChannelSelector: 'Ctrl+L',
   toggleMultiSelectMode: 'Ctrl+M',
   selectRecentChannels: 'Ctrl+R',
+  selectAllFavorites: 'Ctrl+F',
   applySelectedChannels: 'Ctrl+Shift+A',
   jumpToFirst: 'h',
   jumpToLast: 'e',

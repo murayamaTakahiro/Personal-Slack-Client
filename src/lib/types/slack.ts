@@ -94,6 +94,7 @@ export interface KeyboardShortcuts {
   toggleChannelSelector: string | string[];
   toggleMultiSelectMode?: string | string[];
   selectRecentChannels?: string | string[];
+  selectAllFavorites?: string | string[];
   applySelectedChannels?: string | string[];
   jumpToFirst: string | string[];
   jumpToLast: string | string[];

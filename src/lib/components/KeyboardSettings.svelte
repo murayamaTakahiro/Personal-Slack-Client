@@ -20,7 +20,7 @@
     },
     {
       name: 'Channel Management',
-      shortcuts: ['toggleChannelSelector', 'toggleMultiSelectMode', 'selectRecentChannels', 'applySelectedChannels', 'toggleChannelFavorite']
+      shortcuts: ['toggleChannelSelector', 'toggleMultiSelectMode', 'selectRecentChannels', 'selectAllFavorites', 'applySelectedChannels', 'toggleChannelFavorite']
     },
     {
       name: 'Message Actions',
@@ -52,6 +52,7 @@
     toggleChannelSelector: 'Ctrl+L',
     toggleMultiSelectMode: 'Ctrl+M',
     selectRecentChannels: 'Ctrl+R',
+    selectAllFavorites: 'Ctrl+F',
     applySelectedChannels: 'Ctrl+Shift+A',
     jumpToFirst: 'h',
     jumpToLast: 'e',
@@ -96,6 +97,7 @@
     toggleChannelSelector: 'Toggle Channel Selector / Live Mode',
     toggleMultiSelectMode: 'Toggle Multi-Select Mode (Channels)',
     selectRecentChannels: 'Select Recent Channels',
+    selectAllFavorites: 'Select All Favorites',
     applySelectedChannels: 'Apply Selected Channels',
     jumpToFirst: 'Jump to First Message',
     jumpToLast: 'Jump to Last Message',
@@ -136,6 +138,7 @@
     toggleChannelSelector: 'Available anywhere in the app',
     toggleMultiSelectMode: 'When channel selector is open',
     selectRecentChannels: 'When channel selector is open',
+    selectAllFavorites: 'When channel selector is open',
     applySelectedChannels: 'When channels are selected',
     jumpToFirst: 'When viewing messages or results',
     jumpToLast: 'When viewing messages or results',

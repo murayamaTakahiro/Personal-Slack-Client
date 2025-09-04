@@ -200,6 +200,11 @@
             shortcut: shortcuts.selectRecentChannels || 'Ctrl+R'
           },
           { 
+            key: 'selectAllFavorites', 
+            description: 'Select All Favorite Channels',
+            shortcut: shortcuts.selectAllFavorites || 'Ctrl+F'
+          },
+          { 
             key: 'applySelectedChannels', 
             description: 'Apply Selected Channels',
             shortcut: shortcuts.applySelectedChannels || 'Ctrl+Shift+A'
