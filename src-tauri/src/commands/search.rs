@@ -265,20 +265,51 @@ pub async fn search_messages(
     // For Live mode (force_refresh), fetch reactions for each message if they don't have them
     if force_refresh.unwrap_or(false) {
         info!("Live mode: Fetching reactions for {} messages", slack_messages.len());
-        for msg in &mut slack_messages {
-            // Only fetch if we don't already have reactions
-            if msg.reactions.is_none() {
-                match client.get_reactions(&msg.channel.id, &msg.ts).await {
-                    Ok(reactions) => {
-                        if !reactions.is_empty() {
-                            info!("Fetched {} reactions for message {}", reactions.len(), msg.ts);
-                            msg.reactions = Some(reactions);
+        
+        // Collect indices of messages that need reactions
+        let messages_needing_reactions: Vec<(usize, String, String)> = slack_messages
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, msg)| {
+                if msg.reactions.is_none() {
+                    Some((idx, msg.channel.id.clone(), msg.ts.clone()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        
+        if !messages_needing_reactions.is_empty() {
+            info!("Fetching reactions for {} messages in parallel", messages_needing_reactions.len());
+            
+            // Create futures for all reaction fetches
+            // client is already Arc from line 50
+            let reaction_futures = messages_needing_reactions.iter().map(|(_, channel_id, ts)| {
+                let client = Arc::clone(&client);
+                let channel_id = channel_id.clone();
+                let ts = ts.clone();
+                async move {
+                    match client.get_reactions(&channel_id, &ts).await {
+                        Ok(reactions) if !reactions.is_empty() => {
+                            info!("Fetched {} reactions for message {}", reactions.len(), ts);
+                            Some(reactions)
+                        }
+                        Ok(_) => None,
+                        Err(e) => {
+                            debug!("Failed to get reactions for message {}: {}", ts, e);
+                            None
                         }
                     }
-                    Err(e) => {
-                        debug!("Failed to get reactions for message {}: {}", msg.ts, e);
-                        // Continue without reactions for this message
-                    }
+                }
+            });
+            
+            // Execute all reaction fetches in parallel
+            let reaction_results = join_all(reaction_futures).await;
+            
+            // Apply the fetched reactions to the messages
+            for ((idx, _, _), reactions) in messages_needing_reactions.iter().zip(reaction_results) {
+                if let Some(reactions) = reactions {
+                    slack_messages[*idx].reactions = Some(reactions);
                 }
             }
         }
