@@ -7,6 +7,7 @@
   import { getKeyboardService } from '../services/keyboardService';
   import { urlService } from '../services/urlService';
   import { openUrlsSmart } from '../api/urls';
+  import { getThreadFromUrl } from '../api/slack';
   import { showInfo, showError } from '../stores/toast';
   import { decodeSlackText } from '../utils/htmlEntities';
   
@@ -168,9 +169,6 @@
         const slackUrl = extractedUrls.slackUrls[0]; // Use the first Slack URL
         
         try {
-          // Import the function we need
-          const { getThreadFromUrl } = await import('../api/slack');
-          
           showInfo('Loading thread', 'Loading Slack thread...');
           
           // Load the thread from the Slack URL

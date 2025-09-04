@@ -12,7 +12,11 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "tauri:build-safe": "powershell -ExecutionPolicy Bypass -File ./build-cache.ps1 build",
+    "tauri:clean": "powershell -ExecutionPolicy Bypass -File ./build-cache.ps1 clean",
+    "tauri:backup": "powershell -ExecutionPolicy Bypass -File ./build-cache.ps1 backup",
+    "tauri:restore": "powershell -ExecutionPolicy Bypass -File ./build-cache.ps1 restore"
   },
   "dependencies": {
     "@tauri-apps/api": "2.7.0",

@@ -1,0 +1,36 @@
+# Cargo設定ファイル - ビルドの最適化とセキュリティ対策
+
+[build]
+# ビルド並列数の制限（システムリソース管理）
+jobs = 4
+
+# ビルドターゲットディレクトリの設定
+# target-dir = "C:\\temp\\rust-build\\personal-slack-client"  # 必要に応じてコメント解除
+
+[profile.dev]
+# 開発ビルドの最適化
+opt-level = 0
+debug = true
+incremental = true
+
+[profile.release]
+# リリースビルドの最適化
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true  # シンボル情報を削除してファイルサイズを削減
+
+[profile.release-signed]
+# 署名用のプロファイル（将来の実装用）
+inherits = "release"
+opt-level = 3
+
+[net]
+# ネットワーク設定
+retry = 3
+offline = false
+
+[term]
+# ターミナル出力設定
+verbose = false
+color = 'auto'
