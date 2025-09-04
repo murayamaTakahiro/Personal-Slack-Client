@@ -172,10 +172,14 @@
       if (dateParts.length === 3) {
         const [year, month, day] = dateParts.map(Number);
         const currentMaxDay = getMaxDayInMonth(year, month);
+        const isArrowUp = e.key === 'ArrowUp';
+        const isArrowDown = e.key === 'ArrowDown';
         
-        // Check if we're at the end of month boundary
-        if (day === currentMaxDay || day === 30 || day === 31) {
-          const increment = e.key === 'ArrowUp' ? 1 : -1;
+        // Check if we're at a month boundary based on direction
+        const atMonthBoundary = (isArrowUp && day === currentMaxDay) || (isArrowDown && day === 1);
+        
+        if (atMonthBoundary) {
+          const increment = isArrowUp ? 1 : -1;
           let newDay = day + increment;
           let newMonth = month;
           let newYear = year;
