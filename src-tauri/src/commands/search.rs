@@ -449,7 +449,6 @@ pub async fn search_messages(
 pub async fn get_user_channels(state: State<'_, AppState>) -> AppResult<Vec<(String, String)>> {
     let client = state.get_client().await?;
 
-    debug!("Fetching user channels");
 
     let channels = client.get_channels().await?;
 
@@ -462,7 +461,6 @@ pub async fn get_user_channels(state: State<'_, AppState>) -> AppResult<Vec<(Str
         }
     }
 
-    info!("Fetched {} channels", channel_list.len());
 
     Ok(channel_list)
 }
@@ -473,7 +471,6 @@ pub async fn get_users(
 ) -> AppResult<Vec<(String, String, Option<String>)>> {
     let client = state.get_client().await?;
 
-    debug!("Fetching users");
 
     let users = client.get_users().await?;
 
@@ -500,7 +497,6 @@ pub async fn get_users(
             .await;
     }
 
-    info!("Fetched {} users", user_list.len());
 
     Ok(user_list)
 }
@@ -534,7 +530,6 @@ pub async fn test_connection(token: String, state: State<'_, AppState>) -> AppRe
 pub async fn get_all_users(state: State<'_, AppState>) -> AppResult<Vec<SlackUser>> {
     let client = state.get_client().await?;
 
-    debug!("Fetching all users");
 
     let users_info = client.get_all_users().await?;
 
@@ -566,7 +561,6 @@ pub async fn get_all_users(state: State<'_, AppState>) -> AppResult<Vec<SlackUse
         })
         .collect();
 
-    info!("Fetched {} users", users.len());
 
     Ok(users)
 }
@@ -575,7 +569,6 @@ pub async fn get_all_users(state: State<'_, AppState>) -> AppResult<Vec<SlackUse
 pub async fn get_user_info(user_id: String, state: State<'_, AppState>) -> AppResult<SlackUser> {
     let client = state.get_client().await?;
 
-    debug!("Fetching user info for: {}", user_id);
 
     let user_info = client.get_user_info(&user_id).await?;
 
@@ -594,7 +587,6 @@ pub async fn get_user_info(user_id: String, state: State<'_, AppState>) -> AppRe
         avatar: user_info.profile.as_ref().and_then(|p| p.image_48.clone()),
     };
 
-    info!("Fetched user info for: {}", user.name);
 
     Ok(user)
 }

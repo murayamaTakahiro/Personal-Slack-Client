@@ -60,14 +60,12 @@ impl AppState {
     }
 
     pub async fn set_token(&self, token: String) -> AppResult<()> {
-        debug!("Setting Slack token");
         let mut token_lock = self.token.write().await;
         *token_lock = Some(token);
 
         // Also save to secure storage
         // TODO: Implement secure storage using Tauri's keyring API
 
-        info!("Token set successfully");
         Ok(())
     }
 
@@ -94,7 +92,6 @@ impl AppState {
     pub async fn get_client(&self) -> AppResult<SlackClient> {
         let token = match self.get_token().await {
             Ok(t) => {
-                info!("Successfully retrieved token for Slack client");
                 t
             }
             Err(e) => {
@@ -115,7 +112,6 @@ impl AppState {
 
         match SlackClient::new(token) {
             Ok(client) => {
-                info!("Slack client created successfully");
                 Ok(client)
             }
             Err(e) => {
