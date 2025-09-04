@@ -4,6 +4,38 @@
   import { getKeyboardService } from '../services/keyboardService';
   import { onMount } from 'svelte';
   
+  interface ShortcutCategory {
+    name: string;
+    shortcuts: (keyof KeyboardShortcuts)[];
+  }
+  
+  const shortcutCategories: ShortcutCategory[] = [
+    {
+      name: 'Search & Navigation',
+      shortcuts: ['executeSearch', 'toggleAdvancedSearch', 'focusSearchBar', 'newSearch', 'clearSearch']
+    },
+    {
+      name: 'Focus Controls',
+      shortcuts: ['focusResults', 'focusThread', 'focusUrlInput', 'nextResult', 'prevResult', 'openResult', 'jumpToFirst', 'jumpToLast']
+    },
+    {
+      name: 'Channel Management',
+      shortcuts: ['toggleChannelSelector', 'toggleMultiSelectMode', 'selectRecentChannels', 'applySelectedChannels', 'toggleChannelFavorite']
+    },
+    {
+      name: 'Message Actions',
+      shortcuts: ['postMessage', 'replyInThread', 'openReactionPicker', 'openUrls']
+    },
+    {
+      name: 'Quick Reactions',
+      shortcuts: ['reaction1', 'reaction2', 'reaction3', 'reaction4', 'reaction5', 'reaction6', 'reaction7', 'reaction8', 'reaction9']
+    },
+    {
+      name: 'UI Controls',
+      shortcuts: ['toggleSettings', 'toggleKeyboardHelp', 'toggleEmojiSearch', 'zoomIn', 'zoomOut', 'zoomReset']
+    }
+  ];
+  
   let shortcuts: KeyboardShortcuts = {
     executeSearch: 'Enter',
     toggleAdvancedSearch: 'Ctrl+Shift+F',
@@ -86,6 +118,46 @@
     zoomOut: 'Zoom Out',
     zoomReset: 'Reset Zoom',
     toggleChannelFavorite: 'Toggle Channel Favorite'
+  };
+  
+  const shortcutContexts: Record<string, string> = {
+    executeSearch: 'When focused on search bar',
+    toggleAdvancedSearch: 'Available anywhere in the app',
+    focusSearchBar: 'Available anywhere in the app',
+    focusResults: 'Available anywhere in the app',
+    focusThread: 'Available anywhere when a thread is open',
+    focusUrlInput: 'Available anywhere in the app',
+    toggleSettings: 'Available anywhere in the app',
+    newSearch: 'Available anywhere in the app',
+    nextResult: 'When results panel is focused',
+    prevResult: 'When results panel is focused',
+    openResult: 'When a result is selected',
+    clearSearch: 'When search bar is focused or results are shown',
+    toggleChannelSelector: 'Available anywhere in the app',
+    toggleMultiSelectMode: 'When channel selector is open',
+    selectRecentChannels: 'When channel selector is open',
+    applySelectedChannels: 'When channels are selected',
+    jumpToFirst: 'When viewing messages or results',
+    jumpToLast: 'When viewing messages or results',
+    postMessage: 'When a message is selected',
+    replyInThread: 'When a message is selected',
+    openReactionPicker: 'When a message is selected',
+    reaction1: 'When a message is selected',
+    reaction2: 'When a message is selected',
+    reaction3: 'When a message is selected',
+    reaction4: 'When a message is selected',
+    reaction5: 'When a message is selected',
+    reaction6: 'When a message is selected',
+    reaction7: 'When a message is selected',
+    reaction8: 'When a message is selected',
+    reaction9: 'When a message is selected',
+    openUrls: 'When a message with URLs is selected',
+    toggleKeyboardHelp: 'Available anywhere in the app',
+    toggleEmojiSearch: 'Available anywhere in the app',
+    zoomIn: 'Available anywhere in the app',
+    zoomOut: 'Available anywhere in the app',
+    zoomReset: 'Available anywhere in the app',
+    toggleChannelFavorite: 'When a channel is selected'
   };
   
   onMount(() => {
@@ -223,25 +295,39 @@
   </div>
   
   <div class="shortcuts-list">
-    {#each Object.entries(shortcuts) as [key, shortcut]}
-      <div class="shortcut-item">
-        <span class="shortcut-description">
-          {shortcutDescriptions[key]}
-        </span>
-        <div class="shortcut-value">
-          {#if editingShortcut === key && recordingKeys}
-            <span class="recording">Press keys...</span>
-            <button class="btn-cancel" on:click={stopRecording}>
-              Cancel
-            </button>
-          {:else}
-            <kbd class="shortcut-key">
-              {getShortcutDisplay(shortcut)}
-            </kbd>
-            <button class="btn-edit" on:click={() => startRecording(key)}>
-              Edit
-            </button>
-          {/if}
+    {#each shortcutCategories as category}
+      <div class="shortcut-category">
+        <h4 class="category-title">{category.name}</h4>
+        <div class="category-shortcuts">
+          {#each category.shortcuts as key}
+            {#if shortcuts[key] !== undefined}
+              <div class="shortcut-item">
+                <div class="shortcut-info">
+                  <span class="shortcut-description">
+                    {shortcutDescriptions[key]}
+                  </span>
+                  <span class="shortcut-context">
+                    {shortcutContexts[key]}
+                  </span>
+                </div>
+                <div class="shortcut-value">
+                  {#if editingShortcut === key && recordingKeys}
+                    <span class="recording">Press keys...</span>
+                    <button class="btn-cancel" on:click={stopRecording}>
+                      Cancel
+                    </button>
+                  {:else}
+                    <kbd class="shortcut-key">
+                      {getShortcutDisplay(shortcuts[key])}
+                    </kbd>
+                    <button class="btn-edit" on:click={() => startRecording(key)}>
+                      Edit
+                    </button>
+                  {/if}
+                </div>
+              </div>
+            {/if}
+          {/each}
         </div>
       </div>
     {/each}
@@ -292,14 +378,36 @@
   .shortcuts-list {
     display: flex;
     flex-direction: column;
+    gap: 1.5rem;
+  }
+  
+  .shortcut-category {
+    display: flex;
+    flex-direction: column;
     gap: 0.75rem;
+  }
+  
+  .category-title {
+    margin: 0;
+    font-size: 0.938rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    opacity: 0.9;
+  }
+  
+  .category-shortcuts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
   }
   
   .shortcut-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.75rem 1rem;
+    padding: 0.875rem 1rem;
     background: var(--bg-primary);
     border: 1px solid var(--border);
     border-radius: 6px;
@@ -308,12 +416,35 @@
   
   .shortcut-item:hover {
     background: var(--bg-hover);
+    border-color: var(--border-hover, rgba(255, 255, 255, 0.15));
+  }
+  
+  .shortcut-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
   }
   
   .shortcut-description {
     font-size: 0.875rem;
     font-weight: 500;
     color: var(--text-primary);
+  }
+  
+  .shortcut-context {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    opacity: 0.7;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  
+  .shortcut-context::before {
+    content: '●';
+    font-size: 0.5rem;
+    opacity: 0.6;
   }
   
   .shortcut-value {
@@ -323,15 +454,16 @@
   }
   
   .shortcut-key {
-    padding: 0.25rem 0.5rem;
+    padding: 0.375rem 0.625rem;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: 4px;
     font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
     font-size: 0.813rem;
     color: var(--text-primary);
-    min-width: 80px;
+    min-width: 90px;
     text-align: center;
+    font-weight: 500;
   }
   
   .recording {
