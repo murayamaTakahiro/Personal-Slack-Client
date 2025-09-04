@@ -305,6 +305,13 @@
       }
     }
     
+    // Handle "A" key for Add Workspace (works from anywhere in the dropdown)
+    if ((event.key === 'a' || event.key === 'A') && !addingWorkspace) {
+      event.preventDefault();
+      showAddWorkspaceForm();
+      return;
+    }
+    
     switch (event.key) {
       case 'Escape':
         event.preventDefault();
@@ -479,7 +486,7 @@
       {#if !addingWorkspace}
         <div class="workspace-list">
           <div class="workspace-hint">
-            <span>Press <kbd>E</kbd> to edit, <kbd>Del</kbd> to delete</span>
+            <span>Press <kbd>A</kbd> to add, <kbd>E</kbd> to edit, <kbd>Del</kbd> to delete</span>
           </div>
           {#each workspaceList as workspace, index}
             <div
