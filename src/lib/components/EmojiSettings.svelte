@@ -707,6 +707,16 @@
     cursor: not-allowed;
   }
   
+  .reset-button {
+    background: #dc3545;
+    color: white;
+    border: none;
+  }
+  
+  .reset-button:hover {
+    background: #c82333;
+  }
+  
   .emoji-status {
     display: flex;
     gap: 20px;
