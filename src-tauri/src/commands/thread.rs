@@ -174,6 +174,7 @@ pub async fn get_thread(
             permalink,
             is_thread_parent: msg.reply_count.is_some() && msg.reply_count.unwrap() > 0,
             reply_count: msg.reply_count,
+            reactions: None, // Thread messages don't include reactions for now
         });
     }
 

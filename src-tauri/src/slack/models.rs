@@ -28,6 +28,8 @@ pub struct Message {
     pub is_thread_parent: bool,
     #[serde(rename = "replyCount")]
     pub reply_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reactions: Option<Vec<SlackReaction>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -124,6 +126,8 @@ pub struct SlackMessage {
     pub channel: SlackChannelInfo,
     pub permalink: String,
     pub reply_count: Option<usize>,
+    #[serde(default)]
+    pub reactions: Option<Vec<SlackReaction>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

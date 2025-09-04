@@ -172,10 +172,21 @@ pub async fn search_messages(
                 // Clean channel name (remove # if present)
                 let clean_channel = channel_param.trim_start_matches('#');
 
-                match (*client)
-                    .clone()
-                    .get_channel_messages(clean_channel, oldest, latest, max_results)
-                    .await
+                // Use the appropriate method based on whether it's a realtime update
+                let messages_result = if force_refresh.unwrap_or(false) {
+                    // For Live mode, use the method that includes reactions
+                    (*client)
+                        .clone()
+                        .get_channel_messages_with_reactions(clean_channel, oldest, latest, max_results)
+                        .await
+                } else {
+                    (*client)
+                        .clone()
+                        .get_channel_messages(clean_channel, oldest, latest, max_results)
+                        .await
+                };
+
+                match messages_result
                 {
                     Ok(messages) => {
                         info!("Got {} messages from conversations.history", messages.len());
@@ -249,7 +260,29 @@ pub async fn search_messages(
 
     // Sort by timestamp (newest first) and limit to max_results
     all_slack_messages.sort_by(|a, b| b.ts.cmp(&a.ts));
-    let slack_messages: Vec<_> = all_slack_messages.into_iter().take(max_results).collect();
+    let mut slack_messages: Vec<_> = all_slack_messages.into_iter().take(max_results).collect();
+
+    // For Live mode (force_refresh), fetch reactions for each message if they don't have them
+    if force_refresh.unwrap_or(false) {
+        info!("Live mode: Fetching reactions for {} messages", slack_messages.len());
+        for msg in &mut slack_messages {
+            // Only fetch if we don't already have reactions
+            if msg.reactions.is_none() {
+                match client.get_reactions(&msg.channel.id, &msg.ts).await {
+                    Ok(reactions) => {
+                        if !reactions.is_empty() {
+                            info!("Fetched {} reactions for message {}", reactions.len(), msg.ts);
+                            msg.reactions = Some(reactions);
+                        }
+                    }
+                    Err(e) => {
+                        debug!("Failed to get reactions for message {}: {}", msg.ts, e);
+                        // Continue without reactions for this message
+                    }
+                }
+            }
+        }
+    }
 
     // Get user cache from state
     let user_cache_simple = state.get_user_cache().await;
@@ -368,6 +401,7 @@ pub async fn search_messages(
             is_thread_parent: slack_msg.thread_ts.is_some()
                 && slack_msg.reply_count.unwrap_or(0) > 0,
             reply_count: slack_msg.reply_count,
+            reactions: slack_msg.reactions.clone(),
         });
     }
 

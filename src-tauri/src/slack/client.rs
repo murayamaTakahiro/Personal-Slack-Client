@@ -480,6 +480,88 @@ impl SlackClient {
         Ok(result.messages.unwrap_or_default())
     }
 
+    pub async fn get_channel_messages_with_reactions(
+        &self,
+        channel_id: &str,
+        oldest: Option<String>,
+        latest: Option<String>,
+        limit: usize,
+    ) -> Result<Vec<SlackMessage>> {
+        let url = format!("{}/conversations.history", SLACK_API_BASE);
+
+        let mut params = HashMap::new();
+        params.insert("channel", channel_id.to_string());
+        params.insert("limit", limit.to_string());
+        params.insert("inclusive", "true".to_string());
+        // Include all metadata to get reactions
+        params.insert("include_all_metadata", "true".to_string());
+
+        if let Some(oldest_ts) = oldest {
+            params.insert("oldest", oldest_ts);
+        }
+
+        if let Some(latest_ts) = latest {
+            params.insert("latest", latest_ts);
+        }
+
+        info!(
+            "Getting channel messages with reactions for channel: {}, limit: {}",
+            channel_id, limit
+        );
+
+        let response = self
+            .client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", self.token))
+            .query(&params)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await?;
+            error!("Failed to get channel messages with reactions: {} - {}", status, text);
+            return Err(anyhow!(
+                "Failed to get channel messages with reactions: {} - {}",
+                status,
+                text
+            ));
+        }
+
+        #[derive(Deserialize)]
+        struct ConversationsHistoryResponse {
+            ok: bool,
+            messages: Option<Vec<SlackMessage>>,
+            error: Option<String>,
+        }
+
+        let result: ConversationsHistoryResponse = response.json().await?;
+
+        if !result.ok {
+            let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
+            error!("Slack API error: {}", error_msg);
+            return Err(anyhow!("Slack API error: {}", error_msg));
+        }
+
+        let messages = result.messages.unwrap_or_default();
+        
+        // Debug logging to verify reactions are included
+        for msg in &messages {
+            if let Some(reactions) = &msg.reactions {
+                info!(
+                    "Message {} has {} reactions",
+                    msg.ts,
+                    reactions.len()
+                );
+                for reaction in reactions {
+                    debug!("  Reaction: {} (count: {})", reaction.name, reaction.count);
+                }
+            }
+        }
+
+        Ok(messages)
+    }
+
     pub async fn test_auth(&self) -> Result<bool> {
         let url = format!("{}/auth.test", SLACK_API_BASE);
 
