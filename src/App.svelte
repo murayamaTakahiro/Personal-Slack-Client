@@ -719,25 +719,11 @@
           realtimeStore.recordUpdate(0);
         }
         
-        // For realtime updates, use progressive rendering
-        // Update reactions immediately but defer full UI refresh
-        const currentResults = $searchResults;
-        if (currentResults) {
-          // Update reactions only for messages that changed
-          result.messages.forEach((newMsg, index) => {
-            const existingMsg = currentResults.messages.find(m => m.id === newMsg.id);
-            if (existingMsg && JSON.stringify(existingMsg.reactions) !== JSON.stringify(newMsg.reactions)) {
-              currentResults.messages[index] = { ...existingMsg, reactions: newMsg.reactions };
-            }
-          });
-          
-          // Batch update using requestAnimationFrame to reduce UI thrashing
-          requestAnimationFrame(() => {
-            searchResults.set(result);
-          });
-        } else {
+        // For realtime updates, batch the UI update to reduce thrashing
+        // Use requestAnimationFrame for smoother rendering
+        requestAnimationFrame(() => {
           searchResults.set(result);
-        }
+        });
       } else {
         // Normal search - immediate update
         searchResults.set(result);
