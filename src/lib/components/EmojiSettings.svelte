@@ -268,18 +268,18 @@
         const sectionLabel = currentSection.querySelector('.suggestions-label');
         if (sectionLabel) {
           const labelText = sectionLabel.textContent || '';
-          isInPopularEmojis = labelText.includes('よく使われる');
-          isInCustomEmojis = labelText.includes('カスタム');
-          isInSearchResults = labelText.includes('検索して選択');
+          isInPopularEmojis = labelText.includes('Popular');
+          isInCustomEmojis = labelText.includes('Custom');
+          isInSearchResults = labelText.includes('Search and select');
         }
       }
       
       // Get section elements
       const searchInput = container.querySelector('.search-input') as HTMLInputElement;
       const sections = Array.from(container.querySelectorAll('.suggestions-section'));
-      const searchResultsSection = sections.find(s => s.querySelector('.suggestions-label')?.textContent?.includes('検索して選択'));
-      const popularSection = sections.find(s => s.querySelector('.suggestions-label')?.textContent?.includes('よく使われる'));
-      const customSection = sections.find(s => s.querySelector('.suggestions-label')?.textContent?.includes('カスタム'));
+      const searchResultsSection = sections.find(s => s.querySelector('.suggestions-label')?.textContent?.includes('Search and select'));
+      const popularSection = sections.find(s => s.querySelector('.suggestions-label')?.textContent?.includes('Popular'));
+      const customSection = sections.find(s => s.querySelector('.suggestions-label')?.textContent?.includes('Custom'));
       
       // Helper function to focus first emoji in a section
       const focusFirstEmojiInSection = (section: Element | undefined) => {
@@ -477,7 +477,7 @@
 
 <div class="emoji-settings">
   <div class="header">
-    <h3>絵文字リアクション設定</h3>
+    <h3>Emoji Reaction Settings</h3>
     <div class="header-buttons">
       <button class="auto-fix-button" on:click={autoFixMissingEmojis} title="Find and fix missing emojis">
         🔧 Auto-Fix
@@ -486,10 +486,10 @@
         {$emojiLoading ? 'Loading...' : 'Refresh Emojis'}
       </button>
       <button class="reload-button" on:click={reloadConfig}>
-        設定を再読み込み
+        Reload Config
       </button>
       <button class="reset-button" on:click={resetToDefaults}>
-        デフォルトに戻す
+        Reset to Defaults
       </button>
     </div>
   </div>
@@ -500,12 +500,12 @@
   </div>
   
   <div class="config-notice">
-    <p>⚠️ 設定は <code>src/lib/services/reactionService.ts</code> の <code>DEFAULT_REACTION_MAPPINGS</code> で管理されています</p>
-    <p>詳細は <a href="/EMOJI_CONFIG_SIMPLE.md" target="_blank">EMOJI_CONFIG_SIMPLE.md</a> を参照してください</p>
+    <p>⚠️ Settings are managed in <code>DEFAULT_REACTION_MAPPINGS</code> in <code>src/lib/services/reactionService.ts</code></p>
+    <p>See <a href="/EMOJI_CONFIG_SIMPLE.md" target="_blank">EMOJI_CONFIG_SIMPLE.md</a> for details</p>
   </div>
   
   <p class="description">
-    数字キー（1〜9）で追加・削除できる絵文字（現在の設定を表示）
+    Emojis that can be added/removed with number keys (1-9) - Current settings shown
   </p>
   
   <div class="mappings-list">
@@ -518,27 +518,27 @@
             <input
               type="text"
               bind:value={newEmoji}
-              placeholder="絵文字名を入力"
+              placeholder="Enter emoji name"
               on:keydown={(e) => handleKeydown(e, index)}
               class="emoji-input"
             />
             <div class="action-buttons">
               <button class="save-btn" on:click={() => saveEmoji(index)}>
-                保存
+                Save
               </button>
               <button class="cancel-btn" on:click={cancelEditing}>
-                キャンセル
+                Cancel
               </button>
             </div>
           </div>
           
           <div class="suggestions" on:keydown={handleGridNavigation}>
             <div class="suggestions-section">
-              <p class="suggestions-label">検索して選択:</p>
+              <p class="suggestions-label">Search and select:</p>
               <input
                 type="text"
                 bind:value={searchQuery}
-                placeholder="絵文字名で検索..."
+                placeholder="Search by emoji name..."
                 class="search-input"
               />
               {#if searchQuery}
@@ -566,13 +566,13 @@
                     {/each}
                   </div>
                 {:else}
-                  <p class="no-results">絵文字が見つかりません</p>
+                  <p class="no-results">No emojis found</p>
                 {/if}
               {/if}
             </div>
             
             <div class="suggestions-section">
-              <p class="suggestions-label">よく使われる絵文字:</p>
+              <p class="suggestions-label">Popular emojis:</p>
               <div class="emoji-grid" bind:this={emojiGrid}>
                 {#each emojiSuggestions as emoji}
                   <button
@@ -589,7 +589,7 @@
             
             {#if popularCustomEmojis.length > 0}
               <div class="suggestions-section">
-                <p class="suggestions-label">カスタム絵文字:</p>
+                <p class="suggestions-label">Custom emojis:</p>
                 <div class="emoji-grid" bind:this={emojiGrid}>
                   {#each popularCustomEmojis as emoji}
                     <button
@@ -607,7 +607,7 @@
               </div>
             {/if}
             <div class="navigation-hint">
-              💡 ナビゲーション: Tab(セクション切替) | 矢印キー(↑↓←→) または HJKL | Home/End | PageUp/Down
+              💡 Navigation: Tab (switch sections) | Arrow keys (↑↓←→) or HJKL | Home/End | PageUp/Down
             </div>
           </div>
         {:else}
@@ -625,7 +625,7 @@
             <span class="emoji-name">{mapping.emoji}</span>
           </div>
           <button class="edit-button" on:click={() => startEditing(index)}>
-            編集
+            Edit
           </button>
         {/if}
       </div>
