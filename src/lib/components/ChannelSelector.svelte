@@ -3,6 +3,7 @@
   import { channelStore, favoriteChannels, recentChannelsList, sortedChannels, channelGroups } from '../stores/channels';
   import { realtimeStore } from '../stores/realtime';
   import { showToast } from '../stores/toast';
+  import { channelSelectorOpen } from '../stores/ui';
   
   export let value = '';  // Currently selected channel(s)
   export let channels: [string, string][] = [];
@@ -18,6 +19,9 @@
   
   $: mode = $channelStore.selectionMode;
   $: selectedChannels = $channelStore.selectedChannels;
+  
+  // Sync dropdown state with UI store
+  $: channelSelectorOpen.set(showDropdown);
   
   // Sync searchInput when value is cleared externally (e.g., workspace switch)
   // Only clear searchInput if the component is not focused
@@ -42,6 +46,13 @@
       !ch.isFavorite && !$recentChannelsList.some(rc => rc.id === ch.id)
     )
   };
+  
+  // Create a flat array that matches the visual order for index mapping
+  $: flatChannelList = [
+    ...groupedChannels.favorites,
+    ...groupedChannels.recent,
+    ...groupedChannels.all
+  ];
   
   onMount(() => {
     // Initialize channel store with channels
@@ -158,7 +169,10 @@
         event.preventDefault();
         event.stopPropagation();  // Stop Enter from bubbling up and triggering search
         if (highlightedIndex >= 0 && highlightedIndex < totalItems) {
-          selectChannel(filteredChannels[highlightedIndex].name);
+          const channel = flatChannelList[highlightedIndex];
+          if (channel) {
+            selectChannel(channel.name);
+          }
         }
         break;
         
@@ -168,10 +182,12 @@
         if (highlightedIndex >= 0 && highlightedIndex < totalItems) {
           event.preventDefault();
           event.stopPropagation();
-          const channel = filteredChannels[highlightedIndex];
-          channelStore.toggleFavorite(channel.id);
-          // Show visual feedback
-          showFavoriteToggleFeedback(channel.name, !channel.isFavorite);
+          const channel = flatChannelList[highlightedIndex];
+          if (channel) {
+            channelStore.toggleFavorite(channel.id);
+            // Show visual feedback
+            showFavoriteToggleFeedback(channel.name, !channel.isFavorite);
+          }
         }
         break;
         
@@ -193,12 +209,14 @@
   function handleDropdownKeydown(event: KeyboardEvent) {
     // Handle 'f' key for favorite toggle when dropdown has focus
     if (event.key === 'f' || event.key === 'F') {
-      if (highlightedIndex >= 0 && highlightedIndex < filteredChannels.length) {
+      if (highlightedIndex >= 0 && highlightedIndex < flatChannelList.length) {
         event.preventDefault();
         event.stopPropagation();
-        const channel = filteredChannels[highlightedIndex];
-        channelStore.toggleFavorite(channel.id);
-        showFavoriteToggleFeedback(channel.name, !channel.isFavorite);
+        const channel = flatChannelList[highlightedIndex];
+        if (channel) {
+          channelStore.toggleFavorite(channel.id);
+          showFavoriteToggleFeedback(channel.name, !channel.isFavorite);
+        }
       }
     }
     // Handle Esc key when focus is on any element within the dropdown

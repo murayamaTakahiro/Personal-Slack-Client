@@ -44,6 +44,8 @@
   import { initializeConfig, watchConfigFile } from './lib/services/configService';
   import { realtimeStore, timeUntilUpdate, formattedLastUpdate } from './lib/stores/realtime';
   import { zoomStore } from './lib/stores/zoom';
+  import { showToast } from './lib/stores/toast';
+  import { channelSelectorOpen } from './lib/stores/ui';
   
   let channels: [string, string][] = [];
   let showSettings = false;
@@ -496,6 +498,36 @@
         showEmojiSearch = !showEmojiSearch;
       },
       allowInInput: true  // Allow from anywhere for quick emoji access
+    });
+    
+    // Toggle Channel Favorite
+    keyboardService.registerHandler('toggleChannelFavorite', {
+      action: () => {
+        // If channel selector dropdown is open, let it handle the F key
+        if (get(channelSelectorOpen)) {
+          return;  // Skip global handler, let ChannelSelector handle it
+        }
+        
+        // Otherwise, handle for the currently selected message
+        const currentMessage = get(selectedMessage);
+        if (currentMessage && currentMessage.channel) {
+          // Get the current channel state to show correct feedback
+          const currentChannels = get(channelStore).allChannels;
+          const channel = currentChannels.find(ch => ch.id === currentMessage.channel);
+          const willBeFavorite = channel ? !channel.isFavorite : true;
+          
+          // Toggle favorite for the channel of the currently focused message
+          channelStore.toggleFavorite(currentMessage.channel);
+          
+          // Show feedback to user
+          const channelName = currentMessage.channelName || 'channel';
+          const message = willBeFavorite 
+            ? `⭐ Added #${channelName} to favorites`
+            : `☆ Removed #${channelName} from favorites`;
+          showToast(message, 'success');
+        }
+      },
+      allowInInput: false  // Don't trigger when typing in inputs
     });
   }
   
