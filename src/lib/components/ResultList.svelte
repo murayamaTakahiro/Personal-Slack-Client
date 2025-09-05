@@ -110,19 +110,27 @@
       const message = messages[focusedIndex];
       selectedMessage.set(message);
       
+      // Ensure the focused message is loaded if using progressive loading
+      if (focusedIndex >= displayedCount) {
+        displayedCount = Math.min(focusedIndex + LOAD_INCREMENT, messages.length);
+      }
+      
       // Scroll into view if needed
+      // Use double requestAnimationFrame to ensure DOM has updated
       requestAnimationFrame(() => {
-        const element = messageElements[focusedIndex];
-        if (element && listContainer) {
-          const rect = element.getBoundingClientRect();
-          const containerRect = listContainer.getBoundingClientRect();
-          
-          if (rect.top < containerRect.top) {
-            element.scrollIntoView({ block: 'start', behavior: 'smooth' });
-          } else if (rect.bottom > containerRect.bottom) {
-            element.scrollIntoView({ block: 'end', behavior: 'smooth' });
+        requestAnimationFrame(() => {
+          const element = messageElements[focusedIndex];
+          if (element && listContainer) {
+            const rect = element.getBoundingClientRect();
+            const containerRect = listContainer.getBoundingClientRect();
+            
+            if (rect.top < containerRect.top) {
+              element.scrollIntoView({ block: 'start', behavior: 'smooth' });
+            } else if (rect.bottom > containerRect.bottom) {
+              element.scrollIntoView({ block: 'end', behavior: 'smooth' });
+            }
           }
-        }
+        });
       });
     }
   }
@@ -170,24 +178,33 @@
     updateFocus();
     
     // Ensure the message is visible with extra emphasis
+    // Use double requestAnimationFrame for consistency with jumpToLast
     requestAnimationFrame(() => {
-      const element = messageElements[focusedIndex];
-      if (element && listContainer) {
-        // Scroll to the message with padding
-        element.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        
-        // Add a temporary highlight animation
-        element.classList.add('highlight-jump');
-        setTimeout(() => {
-          element.classList.remove('highlight-jump');
-        }, 1500);
-      }
+      requestAnimationFrame(() => {
+        const element = messageElements[focusedIndex];
+        if (element && listContainer) {
+          // Scroll to the message with padding
+          element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          
+          // Add a temporary highlight animation
+          element.classList.add('highlight-jump');
+          setTimeout(() => {
+            element.classList.remove('highlight-jump');
+          }, 1500);
+        }
+      });
     });
   }
   
   function jumpToLast() {
     if (messages.length === 0) return;
     focusedIndex = messages.length - 1;
+    
+    // Ensure all messages are loaded before jumping to the last one
+    // This fixes the issue where the last message isn't visible if it's beyond the progressive loading limit
+    if (displayedCount < messages.length) {
+      displayedCount = messages.length;
+    }
     
     // Show a toast with message preview
     const lastMessage = messages[focusedIndex];
@@ -203,18 +220,21 @@
     updateFocus();
     
     // Ensure the message is visible with extra emphasis
+    // Use double requestAnimationFrame to ensure DOM has updated with new messages
     requestAnimationFrame(() => {
-      const element = messageElements[focusedIndex];
-      if (element && listContainer) {
-        // Scroll to the message with padding
-        element.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        
-        // Add a temporary highlight animation
-        element.classList.add('highlight-jump');
-        setTimeout(() => {
-          element.classList.remove('highlight-jump');
-        }, 1500);
-      }
+      requestAnimationFrame(() => {
+        const element = messageElements[focusedIndex];
+        if (element && listContainer) {
+          // Scroll to the message with padding
+          element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          
+          // Add a temporary highlight animation
+          element.classList.add('highlight-jump');
+          setTimeout(() => {
+            element.classList.remove('highlight-jump');
+          }, 1500);
+        }
+      });
     });
   }
   
