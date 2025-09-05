@@ -518,9 +518,10 @@
         {/if}
         
         <div class="filter-row">
-        <label class="channel-label">
-          Channel:
+        <div class="filter-field">
+          <label for="channel-selector" class="channel-label">Channel:</label>
           <ChannelSelector 
+            id="channel-selector"
             bind:this={channelSelectorComponent}
             bind:value={channel}
             {channels}
@@ -541,11 +542,12 @@
               triggerRealtimeSearch();
             }}
           />
-        </label>
+        </div>
         
-        <label>
-          User:
+        <div class="filter-field">
+          <label for="user-selector">User:</label>
           <UserSelector
+            id="user-selector"
             bind:this={userSelectorComponent}
             bind:value={userId}
             onEnterKey={handleSearch}
@@ -554,7 +556,7 @@
               user = e.detail.userName || '';
             }}
           />
-        </label>
+        </div>
       </div>
       
       <div class="filter-row">

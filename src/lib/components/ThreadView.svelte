@@ -7,6 +7,9 @@
   import { showSuccess, showError, showInfo } from '../stores/toast';
   import { parseMessageWithMentions } from '../utils/mentionParser';
   import { decodeSlackText } from '../utils/htmlEntities';
+  import LoadingSpinner from './LoadingSpinner.svelte';
+  import SkeletonLoader from './SkeletonLoader.svelte';
+  import { logger } from '../services/logger';
   
   export let message: Message | null = null;
   
@@ -270,7 +273,7 @@
   }
 </script>
 
-<div class="thread-view" tabindex="0" bind:this={threadViewElement} on:keydown={handleKeyDown} on:focus={handleFocus} role="region" aria-label="Thread messages">
+<div class="thread-view" bind:this={threadViewElement} on:keydown={handleKeyDown} on:focus={handleFocus} role="region" aria-label="Thread messages">
   {#if !message}
     <div class="empty">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" opacity="0.3">
@@ -280,8 +283,7 @@
     </div>
   {:else if loading}
     <div class="loading">
-      <div class="spinner"></div>
-      <p>Loading thread...</p>
+      <SkeletonLoader type="thread" count={1} />
     </div>
   {:else if error}
     <div class="error">
@@ -313,11 +315,10 @@
     
     <div class="thread-messages">
       <div class="thread-parent">
-        <div 
+        <button 
           class="message thread-message-0" 
           class:selected={selectedIndex === 0}
-          tabindex="0"
-          role="article"
+          type="button"
           aria-label="Thread parent message from {decodeSlackText(thread.parent.userName)}"
           on:click={() => handleMessageClick(0)}
           on:keydown={(e) => handleMessageKeyDown(e, 0, thread.parent)}
@@ -339,7 +340,7 @@
               {/if}
             {/each}
           </div>
-        </div>
+        </button>
       </div>
       
       {#if thread.replies.length > 0}
@@ -348,11 +349,10 @@
             {thread.replies.length} {thread.replies.length === 1 ? 'reply' : 'replies'}
           </div>
           {#each thread.replies as reply, index}
-            <div 
+            <button 
               class="message reply thread-message-{index + 1}" 
               class:selected={selectedIndex === index + 1}
-              tabindex="0"
-              role="article"
+              type="button"
               aria-label="Reply from {decodeSlackText(reply.userName)}"
               on:click={() => handleMessageClick(index + 1)}
               on:keydown={(e) => handleMessageKeyDown(e, index + 1, reply)}
@@ -374,7 +374,7 @@
                   {/if}
                 {/each}
               </div>
-            </div>
+            </button>
           {/each}
         </div>
       {:else}
@@ -403,11 +403,10 @@
         </button>
       </div>
       
-      <div 
+      <button 
         class="message thread-message-0" 
         class:selected={selectedIndex === 0}
-        tabindex="0"
-        role="article"
+        type="button"
         aria-label="Message from {decodeSlackText(message.userName)}"
         on:click={() => handleMessageClick(0)}
         on:keydown={(e) => handleMessageKeyDown(e, 0, message)}
@@ -429,7 +428,7 @@
             {/if}
           {/each}
         </div>
-      </div>
+      </button>
     </div>
   {/if}
 </div>
@@ -528,6 +527,9 @@
   }
   
   .message {
+    display: block;
+    width: 100%;
+    text-align: left;
     padding: 1rem;
     background: var(--bg-primary);
     border: 1px solid var(--border);
@@ -536,6 +538,14 @@
     cursor: pointer;
     transition: all 0.2s;
     outline: none;
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+  }
+  
+  button.message {
+    appearance: none;
+    -webkit-appearance: none;
   }
   
   .message:hover {

@@ -11,6 +11,7 @@ import {
   getTokenSecure, 
   deleteTokenSecure
 } from '../api/secure';
+import { logger } from '../services/logger';
 // Simple UUID v4 generator
 function uuidv4(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -64,7 +65,7 @@ function loadWorkspaces(): WorkspaceState {
       workspaceData
     };
   } catch (error) {
-    console.error('Failed to load workspaces:', error);
+    logger.error('Failed to load workspaces:', error);
     return defaultState;
   }
 }

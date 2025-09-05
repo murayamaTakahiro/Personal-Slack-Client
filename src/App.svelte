@@ -52,6 +52,10 @@
   import { showToast } from './lib/stores/toast';
   import { channelSelectorOpen } from './lib/stores/ui';
   import { performanceSettings, initializePerformanceSettings } from './lib/stores/performance';
+  import { logger } from './lib/services/logger';
+  import ErrorBoundary from './lib/components/ErrorBoundary.svelte';
+  import LoadingSpinner from './lib/components/LoadingSpinner.svelte';
+  import SkeletonLoader from './lib/components/SkeletonLoader.svelte';
   
   let channels: [string, string][] = [];
   let showSettings = false;
@@ -222,18 +226,18 @@
               const initialized = await initTokenFromStorage();
               if (initialized) {
                 // Initialize emoji service after token is loaded
-                console.log('[App] Initializing emoji service after token load...');
+                logger.debug('[App] Initializing emoji service after token load...');
                 await emojiService.initialize();
-                console.log('[App] Emoji service initialized');
+                logger.debug('[App] Emoji service initialized');
                 
                 await loadChannels();
               } else {
                 // Token found in frontend but not initialized in backend
-                console.warn('[App] Token not initialized in backend, skipping emoji service initialization');
+                logger.warn('[App] Token not initialized in backend, skipping emoji service initialization');
               }
             } catch (err) {
               // Failed to initialize token
-              console.error('[App] Failed to initialize token:', err);
+              logger.error('[App] Failed to initialize token:', err);
             }
           }
         } else {
@@ -358,9 +362,9 @@
                   const initialized = await initTokenFromStorage();
                   if (initialized) {
                     // Re-initialize emoji service after re-authentication
-                    console.log('[App] Re-initializing emoji service after re-auth...');
+                    logger.debug('[App] Re-initializing emoji service after re-auth...');
                     await emojiService.refresh();
-                    console.log('[App] Emoji service re-initialized');
+                    logger.debug('[App] Emoji service re-initialized');
                     
                     // Reload channels for current workspace
                     await loadChannels();
@@ -384,9 +388,9 @@
                 const initialized = await initTokenFromStorage();
                 if (initialized) {
                   // Initialize emoji service for legacy mode
-                  console.log('[App] Initializing emoji service for legacy mode...');
+                  logger.debug('[App] Initializing emoji service for legacy mode...');
                   await emojiService.initialize();
-                  console.log('[App] Emoji service initialized');
+                  logger.debug('[App] Emoji service initialized');
                   
                   await loadChannels();
                   channels = [...channels];
@@ -566,17 +570,17 @@
           const initialized = await initTokenFromStorage();
           if (initialized) {
             // Initialize emoji service after token is loaded
-            console.log('[App] Initializing emoji service after workspace switch...');
+            logger.debug('[App] Initializing emoji service after workspace switch...');
             await emojiService.initialize();
             console.log('[App] Emoji service initialized');
             
             await loadChannels();
           } else {
             // Failed to initialize backend with token
-            console.warn('[App] Failed to initialize backend with token, skipping emoji service initialization');
+            logger.warn('[App] Failed to initialize backend with token, skipping emoji service initialization');
           }
         } catch (err) {
-          console.error('Failed to initialize token:', err);
+          logger.error('Failed to initialize token:', err);
         }
       }
     } else {
@@ -644,9 +648,9 @@
         const initialized = await initTokenFromStorage();
         if (initialized) {
           // Re-initialize emoji service for the new workspace
-          console.log('[App] Re-initializing emoji service for workspace switch...');
+          logger.debug('[App] Re-initializing emoji service for workspace switch...');
           await emojiService.refresh(); // Force refresh to get new workspace emojis
-          console.log('[App] Emoji service re-initialized');
+          logger.debug('[App] Emoji service re-initialized');
           
           // Load new channels for the switched workspace
           await loadChannels();
@@ -1064,11 +1068,13 @@
       </div>
     {/if}
     
-    <SearchBar
-      bind:this={searchBarElement}
-      {channels}
-      on:search={handleSearch}
-    />
+    <ErrorBoundary fallback="Search functionality temporarily unavailable">
+      <SearchBar
+        bind:this={searchBarElement}
+        {channels}
+        on:search={handleSearch}
+      />
+    </ErrorBoundary>
     
     {#if !token && !$searchError}
       <div class="welcome-message">
@@ -1084,16 +1090,20 @@
     {:else}
       <div class="main-content">
         <div class="results-panel">
-          <ResultList
-            bind:this={resultListElement}
-            messages={$searchResults?.messages || []}
-            loading={$searchLoading}
-            error={$searchError}
-          />
+          <ErrorBoundary fallback="Unable to display search results" showDetails={true}>
+            <ResultList
+              bind:this={resultListElement}
+              messages={$searchResults?.messages || []}
+              loading={$searchLoading}
+              error={$searchError}
+            />
+          </ErrorBoundary>
         </div>
         
         <div class="thread-panel">
-          <ThreadView message={$selectedMessage} />
+          <ErrorBoundary fallback="Unable to display thread" showDetails={true}>
+            <ThreadView message={$selectedMessage} />
+          </ErrorBoundary>
         </div>
       </div>
     {/if}
@@ -1103,7 +1113,7 @@
   <EmojiSearchDialog 
     bind:isOpen={showEmojiSearch}
     on:select={(event) => {
-      console.log('Selected emoji:', event.detail);
+      logger.debug('Selected emoji:', event.detail);
       // You can handle the selected emoji here if needed
     }}
   />

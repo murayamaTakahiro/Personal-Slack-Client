@@ -12,6 +12,9 @@
   import { showInfo, showError } from '../stores/toast';
   import { decodeSlackText } from '../utils/htmlEntities';
   import { performanceSettings } from '../stores/performance';
+  import LoadingSpinner from './LoadingSpinner.svelte';
+  import SkeletonLoader from './SkeletonLoader.svelte';
+  import { logger } from '../services/logger';
   
   export let messages: Message[] = [];
   export let loading = false;
@@ -461,8 +464,7 @@
 <div class="result-list">
   {#if loading}
     <div class="loading">
-      <div class="spinner"></div>
-      <p>Searching messages...</p>
+      <SkeletonLoader type="list" count={5} />
     </div>
   {:else if error}
     <div class="error">
