@@ -2,14 +2,14 @@ import { writable, get } from 'svelte/store';
 import { saveToStore, loadFromStore } from './persistentStore';
 
 export interface PerformanceSettings {
-  virtualScrolling: boolean;
+  virtualScrolling: boolean; // Kept for backward compatibility, no longer used
   enableBatching: boolean;
   messageLimit: number;
   performanceMetrics: boolean;
 }
 
 const defaultPerformanceSettings: PerformanceSettings = {
-  virtualScrolling: false, // Start with false for safety, users can enable it
+  virtualScrolling: false, // Deprecated - kept for backward compatibility
   enableBatching: true,
   messageLimit: 1000,
   performanceMetrics: false
@@ -60,19 +60,7 @@ performanceSettings.subscribe(async value => {
 });
 
 // Helper functions
-export function toggleVirtualScrolling() {
-  performanceSettings.update(s => ({ 
-    ...s, 
-    virtualScrolling: !s.virtualScrolling 
-  }));
-}
-
-export function setVirtualScrolling(enabled: boolean) {
-  performanceSettings.update(s => ({ 
-    ...s, 
-    virtualScrolling: enabled 
-  }));
-}
+// Virtual scrolling functions removed - feature deprecated
 
 export function toggleBatching() {
   performanceSettings.update(s => ({ 

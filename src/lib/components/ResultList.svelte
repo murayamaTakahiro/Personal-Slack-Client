@@ -23,6 +23,27 @@
   let showPostDialog = false;
   let postMode: 'channel' | 'thread' = 'channel';
   
+  // Progressive loading state
+  const INITIAL_LOAD = 50;
+  const LOAD_INCREMENT = 50;
+  let displayedCount = INITIAL_LOAD;
+  let loadMoreObserver: IntersectionObserver | null = null;
+  let sentinelElement: HTMLDivElement;
+  
+  // Action to observe sentinel element
+  function observeSentinel(node: HTMLElement) {
+    if (loadMoreObserver) {
+      loadMoreObserver.observe(node);
+    }
+    
+    return {
+      destroy() {
+        if (loadMoreObserver) {
+          loadMoreObserver.unobserve(node);
+        }
+      }
+    };
+  }
   
   function handleMessageClick(message: Message) {
     selectedMessage.set(message);
@@ -43,10 +64,16 @@
   // Check if multiple channels are selected
   $: isMultiChannel = $searchParams?.channel?.includes(',');
   
-  // Reset focus only when messages actually change (new search)
+  // Visible messages for progressive loading
+  $: visibleMessages = messages.slice(0, displayedCount);
+  
+  // Reset display count when messages change (new search)
   let previousMessageLength = 0;
   $: if (messages && messages.length !== previousMessageLength) {
-    // Only reset if it's a completely new set of messages (not just updates)
+    // Reset progressive loading when messages change
+    displayedCount = Math.min(INITIAL_LOAD, messages.length);
+    
+    // Only reset focus if it's a completely new set of messages (not just updates)
     if (previousMessageLength === 0 || messages.length === 0) {
       focusedIndex = -1;
     }
@@ -293,6 +320,24 @@
   }
   
   onMount(() => {
+    // Setup Intersection Observer for progressive loading
+    if (typeof IntersectionObserver !== 'undefined') {
+      loadMoreObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting && displayedCount < messages.length) {
+              // Load more messages when sentinel becomes visible
+              displayedCount = Math.min(displayedCount + LOAD_INCREMENT, messages.length);
+            }
+          });
+        },
+        {
+          rootMargin: '200px', // Start loading 200px before sentinel is visible
+          threshold: 0.1
+        }
+      );
+    }
+    
     const keyboardService = getKeyboardService();
     if (!keyboardService) return;
     
@@ -391,6 +436,12 @@
   });
   
   onDestroy(() => {
+    // Cleanup Intersection Observer
+    if (loadMoreObserver) {
+      loadMoreObserver.disconnect();
+      loadMoreObserver = null;
+    }
+    
     const keyboardService = getKeyboardService();
     if (keyboardService) {
       keyboardService.unregisterHandler('nextResult');
@@ -467,7 +518,7 @@
       role="list"
       aria-label="Search results"
       on:keydown={handleKeyDown}>
-      {#each messages as message, index (message.ts)}
+      {#each visibleMessages as message, index (message.ts)}
         <div bind:this={messageElements[index]}>
           <MessageItem 
             {message}
@@ -478,6 +529,20 @@
           />
         </div>
       {/each}
+      
+      <!-- Sentinel element for progressive loading -->
+      {#if displayedCount < messages.length}
+        <div 
+          bind:this={sentinelElement}
+          class="load-more-sentinel"
+          use:observeSentinel
+        >
+          <div class="loading-indicator">
+            <span class="spinner-small"></span>
+            Loading more messages... ({displayedCount} of {messages.length})
+          </div>
+        </div>
+      {/if}
     </div>
   {/if}
   
@@ -566,6 +631,29 @@
   
   .messages:focus {
     box-shadow: inset 0 0 0 2px var(--primary);
+  }
+  
+  .load-more-sentinel {
+    padding: 1.5rem;
+    text-align: center;
+    color: var(--text-secondary);
+  }
+  
+  .loading-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+  }
+  
+  .spinner-small {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
   }
   
   .messages::-webkit-scrollbar {

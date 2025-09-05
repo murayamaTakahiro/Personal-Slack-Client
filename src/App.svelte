@@ -3,7 +3,6 @@
   import { get } from 'svelte/store';
   import SearchBar from './lib/components/SearchBar.svelte';
   import ResultList from './lib/components/ResultList.svelte';
-  import VirtualizedResultList from './lib/components/VirtualizedResultList.svelte';
   import ThreadView from './lib/components/ThreadView.svelte';
   import WorkspaceSwitcher from './lib/components/WorkspaceSwitcher.svelte';
   import './styles/zoom.css';
@@ -58,7 +57,7 @@
   let useMultiWorkspace = false; // Feature flag for multi-workspace mode
   let keyboardService: KeyboardService;
   let searchBarElement: SearchBar;
-  let resultListElement: ResultList | VirtualizedResultList;
+  let resultListElement: ResultList;
   let showKeyboardHelp = false;
   let showEmojiSearch = false;
   let realtimeInterval: NodeJS.Timeout | null = null;
@@ -1075,21 +1074,12 @@
     {:else}
       <div class="main-content">
         <div class="results-panel">
-          {#if $performanceSettings.virtualScrolling}
-            <VirtualizedResultList
-              bind:this={resultListElement}
-              messages={$searchResults?.messages || []}
-              loading={$searchLoading}
-              error={$searchError}
-            />
-          {:else}
-            <ResultList
-              bind:this={resultListElement}
-              messages={$searchResults?.messages || []}
-              loading={$searchLoading}
-              error={$searchError}
-            />
-          {/if}
+          <ResultList
+            bind:this={resultListElement}
+            messages={$searchResults?.messages || []}
+            loading={$searchLoading}
+            error={$searchError}
+          />
         </div>
         
         <div class="thread-panel">

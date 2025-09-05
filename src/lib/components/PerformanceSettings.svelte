@@ -1,13 +1,6 @@
 <script lang="ts">
   import { performanceSettings } from '../stores/performance';
   
-  function handleVirtualScrollingToggle(event: Event) {
-    const target = event.target as HTMLInputElement;
-    performanceSettings.update(s => ({
-      ...s,
-      virtualScrolling: target.checked
-    }));
-  }
   
   function handleBatchingToggle(event: Event) {
     const target = event.target as HTMLInputElement;
@@ -39,32 +32,6 @@
   <h3>Performance Settings</h3>
   <p class="description">Optimize the application performance for your use case</p>
   
-  <div class="setting-group">
-    <label class="toggle-setting">
-      <div class="setting-info">
-        <span class="setting-label">Virtual Scrolling</span>
-        <span class="setting-description">Renders only visible messages for better performance with large result sets</span>
-      </div>
-      <input 
-        type="checkbox" 
-        checked={$performanceSettings.virtualScrolling}
-        on:change={handleVirtualScrollingToggle}
-        class="toggle-input"
-      />
-      <span class="toggle-slider"></span>
-    </label>
-    
-    {#if $performanceSettings.virtualScrolling}
-      <div class="alert alert-info">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="8" x2="12" y2="12"/>
-          <line x1="12" y1="16" x2="12.01" y2="16"/>
-        </svg>
-        <span>Virtual scrolling is experimental. If you experience issues, please disable it.</span>
-      </div>
-    {/if}
-  </div>
   
   <div class="setting-group">
     <label class="toggle-setting">

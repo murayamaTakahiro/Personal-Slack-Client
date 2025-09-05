@@ -19,7 +19,6 @@
     "tauri:restore": "powershell -ExecutionPolicy Bypass -File ./build-cache.ps1 restore"
   },
   "dependencies": {
-    "@tanstack/svelte-virtual": "^3.13.12",
     "@tauri-apps/api": "2.7.0",
     "@tauri-apps/plugin-store": "2.3.0"
   },
