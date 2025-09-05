@@ -3,6 +3,7 @@
   import { get } from 'svelte/store';
   import SearchBar from './lib/components/SearchBar.svelte';
   import ResultList from './lib/components/ResultList.svelte';
+  import VirtualizedResultList from './lib/components/VirtualizedResultList.svelte';
   import ThreadView from './lib/components/ThreadView.svelte';
   import WorkspaceSwitcher from './lib/components/WorkspaceSwitcher.svelte';
   import './styles/zoom.css';
@@ -34,6 +35,7 @@
   import EmojiSettings from './lib/components/EmojiSettings.svelte';
   import EmojiSearchDialog from './lib/components/EmojiSearchDialog.svelte';
   import RealtimeSettings from './lib/components/RealtimeSettings.svelte';
+  import PerformanceSettings from './lib/components/PerformanceSettings.svelte';
   import Toast from './lib/components/Toast.svelte';
   import { workspaceStore, activeWorkspace } from './lib/stores/workspaces';
   import { channelStore } from './lib/stores/channels';
@@ -46,6 +48,7 @@
   import { zoomStore } from './lib/stores/zoom';
   import { showToast } from './lib/stores/toast';
   import { channelSelectorOpen } from './lib/stores/ui';
+  import { performanceSettings, initializePerformanceSettings } from './lib/stores/performance';
   
   let channels: [string, string][] = [];
   let showSettings = false;
@@ -55,7 +58,7 @@
   let useMultiWorkspace = false; // Feature flag for multi-workspace mode
   let keyboardService: KeyboardService;
   let searchBarElement: SearchBar;
-  let resultListElement: ResultList;
+  let resultListElement: ResultList | VirtualizedResultList;
   let showKeyboardHelp = false;
   let showEmojiSearch = false;
   let realtimeInterval: NodeJS.Timeout | null = null;
@@ -71,6 +74,9 @@
     
     // Initialize zoom store
     await zoomStore.initialize();
+    
+    // Initialize performance settings
+    await initializePerformanceSettings();
     
     // Note: Emoji service will be initialized after token is loaded
     
@@ -1018,6 +1024,8 @@
         <EmojiSettings />
         
         <RealtimeSettings />
+        
+        <PerformanceSettings />
       </div>
       
       <div class="settings-actions">
@@ -1067,12 +1075,21 @@
     {:else}
       <div class="main-content">
         <div class="results-panel">
-          <ResultList
-            bind:this={resultListElement}
-            messages={$searchResults?.messages || []}
-            loading={$searchLoading}
-            error={$searchError}
-          />
+          {#if $performanceSettings.virtualScrolling}
+            <VirtualizedResultList
+              bind:this={resultListElement}
+              messages={$searchResults?.messages || []}
+              loading={$searchLoading}
+              error={$searchError}
+            />
+          {:else}
+            <ResultList
+              bind:this={resultListElement}
+              messages={$searchResults?.messages || []}
+              loading={$searchLoading}
+              error={$searchError}
+            />
+          {/if}
         </div>
         
         <div class="thread-panel">
