@@ -36,6 +36,7 @@
   import EmojiSearchDialog from './lib/components/EmojiSearchDialog.svelte';
   import RealtimeSettings from './lib/components/RealtimeSettings.svelte';
   import PerformanceSettings from './lib/components/PerformanceSettings.svelte';
+  import PerformanceDashboard from './lib/components/PerformanceDashboard.svelte';
   import Toast from './lib/components/Toast.svelte';
   import { workspaceStore, activeWorkspace } from './lib/stores/workspaces';
   import { channelStore } from './lib/stores/channels';
@@ -43,6 +44,8 @@
   import { userService } from './lib/services/userService';
   import { reactionService, initializeReactionMappings } from './lib/services/reactionService';
   import { emojiService } from './lib/services/emojiService';
+  import { clearAllCaches } from './lib/services/memoization';
+  import { searchOptimizer } from './lib/services/searchOptimizer';
   import { initializeConfig, watchConfigFile } from './lib/services/configService';
   import { realtimeStore, timeUntilUpdate, formattedLastUpdate } from './lib/stores/realtime';
   import { zoomStore } from './lib/stores/zoom';
@@ -600,6 +603,11 @@
     realtimeStore.setEnabled(false);
     stopRealtimeUpdates();
     
+    // Clear all caches and search optimizations
+    clearAllCaches();
+    searchOptimizer.cancelAllSearches();
+    searchOptimizer.clearCache();
+    
     // Clear channels and user cache before loading new ones
     channels = [];
     channelStore.reset(); // Reset the channel store state
@@ -1100,6 +1108,9 @@
     }}
   />
   <Toast />
+  {#if $performanceSettings.performanceMetrics}
+    <PerformanceDashboard />
+  {/if}
 </div>
 
 <style>
