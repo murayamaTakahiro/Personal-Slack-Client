@@ -139,9 +139,11 @@ export class KeyboardService {
     if (!this.enabled) return false;
 
     // Only log for specific keys to reduce noise
-    if (['r', 'p', 't'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey)) {
+    if (['r', 'p', 't', '1', '2', '3'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey)) {
       console.log('🔍 DEBUG: KeyboardService handling key event', {
         key: event.key,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
         altKey: event.altKey,
         enabled: this.enabled,
         handlerCount: this.handlers.size,
@@ -190,7 +192,7 @@ export class KeyboardService {
       
       if (shortcut && this.matchesShortcut(event, shortcut)) {
         // Only log for relevant keys to reduce noise
-        if (['r', 'p', 't'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || ['openReactionPicker', 'postMessage', 'replyInThread', 'openUrls'].includes(shortcutKey)) {
+        if (['r', 'p', 't', '1', '2', '3'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || ['openReactionPicker', 'postMessage', 'replyInThread', 'openUrls', 'focusThread', 'focusResults', 'focusSearchBar'].includes(shortcutKey)) {
           console.log('🔍 DEBUG: Handler matched', {
             shortcutKey,
             shortcut,
@@ -215,7 +217,7 @@ export class KeyboardService {
           event.stopPropagation();
         }
         
-        if (['r', 'p', 't'].includes(event.key.toLowerCase())) {
+        if (['r', 'p', 't', '1', '2', '3'].includes(event.key.toLowerCase()) || ['focusThread', 'focusResults', 'focusSearchBar'].includes(shortcutKey)) {
           console.log('🔍 DEBUG: Executing handler action for', shortcutKey);
         }
         

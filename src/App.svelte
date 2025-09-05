@@ -301,6 +301,11 @@
   }
   
   function setupKeyboardHandlers() {
+    console.log('🔍 DEBUG: Setting up keyboard handlers', {
+      keyboardService: !!keyboardService,
+      shortcuts: $settings.keyboardShortcuts
+    });
+    
     // Toggle Settings
     keyboardService.registerHandler('toggleSettings', {
       action: () => {
@@ -438,18 +443,36 @@
     // Focus Thread
     keyboardService.registerHandler('focusThread', {
       action: () => {
+        console.log('🔍 DEBUG: focusThread handler called', {
+          showSettings,
+          selectedMessage: $selectedMessage,
+          hasSelectedMessage: !!$selectedMessage
+        });
+        
         if (!showSettings && $selectedMessage) {
           // Focus the thread view component
           const threadView = document.querySelector('.thread-view') as HTMLElement;
+          console.log('🔍 DEBUG: Looking for thread view', {
+            found: !!threadView,
+            element: threadView
+          });
+          
           if (threadView) {
+            console.log('🔍 DEBUG: Focusing thread view');
             threadView.focus();
             // Trigger a focus event to ensure the component handles it properly
             threadView.dispatchEvent(new Event('focus'));
+            console.log('🔍 DEBUG: Thread view focus complete', {
+              activeElement: document.activeElement,
+              isThreadViewFocused: document.activeElement === threadView
+            });
           }
         }
       },
       allowInInput: true  // Allow even when in input fields for better navigation
     });
+    
+    console.log('🔍 DEBUG: focusThread handler registered');
     
     // Focus URL Input
     keyboardService.registerHandler('focusUrlInput', {

@@ -3,7 +3,7 @@ use crate::slack::{parse_slack_url, Message, ParsedUrl, ThreadMessages};
 use crate::state::{AppState, CachedUser};
 use std::collections::HashMap;
 use tauri::State;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 fn replace_user_mentions(text: &str, user_cache: &HashMap<String, CachedUser>) -> String {
     crate::slack::parser::replace_user_mentions(text, user_cache)
@@ -33,6 +33,19 @@ pub async fn get_thread(
     let response = match client.get_thread(&channel_id, &thread_ts).await {
         Ok(r) => {
             info!("Received thread response from Slack API");
+            if let Some(ref messages) = r.messages {
+                info!("Thread contains {} messages", messages.len());
+                for (i, msg) in messages.iter().enumerate() {
+                    info!("  Message {}: ts={}, thread_ts={:?}, text_preview={}",
+                        i,
+                        msg.ts,
+                        msg.thread_ts,
+                        &msg.text.chars().take(50).collect::<String>()
+                    );
+                }
+            } else {
+                info!("Thread response has no messages");
+            }
             r
         }
         Err(e) => {
@@ -172,17 +185,63 @@ pub async fn get_thread(
             channel: channel_id.clone(),
             channel_name: channel_name.clone(),
             permalink,
-            is_thread_parent: msg.reply_count.is_some() && msg.reply_count.unwrap() > 0,
+            is_thread_parent: msg.reply_count.unwrap_or(0) > 0,
             reply_count: msg.reply_count,
             reactions: None, // Thread messages don't include reactions for now
         });
     }
 
-    // The first message is the parent
-    let parent = converted_messages.remove(0);
-    let replies = converted_messages;
+    // Find the parent message (the one without thread_ts or where thread_ts equals ts)
+    let mut parent: Option<Message> = None;
+    let mut replies = Vec::new();
+    
+    info!("Processing {} messages to find parent and replies", converted_messages.len());
+    
+    for msg in converted_messages {
+        // Debug logging to understand the messages
+        info!("  Message: ts={}, thread_ts={:?}, is_thread_parent={}", 
+            msg.ts, msg.thread_ts, msg.is_thread_parent);
+        
+        // A message is the parent if:
+        // 1. It has no thread_ts (it's the root message), OR
+        // 2. Its thread_ts equals its ts (it's the thread parent)
+        let is_parent = msg.thread_ts.is_none() || 
+                       msg.thread_ts.as_ref() == Some(&msg.ts);
+        
+        if is_parent && parent.is_none() {
+            info!("  -> Identified as PARENT");
+            parent = Some(msg);
+        } else {
+            info!("  -> Identified as REPLY");
+            replies.push(msg);
+        }
+    }
+    
+    // If we couldn't find a parent by the above logic, use the first message
+    let parent = parent.unwrap_or_else(|| {
+        if !replies.is_empty() {
+            warn!("Could not identify thread parent, using first reply as parent");
+            replies.remove(0)
+        } else {
+            // This should not happen, but handle it gracefully
+            error!("No messages found in thread response");
+            Message {
+                ts: thread_ts.to_string(),
+                thread_ts: None,
+                user: "Unknown".to_string(),
+                user_name: "Unknown".to_string(),
+                text: "Thread not found".to_string(),
+                channel: channel_id.clone(),
+                channel_name: channel_cache.get(&channel_id).cloned().unwrap_or_else(|| channel_id.clone()),
+                permalink: format!("https://slack.com/archives/{}/p{}", channel_id, thread_ts.replace('.', "")),
+                is_thread_parent: false,
+                reply_count: Some(0),
+                reactions: None,
+            }
+        }
+    });
 
-    info!("Thread retrieved: {} replies", replies.len());
+    info!("Thread retrieved: parent ts={}, {} replies", parent.ts, replies.len());
 
     Ok(ThreadMessages { parent, replies })
 }

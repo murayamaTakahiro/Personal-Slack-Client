@@ -91,7 +91,12 @@ impl SlackClient {
             return Err(anyhow!("Slack API error: {} - {}", status, text));
         }
 
-        let result: SlackSearchResponse = response.json().await?;
+        let response_text = response.text().await?;
+        
+        // Debug log the raw response to see what fields we're getting
+        debug!("Raw Slack API response (first 1000 chars): {}", &response_text[..response_text.len().min(1000)]);
+        
+        let result: SlackSearchResponse = serde_json::from_str(&response_text)?;
 
         if !result.ok {
             let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
@@ -136,9 +141,9 @@ impl SlackClient {
         params.insert("ts", thread_ts.to_string());
         params.insert("limit", "1000".to_string());
 
-        debug!(
-            "Getting thread for channel: {}, ts: {}",
-            channel_id, thread_ts
+        info!(
+            "[SlackClient] Getting thread for channel: {}, ts: {}, URL: {}, params: {:?}",
+            channel_id, thread_ts, url, params
         );
 
         let response = self.client.get(&url).query(&params).send().await?;
@@ -150,7 +155,12 @@ impl SlackClient {
             return Err(anyhow!("Slack API error: {} - {}", status, text));
         }
 
-        let mut result: SlackConversationsRepliesResponse = response.json().await?;
+        let result: SlackConversationsRepliesResponse = response.json().await?;
+        
+        info!("[SlackClient] Thread API response: ok={}, messages_count={}", 
+            result.ok, 
+            result.messages.as_ref().map(|m| m.len()).unwrap_or(0)
+        );
 
         if !result.ok {
             let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
@@ -158,47 +168,16 @@ impl SlackClient {
             return Err(anyhow!("Slack API error: {}", error_msg));
         }
 
-        // Check if we got a single message that's a thread reply
-        // If so, we need to fetch the complete thread using the parent timestamp
+        // Log the response for debugging
         if let Some(ref messages) = result.messages {
-            if messages.len() == 1 {
-                if let Some(ref first_msg) = messages.first() {
-                    if let Some(ref parent_ts) = first_msg.thread_ts {
-                        // This is a reply message and we only got one message
-                        // We need to fetch the complete thread using the parent timestamp
-                        if parent_ts != thread_ts {
-                            info!("Single reply message returned, fetching complete thread with parent ts: {}", parent_ts);
-
-                            let mut parent_params = HashMap::new();
-                            parent_params.insert("channel", channel_id.to_string());
-                            parent_params.insert("ts", parent_ts.to_string());
-                            parent_params.insert("limit", "1000".to_string());
-
-                            let parent_response =
-                                self.client.get(&url).query(&parent_params).send().await?;
-
-                            if parent_response.status().is_success() {
-                                let parent_result: SlackConversationsRepliesResponse =
-                                    parent_response.json().await?;
-
-                                if parent_result.ok {
-                                    result = parent_result;
-                                } else {
-                                    let error_msg = parent_result
-                                        .error
-                                        .unwrap_or_else(|| "Unknown error".to_string());
-                                    error!(
-                                        "Slack API returned error for parent thread: {}",
-                                        error_msg
-                                    );
-                                    // Continue with the original result
-                                }
-                            }
-                        }
-                    }
-                }
+            info!("[SlackClient] Thread API returned {} messages", messages.len());
+            for (i, msg) in messages.iter().take(3).enumerate() {
+                info!("  Message {}: ts={}, thread_ts={:?}", i, msg.ts, msg.thread_ts);
             }
         }
+        
+        info!("[SlackClient] Final thread response has {} messages",
+            result.messages.as_ref().map(|m| m.len()).unwrap_or(0));
 
         Ok(result)
     }

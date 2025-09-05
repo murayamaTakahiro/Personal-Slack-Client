@@ -20,23 +20,50 @@
   let threadViewElement: HTMLDivElement;
   
   $: if (message) {
-    // For thread replies, use threadTs (parent's timestamp)
-    // For thread parents, use ts (message's own timestamp)
-    // Only load thread if it's actually a thread message
-    if (message.isThreadParent || message.threadTs) {
-      const tsToUse = message.threadTs || message.ts;
+    console.log('[ThreadView] Message changed:', {
+      ts: message.ts,
+      threadTs: message.threadTs,
+      isThreadParent: message.isThreadParent,
+      replyCount: message.replyCount,
+      text: message.text.substring(0, 50),
+      channel: message.channel,
+      fullMessage: message
+    });
+    
+    // Debug: Check all conditions
+    const hasThreadTs = !!message.threadTs;
+    const isParent = message.isThreadParent;
+    const hasReplies = message.replyCount && message.replyCount > 0;
+    
+    console.log('[ThreadView] Thread detection:', {
+      hasThreadTs,
+      isParent,
+      hasReplies,
+      willLoadThread: isParent || hasThreadTs
+    });
+    
+    // IMPORTANT: For search results, we don't have reliable isThreadParent info
+    // So we check: if message has threadTs, it's part of a thread (either parent or reply)
+    // Always try to load thread for any selected message
+    if (message.threadTs) {
+      // This message is part of a thread - load it using threadTs
+      const tsToUse = message.threadTs;
+      console.log('[ThreadView] Thread message detected (has threadTs), loading thread with ts:', tsToUse);
       loadThread(message.channel, tsToUse);
     } else {
-      // Clear thread for non-thread messages
-      thread = null;
-      error = null;
-      loading = false;
+      // This might be a standalone message OR a thread parent
+      // Try loading as thread - if it has replies, they'll show up
+      console.log('[ThreadView] Message without threadTs, attempting to load as potential thread parent');
+      loadThread(message.channel, message.ts);
     }
   }
   
   async function loadThread(channelId: string, threadTs: string) {
+    console.log('[ThreadView] loadThread called with:', { channelId, threadTs });
+    
     // Validate inputs
     if (!channelId || !threadTs) {
+      console.error('[ThreadView] Invalid inputs:', { channelId, threadTs });
       error = 'Invalid channel or thread timestamp';
       loading = false;
       return;
@@ -47,14 +74,31 @@
     thread = null;
     
     try {
-      thread = await getThread(channelId, threadTs);
+      console.log('[ThreadView] Calling getThread API...');
+      const result = await getThread(channelId, threadTs);
+      console.log('[ThreadView] Thread API response:', {
+        hasResult: !!result,
+        hasParent: !!result?.parent,
+        repliesCount: result?.replies?.length || 0,
+        parentText: result?.parent?.text?.substring(0, 50),
+        replies: result?.replies?.map(r => ({
+          ts: r.ts,
+          text: r.text.substring(0, 50)
+        }))
+      });
+      
+      thread = result;
       
       // Validate thread response
       if (!thread || !thread.parent) {
+        console.error('[ThreadView] Invalid thread response:', thread);
         throw new Error('Invalid thread response');
       }
+      
+      console.log('[ThreadView] Thread loaded successfully with', thread.replies.length, 'replies');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load thread';
+      console.error('[ThreadView] Error loading thread:', err, errorMessage);
       
       // Provide more specific error messages
       if (errorMessage.includes('Thread not found')) {
@@ -70,6 +114,7 @@
       console.error('Failed to load thread:', err);
     } finally {
       loading = false;
+      console.log('[ThreadView] Loading complete, thread:', thread ? 'loaded' : 'failed');
     }
   }
   
@@ -305,7 +350,7 @@
   }
 </script>
 
-<div class="thread-view" bind:this={threadViewElement} on:keydown={handleKeyDown} on:focus={handleFocus} role="region" aria-label="Thread messages">
+<div class="thread-view" bind:this={threadViewElement} on:keydown={handleKeyDown} on:focus={handleFocus} role="region" aria-label="Thread messages" tabindex="-1">
   {#if !message}
     <div class="empty">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" opacity="0.3">
@@ -477,7 +522,9 @@
   }
   
   .thread-view:focus {
-    box-shadow: inset 0 0 0 2px var(--primary);
+    box-shadow: inset 0 0 0 3px var(--primary);
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
   }
   
   .empty,

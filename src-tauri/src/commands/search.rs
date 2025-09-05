@@ -372,6 +372,19 @@ pub async fn search_messages(
     // Convert Slack messages to our Message format
     let mut messages = Vec::new();
     for slack_msg in slack_messages {
+        // Check if this message has thread information
+        // The search.messages API doesn't return reply_count, so we need to infer from other fields
+        let is_thread_parent = false; // We can't reliably determine this from search results alone
+        let reply_count = None; // Not available in search.messages response
+        
+        // Log what we're getting
+        info!(
+            "Processing search result: ts={}, thread_ts={:?}, text_preview={}",
+            slack_msg.ts, 
+            slack_msg.thread_ts,
+            &slack_msg.text.chars().take(50).collect::<String>()
+        );
+        
         let user_name = if let Some(user_id) = &slack_msg.user {
             // Try to get from cache first
             if let Some(cached_name) = user_cache_simple.get(user_id) {
@@ -429,9 +442,8 @@ pub async fn search_messages(
             channel: slack_msg.channel.id.clone(),
             channel_name,
             permalink: slack_msg.permalink.clone(),
-            is_thread_parent: slack_msg.thread_ts.is_some()
-                && slack_msg.reply_count.unwrap_or(0) > 0,
-            reply_count: slack_msg.reply_count,
+            is_thread_parent,
+            reply_count,
             reactions: slack_msg.reactions.clone(),
         });
     }
