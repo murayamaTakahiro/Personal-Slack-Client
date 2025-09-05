@@ -3,16 +3,26 @@ import { saveToStore, loadFromStore } from './persistentStore';
 
 export interface PerformanceSettings {
   virtualScrolling: boolean; // Kept for backward compatibility, no longer used
-  enableBatching: boolean;
+  enableBatching?: boolean; // Deprecated, use enableApiBatching
+  enableApiBatching: boolean;
   messageLimit: number;
   performanceMetrics: boolean;
+  useOptimizedMessageItem: boolean;
+  lazyLoadReactions: boolean;
+  messagesPerPage: number;
+  progressiveLoadSize: number;
 }
 
 const defaultPerformanceSettings: PerformanceSettings = {
   virtualScrolling: false, // Deprecated - kept for backward compatibility
-  enableBatching: true,
+  enableBatching: true, // Deprecated
+  enableApiBatching: true,
   messageLimit: 1000,
-  performanceMetrics: false
+  performanceMetrics: false,
+  useOptimizedMessageItem: true,
+  lazyLoadReactions: false,
+  messagesPerPage: 50,
+  progressiveLoadSize: 50
 };
 
 // Initialize settings

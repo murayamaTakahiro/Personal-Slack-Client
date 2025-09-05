@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import type { Message } from '../types/slack';
   import MessageItem from './MessageItem.svelte';
+  import OptimizedMessageItem from './OptimizedMessageItem.svelte';
   import PostDialog from './PostDialog.svelte';
   import { selectedMessage, searchParams } from '../stores/search';
   import { getKeyboardService } from '../services/keyboardService';
@@ -10,6 +11,7 @@
   import { getThreadFromUrl } from '../api/slack';
   import { showInfo, showError } from '../stores/toast';
   import { decodeSlackText } from '../utils/htmlEntities';
+  import { performanceSettings } from '../stores/performance';
   
   export let messages: Message[] = [];
   export let loading = false;
@@ -520,13 +522,22 @@
       on:keydown={handleKeyDown}>
       {#each visibleMessages as message, index (message.ts)}
         <div bind:this={messageElements[index]}>
-          <MessageItem 
-            {message}
-            on:click={() => handleMessageClick(message)}
-            selected={$selectedMessage?.ts === message.ts}
-            focused={focusedIndex === index}
-            showChannelBadge={isMultiChannel}
-          />
+          {#if $performanceSettings.useOptimizedMessageItem}
+            <OptimizedMessageItem 
+              {message}
+              on:click={() => handleMessageClick(message)}
+              selected={$selectedMessage?.ts === message.ts}
+              showChannelBadge={isMultiChannel}
+            />
+          {:else}
+            <MessageItem 
+              {message}
+              on:click={() => handleMessageClick(message)}
+              selected={$selectedMessage?.ts === message.ts}
+              focused={focusedIndex === index}
+              showChannelBadge={isMultiChannel}
+            />
+          {/if}
         </div>
       {/each}
       

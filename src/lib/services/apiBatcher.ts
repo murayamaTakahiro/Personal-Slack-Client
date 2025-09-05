@@ -18,7 +18,7 @@ interface BatchConfig {
 
 class APIBatcher {
   private requests: Map<string, BatchRequest[]> = new Map();
-  private timers: Map<string, NodeJS.Timeout> = new Map();
+  private timers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private config: BatchConfig;
 
   constructor() {
@@ -30,7 +30,7 @@ class APIBatcher {
 
     // Subscribe to performance settings
     performanceSettings.subscribe(settings => {
-      this.config.enabled = settings.enableBatching;
+      this.config.enabled = settings.enableApiBatching || settings.enableBatching || false;
     });
   }
 
@@ -179,7 +179,7 @@ export async function batchChannelSearch(
 ): Promise<any[]> {
   const settings = get(performanceSettings);
   
-  if (!settings.enableBatching || channels.length <= 1) {
+  if ((!settings.enableApiBatching && !settings.enableBatching) || channels.length <= 1) {
     // If batching is disabled or only one channel, execute normally
     return searchFunction(channels, query);
   }
@@ -230,7 +230,7 @@ export async function batchUserLookup(
 ): Promise<Map<string, any>> {
   const settings = get(performanceSettings);
   
-  if (!settings.enableBatching || userIds.length <= 1) {
+  if ((!settings.enableApiBatching && !settings.enableBatching) || userIds.length <= 1) {
     // If batching is disabled or only one user, execute normally
     const results = await lookupFunction(userIds);
     const map = new Map<string, any>();

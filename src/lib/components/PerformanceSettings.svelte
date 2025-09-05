@@ -1,13 +1,44 @@
 <script lang="ts">
   import { performanceSettings } from '../stores/performance';
+  import { showInfo } from '../stores/toast';
   
+  function handleOptimizedRenderingToggle(event: Event) {
+    const target = event.target as HTMLInputElement;
+    performanceSettings.update(s => ({
+      ...s,
+      useOptimizedMessageItem: target.checked
+    }));
+    showInfo('Performance Settings', 
+      target.checked 
+        ? 'Optimized message rendering enabled' 
+        : 'Standard message rendering enabled'
+    );
+  }
   
   function handleBatchingToggle(event: Event) {
     const target = event.target as HTMLInputElement;
     performanceSettings.update(s => ({
       ...s,
-      enableBatching: target.checked
+      enableApiBatching: target.checked
     }));
+    showInfo('Performance Settings', 
+      target.checked 
+        ? 'API batching enabled' 
+        : 'API batching disabled'
+    );
+  }
+  
+  function handleLazyReactionsToggle(event: Event) {
+    const target = event.target as HTMLInputElement;
+    performanceSettings.update(s => ({
+      ...s,
+      lazyLoadReactions: target.checked
+    }));
+    showInfo('Performance Settings', 
+      target.checked 
+        ? 'Lazy loading reactions enabled' 
+        : 'Lazy loading reactions disabled'
+    );
   }
   
   function handleMessageLimitChange(event: Event) {
@@ -36,13 +67,45 @@
   <div class="setting-group">
     <label class="toggle-setting">
       <div class="setting-info">
+        <span class="setting-label">Optimized Message Rendering</span>
+        <span class="setting-description">Use memoized text processing to reduce re-renders</span>
+      </div>
+      <input 
+        type="checkbox" 
+        checked={$performanceSettings.useOptimizedMessageItem}
+        on:change={handleOptimizedRenderingToggle}
+        class="toggle-input"
+      />
+      <span class="toggle-slider"></span>
+    </label>
+  </div>
+  
+  <div class="setting-group">
+    <label class="toggle-setting">
+      <div class="setting-info">
         <span class="setting-label">API Request Batching</span>
         <span class="setting-description">Batch multiple channel requests to reduce API calls</span>
       </div>
       <input 
         type="checkbox" 
-        checked={$performanceSettings.enableBatching}
+        checked={$performanceSettings.enableApiBatching}
         on:change={handleBatchingToggle}
+        class="toggle-input"
+      />
+      <span class="toggle-slider"></span>
+    </label>
+  </div>
+  
+  <div class="setting-group">
+    <label class="toggle-setting">
+      <div class="setting-info">
+        <span class="setting-label">Lazy Load Reactions</span>
+        <span class="setting-description">Load reactions only when messages are visible</span>
+      </div>
+      <input 
+        type="checkbox" 
+        checked={$performanceSettings.lazyLoadReactions}
+        on:change={handleLazyReactionsToggle}
         class="toggle-input"
       />
       <span class="toggle-slider"></span>
@@ -86,7 +149,7 @@
   <div class="performance-tips">
     <h4>Performance Tips</h4>
     <ul>
-      <li>Enable Virtual Scrolling when viewing more than 100 messages</li>
+      <li>Enable Optimized Message Rendering for better performance</li>
       <li>Use API Batching when searching across multiple channels</li>
       <li>Reduce Message Limit if experiencing slowdowns</li>
       <li>Disable Live/Realtime mode when not needed</li>
