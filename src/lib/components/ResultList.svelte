@@ -155,13 +155,67 @@
   function jumpToFirst() {
     if (messages.length === 0) return;
     focusedIndex = 0;
+    
+    // Show a toast with message preview
+    const firstMessage = messages[focusedIndex];
+    if (firstMessage) {
+      const preview = decodeSlackText(firstMessage.text).substring(0, 100);
+      const suffix = firstMessage.text.length > 100 ? '...' : '';
+      showInfo(
+        `Jumped to first message (#1/${messages.length})`,
+        `${firstMessage.userName}: ${preview}${suffix}`
+      );
+    }
+    
     updateFocus();
+    
+    // Ensure the message is visible with extra emphasis
+    requestAnimationFrame(() => {
+      const element = messageElements[focusedIndex];
+      if (element && listContainer) {
+        // Scroll to the message with padding
+        element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        
+        // Add a temporary highlight animation
+        element.classList.add('highlight-jump');
+        setTimeout(() => {
+          element.classList.remove('highlight-jump');
+        }, 1500);
+      }
+    });
   }
   
   function jumpToLast() {
     if (messages.length === 0) return;
     focusedIndex = messages.length - 1;
+    
+    // Show a toast with message preview
+    const lastMessage = messages[focusedIndex];
+    if (lastMessage) {
+      const preview = decodeSlackText(lastMessage.text).substring(0, 100);
+      const suffix = lastMessage.text.length > 100 ? '...' : '';
+      showInfo(
+        `Jumped to last message (#${focusedIndex + 1}/${messages.length})`,
+        `${lastMessage.userName}: ${preview}${suffix}`
+      );
+    }
+    
     updateFocus();
+    
+    // Ensure the message is visible with extra emphasis
+    requestAnimationFrame(() => {
+      const element = messageElements[focusedIndex];
+      if (element && listContainer) {
+        // Scroll to the message with padding
+        element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        
+        // Add a temporary highlight animation
+        element.classList.add('highlight-jump');
+        setTimeout(() => {
+          element.classList.remove('highlight-jump');
+        }, 1500);
+      }
+    });
   }
   
   function openPostDialog(mode: 'channel' | 'thread') {
@@ -701,5 +755,25 @@
     border-radius: 16px;
     font-size: 0.75rem;
     color: var(--text-secondary);
+  }
+  
+  /* Highlight animation for jump navigation */
+  :global(.highlight-jump) {
+    animation: highlightJump 1.5s ease-out;
+  }
+  
+  @keyframes highlightJump {
+    0% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.8);
+    }
+    20% {
+      transform: scale(1.02);
+      box-shadow: 0 0 20px 10px rgba(59, 130, 246, 0.4);
+    }
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+    }
   }
 </style>

@@ -22,19 +22,51 @@
   $: if (message) {
     // For thread replies, use threadTs (parent's timestamp)
     // For thread parents, use ts (message's own timestamp)
-    const tsToUse = message.threadTs || message.ts;
-    loadThread(message.channel, tsToUse);
+    // Only load thread if it's actually a thread message
+    if (message.isThreadParent || message.threadTs) {
+      const tsToUse = message.threadTs || message.ts;
+      loadThread(message.channel, tsToUse);
+    } else {
+      // Clear thread for non-thread messages
+      thread = null;
+      error = null;
+      loading = false;
+    }
   }
   
   async function loadThread(channelId: string, threadTs: string) {
+    // Validate inputs
+    if (!channelId || !threadTs) {
+      error = 'Invalid channel or thread timestamp';
+      loading = false;
+      return;
+    }
+    
     loading = true;
     error = null;
     thread = null;
     
     try {
       thread = await getThread(channelId, threadTs);
+      
+      // Validate thread response
+      if (!thread || !thread.parent) {
+        throw new Error('Invalid thread response');
+      }
     } catch (err) {
-      error = err instanceof Error ? err.message : 'Failed to load thread';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load thread';
+      
+      // Provide more specific error messages
+      if (errorMessage.includes('Thread not found')) {
+        error = 'This message has no thread';
+      } else if (errorMessage.includes('Authentication')) {
+        error = 'Authentication failed. Please check your Slack token.';
+      } else if (errorMessage.includes('Network')) {
+        error = 'Network error. Please check your connection.';
+      } else {
+        error = errorMessage;
+      }
+      
       console.error('Failed to load thread:', err);
     } finally {
       loading = false;

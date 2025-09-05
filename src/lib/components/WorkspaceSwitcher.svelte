@@ -3,6 +3,7 @@
   import { workspaceStore, activeWorkspace, sortedWorkspaces } from '../stores/workspaces';
   import type { Workspace } from '../types/workspace';
   import { maskTokenClient } from '../api/secure';
+  import { logger } from '../services/logger';
   
   const dispatch = createEventDispatcher();
   
