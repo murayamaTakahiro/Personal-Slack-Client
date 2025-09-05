@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import { createVirtualizer } from '@tanstack/svelte-virtual';
   import type { Message } from '../types/slack';
   import OptimizedMessageItem from './OptimizedMessageItem.svelte';
@@ -18,36 +18,134 @@
 
   let focusedIndex = -1;
   let scrollElement: HTMLDivElement;
+  let containerElement: HTMLDivElement;
+  let measureElement: HTMLDivElement;
   
   // Post dialog state
   let showPostDialog = false;
   let postMode: 'channel' | 'thread' = 'channel';
 
-  // Create virtualizer with proper Svelte store pattern
+  // Dynamic height measurement cache
+  let heightCache = new Map<string, number>();
+  let averageHeight = 120; // Initial estimate, will be updated dynamically
+  
+  // Function to measure actual message height
+  function measureMessageHeight(message: Message): number {
+    if (heightCache.has(message.ts)) {
+      return heightCache.get(message.ts)!;
+    }
+    
+    // More accurate estimation based on content characteristics
+    // Base height includes padding (0.75rem * 2 = 24px) + border (2px) + margin-bottom (8px) = 34px base
+    // Plus header (approx 30px), content area minimum (20px)
+    let estimatedHeight = 92; // Base height including margin-bottom from CSS (8px added)
+    
+    // Add height for text content (more accurate: ~20px per line, ~80 chars per line)
+    const textLength = decodeSlackText(message.text).length;
+    const estimatedLines = Math.max(1, Math.ceil(textLength / 80));
+    estimatedHeight += estimatedLines * 20;
+    
+    // Add height for reactions (if present)
+    if (message.reactions && message.reactions.length > 0) {
+      // Reactions wrap, estimate based on count
+      const reactionRows = Math.ceil(message.reactions.length / 8); // ~8 reactions per row
+      estimatedHeight += reactionRows * 28; // Each reaction row is ~28px
+    }
+    
+    // Add height for thread indicator
+    if (message.isThreadParent && message.replyCount) {
+      estimatedHeight += 5;
+    }
+    
+    // More realistic bounds
+    estimatedHeight = Math.min(estimatedHeight, 500);
+    estimatedHeight = Math.max(estimatedHeight, 92);
+    
+    heightCache.set(message.ts, estimatedHeight);
+    return estimatedHeight;
+  }
+
+  // Update average height based on measured heights
+  function updateAverageHeight() {
+    if (heightCache.size > 0) {
+      const heights = Array.from(heightCache.values());
+      averageHeight = Math.round(heights.reduce((a, b) => a + b, 0) / heights.length);
+    }
+  }
+
+  // Create virtualizer with dynamic height estimation
   $: virtualizer = scrollElement && createVirtualizer({
     count: messages.length,
     getScrollElement: () => scrollElement,
-    estimateSize: () => 100,
-    overscan: 5,
+    estimateSize: (index) => {
+      const message = messages[index];
+      if (message) {
+        return measureMessageHeight(message);
+      }
+      return averageHeight;
+    },
+    overscan: 5, // Reasonable overscan for smoother scrolling
+    measureElement: (element) => {
+      // Measure actual rendered height including margin
+      if (element && element.firstElementChild) {
+        const index = parseInt(element.getAttribute('data-index') || '0');
+        const message = messages[index];
+        if (message) {
+          // Get the message item element (the actual content)
+          const messageItem = element.querySelector('.message-item');
+          if (messageItem) {
+            // Get computed style to include margins
+            const style = window.getComputedStyle(messageItem);
+            const marginTop = parseFloat(style.marginTop) || 0;
+            const marginBottom = parseFloat(style.marginBottom) || 0;
+            // Use getBoundingClientRect for more accurate height
+            const rect = messageItem.getBoundingClientRect();
+            const actualHeight = rect.height + marginTop + marginBottom;
+            
+            // Update cache if significantly different
+            const cachedHeight = heightCache.get(message.ts) || 0;
+            if (actualHeight > 0 && Math.abs(actualHeight - cachedHeight) > 5) {
+              heightCache.set(message.ts, actualHeight);
+              updateAverageHeight();
+              return actualHeight;
+            }
+            
+            // Return cached height if we have it
+            if (cachedHeight > 0) {
+              return cachedHeight;
+            }
+          }
+        }
+      }
+      
+      const index = parseInt(element?.getAttribute('data-index') || '0');
+      const message = messages[index];
+      return message ? measureMessageHeight(message) : averageHeight;
+    },
   });
 
   // Get virtual items and total size from the store
   $: items = $virtualizer?.getVirtualItems() || [];
   $: totalSize = $virtualizer?.getTotalSize() || 0;
 
-  // Debug logging
+  // Recalculate heights when messages change
   $: if (messages.length > 0) {
-    console.log('[VirtualList] Status:', {
-      messages: messages.length,
-      items: items.length,
-      totalSize,
-      scrollElement: !!scrollElement,
-      scrollHeight: scrollElement?.scrollHeight,
-      clientHeight: scrollElement?.clientHeight
-    });
+    // Clear cache for messages that no longer exist
+    const currentMessageIds = new Set(messages.map(m => m.ts));
+    for (const [id] of heightCache) {
+      if (!currentMessageIds.has(id)) {
+        heightCache.delete(id);
+      }
+    }
+    updateAverageHeight();
   }
 
-  function handleMessageClick(message: Message) {
+  function handleMessageClick(message: Message, event: MouseEvent) {
+    // Prevent event bubbling that might interfere with child elements
+    if ((event.target as HTMLElement).closest('.btn-open, .reaction-badge, button')) {
+      return;
+    }
+    
     selectedMessage.set(message);
     const index = messages.findIndex(m => m.ts === message.ts);
     if (index >= 0) {
@@ -83,9 +181,9 @@
         focusedIndex = 0;
         updateFocus();
       }
-      // Focus the list container to enable keyboard navigation
-      if (scrollElement) {
-        scrollElement.focus();
+      // Focus the container element instead of scroll element to avoid conflicts
+      if (containerElement) {
+        containerElement.focus();
       }
     }
   }
@@ -96,13 +194,14 @@
     }
   }
 
-  function updateFocus() {
+  async function updateFocus() {
     if (focusedIndex >= 0 && focusedIndex < messages.length) {
       const message = messages[focusedIndex];
       selectedMessage.set(message);
       
       // Use virtualizer to scroll to the focused item
       if ($virtualizer) {
+        await tick(); // Wait for DOM updates
         $virtualizer.scrollToIndex(focusedIndex, { align: 'center' });
       }
     }
@@ -154,10 +253,10 @@
 
   function handlePostSuccess() {
     showPostDialog = false;
-    // Refocus the list container immediately
+    // Refocus the container element immediately
     requestAnimationFrame(() => {
-      if (scrollElement) {
-        scrollElement.focus();
+      if (containerElement) {
+        containerElement.focus();
       }
     });
   }
@@ -193,9 +292,9 @@
             showInfo('Thread loaded', 'Thread successfully loaded in the thread view.');
           }
           
-          // Maintain focus on the list
-          if (scrollElement) {
-            scrollElement.focus();
+          // Maintain focus on the container
+          if (containerElement) {
+            containerElement.focus();
           }
           
           // Automatically open external URLs if present (no confirmation needed)
@@ -253,11 +352,11 @@
         showError('Some URLs failed to open', result.errors.join(', '));
       }
       
-      // CRITICAL: Ensure list container maintains focus after URL opening
+      // CRITICAL: Ensure container maintains focus after URL opening
       // This prevents focus loss issues that occur with navigation direction
       setTimeout(() => {
-        if (scrollElement) {
-          scrollElement.focus();
+        if (containerElement) {
+          containerElement.focus();
         }
       }, 100);
       
@@ -269,10 +368,10 @@
 
   function handlePostCancel() {
     showPostDialog = false;
-    // Refocus the list container immediately
+    // Refocus the container element immediately
     requestAnimationFrame(() => {
-      if (scrollElement) {
-        scrollElement.focus();
+      if (containerElement) {
+        containerElement.focus();
       }
     });
   }
@@ -289,8 +388,14 @@
       return;
     }
     
+    // Don't prevent default for emoji picker and other interactive elements
+    const target = event.target as HTMLElement;
+    if (target.closest('.emoji-picker, .reaction-badge, .btn-open, input, textarea, select')) {
+      return; // Let the element handle its own events
+    }
+    
     // Handle Enter key
-    if (event.key === 'Enter') {
+    if (event.key === 'Enter' && !event.altKey && !event.ctrlKey && !event.shiftKey) {
       event.preventDefault();
       if (focusedIndex >= 0 && focusedIndex < messages.length) {
         const message = messages[focusedIndex];
@@ -384,10 +489,10 @@
     // Open URLs (Alt+Enter)
     keyboardService.registerHandler('openUrls', {
       action: async () => {
-        // CRITICAL: Ensure focus is on list container before handling
+        // CRITICAL: Ensure focus is on container before handling
         // This prevents the focus direction issue
-        if (scrollElement && document.activeElement !== scrollElement) {
-          scrollElement.focus();
+        if (containerElement && document.activeElement !== containerElement) {
+          containerElement.focus();
         }
         
         if (focusedIndex >= 0 && focusedIndex < messages.length) {
@@ -413,7 +518,7 @@
   });
 </script>
 
-<div class="result-list">
+<div class="result-list" bind:this={containerElement}>
   {#if loading}
     <div class="loading">
       <div class="spinner"></div>
@@ -470,36 +575,35 @@
       </h3>
     </div>
     
-    <!-- Virtual scroll container -->
+    <!-- Hidden element for measuring message heights -->
+    <div class="measure-container" bind:this={measureElement} aria-hidden="true"></div>
+    
+    <!-- Virtual scroll container with improved event handling -->
     <div 
       class="messages" 
       bind:this={scrollElement}
-      tabindex="0"
+      tabindex="-1"
       role="list"
       aria-label="Search results"
       on:keydown={handleKeyDown}>
       
-      <div style="height: {totalSize}px; width: 100%; position: relative;">
+      <!-- Virtual list wrapper with proper positioning context -->
+      <div class="virtual-wrapper" style="height: {totalSize}px;">
         {#each items as item (item.key)}
           {@const message = messages[item.index]}
           {#if message}
             <div
-              style="
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: {item.size}px;
-                transform: translateY({item.start}px);
-              "
+              class="virtual-item"
+              data-index={item.index}
+              style="transform: translateY({item.start}px);"
             >
               <OptimizedMessageItem 
                 {message}
-                on:click={() => handleMessageClick(message)}
+                on:click={(e) => handleMessageClick(message, e.detail || e)}
                 selected={$selectedMessage?.ts === message.ts}
                 focused={focusedIndex === item.index}
                 showChannelBadge={isMultiChannel}
-                enableReactions={false}
+                enableReactions={true}
               />
             </div>
           {/if}
@@ -530,6 +634,12 @@
     border-radius: 8px;
     overflow: hidden;
     min-height: 0;
+    position: relative;
+  }
+  
+  .result-list:focus-within {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
   }
   
   .loading,
@@ -603,14 +713,18 @@
   .messages {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 0.5rem;
     outline: none;
     position: relative;
     min-height: 0;
+    /* Remove strict containment - it breaks absolute positioning */
+    contain: layout style;
   }
   
+  /* Remove focus outline from scrollable element to avoid double focus indicators */
   .messages:focus {
-    box-shadow: inset 0 0 0 2px var(--primary);
+    outline: none;
   }
   
   .messages::-webkit-scrollbar {
@@ -628,6 +742,38 @@
   
   .messages::-webkit-scrollbar-thumb:hover {
     background: var(--text-secondary);
+  }
+  
+  .virtual-wrapper {
+    position: relative;
+    width: 100%;
+  }
+  
+  .virtual-item {
+    /* Use transform for positioning - no absolute positioning */
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    padding: 0 0.25rem;
+    box-sizing: border-box;
+    /* Ensure items don't overlap */
+    contain: layout;
+  }
+  
+  /* Ensure message items have proper spacing */
+  .virtual-item :global(.message-item) {
+    margin-bottom: 0.5rem;
+  }
+  
+  .measure-container {
+    position: absolute;
+    visibility: hidden;
+    pointer-events: none;
+    top: -9999px;
+    left: -9999px;
+    width: 100%;
   }
   
   .filter-summary {
