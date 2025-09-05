@@ -28,6 +28,7 @@
     testConnection,
     initTokenFromStorage 
   } from './lib/api/slack';
+  import { searchMessagesWithBatching } from './lib/api/batchedSearch';
   import { initKeyboardService, type KeyboardService } from './lib/services/keyboardService';
   import KeyboardSettings from './lib/components/KeyboardSettings.svelte';
   import KeyboardHelp from './lib/components/KeyboardHelp.svelte';
@@ -693,7 +694,8 @@
         }
       }
       
-      const result = await searchMessages(params);
+      // Use batched search for multi-channel searches when enabled
+      const result = await searchMessagesWithBatching(params);
       
       // Handle incremental updates
       if (params.isRealtimeUpdate && $realtimeStore.isEnabled && $searchResults?.messages) {
