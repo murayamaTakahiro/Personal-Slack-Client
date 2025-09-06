@@ -541,7 +541,7 @@ impl SlackClient {
         Ok(messages)
     }
 
-    pub async fn test_auth(&self) -> Result<bool> {
+    pub async fn test_auth(&self) -> Result<(bool, Option<String>)> {
         let url = format!("{}/auth.test", SLACK_API_BASE);
 
         info!("Testing Slack authentication");
@@ -550,7 +550,7 @@ impl SlackClient {
 
         if !response.status().is_success() {
             error!("Auth test failed with status: {}", response.status());
-            return Ok(false);
+            return Ok((false, None));
         }
 
         #[derive(Deserialize)]
@@ -558,18 +558,20 @@ impl SlackClient {
             ok: bool,
             #[serde(default)]
             error: Option<String>,
+            #[serde(default)]
+            user_id: Option<String>,
         }
 
         let result: AuthTestResponse = response.json().await?;
 
         if result.ok {
-            info!("Slack authentication successful");
+            info!("Slack authentication successful, user_id: {:?}", result.user_id);
         } else {
             let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
             error!("Slack auth test failed: {}", error_msg);
         }
 
-        Ok(result.ok)
+        Ok((result.ok, result.user_id))
     }
 
     pub async fn add_reaction(&self, channel: &str, timestamp: &str, emoji: &str) -> Result<()> {

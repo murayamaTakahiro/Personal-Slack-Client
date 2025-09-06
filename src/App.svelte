@@ -56,6 +56,8 @@
   import ErrorBoundary from './lib/components/ErrorBoundary.svelte';
   import LoadingSpinner from './lib/components/LoadingSpinner.svelte';
   import SkeletonLoader from './lib/components/SkeletonLoader.svelte';
+  import { initializeCurrentUser } from './lib/stores/currentUser';
+  import UserIdSettings from './lib/components/UserIdSettings.svelte';
   
   let channels: [string, string][] = [];
   let showSettings = false;
@@ -225,6 +227,11 @@
             try {
               const initialized = await initTokenFromStorage();
               if (initialized) {
+                // Initialize current user ID
+                logger.debug('[App] Initializing current user ID...');
+                await initializeCurrentUser();
+                logger.debug('[App] Current user ID initialized');
+                
                 // Initialize emoji service after token is loaded
                 logger.debug('[App] Initializing emoji service after token load...');
                 await emojiService.initialize();
@@ -366,6 +373,11 @@
                   
                   const initialized = await initTokenFromStorage();
                   if (initialized) {
+                    // Re-initialize current user ID
+                    logger.debug('[App] Re-initializing current user ID after re-auth...');
+                    await initializeCurrentUser();
+                    logger.debug('[App] Current user ID re-initialized');
+                    
                     // Re-initialize emoji service after re-authentication
                     logger.debug('[App] Re-initializing emoji service after re-auth...');
                     await emojiService.refresh();
@@ -392,6 +404,11 @@
               if (token) {
                 const initialized = await initTokenFromStorage();
                 if (initialized) {
+                  // Initialize current user ID for legacy mode
+                  logger.debug('[App] Initializing current user ID for legacy mode...');
+                  await initializeCurrentUser();
+                  logger.debug('[App] Current user ID initialized');
+                  
                   // Initialize emoji service for legacy mode
                   logger.debug('[App] Initializing emoji service for legacy mode...');
                   await emojiService.initialize();
@@ -592,6 +609,11 @@
           
           const initialized = await initTokenFromStorage();
           if (initialized) {
+            // Initialize current user ID after workspace switch
+            logger.debug('[App] Initializing current user ID after workspace switch...');
+            await initializeCurrentUser();
+            logger.debug('[App] Current user ID initialized');
+            
             // Initialize emoji service after token is loaded
             logger.debug('[App] Initializing emoji service after workspace switch...');
             await emojiService.initialize();
@@ -670,6 +692,11 @@
         // Initialize the backend with the new token
         const initialized = await initTokenFromStorage();
         if (initialized) {
+          // Re-initialize current user ID for the new workspace
+          logger.debug('[App] Re-initializing current user ID for workspace switch...');
+          await initializeCurrentUser();
+          logger.debug('[App] Current user ID re-initialized');
+          
           // Re-initialize emoji service for the new workspace
           logger.debug('[App] Re-initializing emoji service for workspace switch...');
           await emojiService.refresh(); // Force refresh to get new workspace emojis
@@ -1062,6 +1089,8 @@
         <RealtimeSettings />
         
         <PerformanceSettings />
+        
+        <UserIdSettings />
       </div>
       
       <div class="settings-actions">

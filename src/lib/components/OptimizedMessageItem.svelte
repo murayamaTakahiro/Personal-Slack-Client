@@ -12,6 +12,7 @@
   import { parseMessageWithEmojis, parseEmoji } from '../utils/emojiParser';
   import { decodeSlackText } from '../utils/htmlEntities';
   import { derived, writable } from 'svelte/store';
+  import { currentUserId } from '../stores/currentUser';
 
   export let message: Message;
   export let selected = false;
@@ -369,7 +370,7 @@
         {@const emojiData = parseEmoji(reaction.name)}
         <button
           class="reaction-badge"
-          class:user-reacted={reaction.users.includes(message.user)}
+          class:user-reacted={$currentUserId && reaction.users.includes($currentUserId)}
           on:click|stopPropagation={() => handleReactionClick(reaction.name)}
           title={`${reaction.users.length} reaction${reaction.users.length > 1 ? 's' : ''}`}
         >

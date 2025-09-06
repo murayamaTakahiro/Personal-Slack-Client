@@ -31,6 +31,7 @@ pub struct CachedSearchResult {
 #[derive(Clone)]
 pub struct AppState {
     token: Arc<RwLock<Option<String>>>,
+    user_id: Arc<RwLock<Option<String>>>,
     user_cache: Arc<RwLock<HashMap<String, CachedUser>>>,
     channel_cache: Arc<RwLock<HashMap<String, CachedChannel>>>,
     search_cache: Arc<RwLock<HashMap<u64, CachedSearchResult>>>, // Hash of search params -> result
@@ -40,6 +41,7 @@ impl AppState {
     pub fn new() -> Self {
         Self {
             token: Arc::new(RwLock::new(None)),
+            user_id: Arc::new(RwLock::new(None)),
             user_cache: Arc::new(RwLock::new(HashMap::new())),
             channel_cache: Arc::new(RwLock::new(HashMap::new())),
             search_cache: Arc::new(RwLock::new(HashMap::new())),
@@ -87,6 +89,17 @@ impl AppState {
         }
 
         Err(AppError::AuthError("No Slack token configured".to_string()))
+    }
+
+    pub async fn set_user_id(&self, user_id: String) {
+        let mut user_id_lock = self.user_id.write().await;
+        *user_id_lock = Some(user_id);
+        info!("User ID set in app state");
+    }
+
+    pub async fn get_user_id(&self) -> Option<String> {
+        let user_id_lock = self.user_id.read().await;
+        user_id_lock.clone()
     }
 
     pub async fn get_client(&self) -> AppResult<SlackClient> {

@@ -55,6 +55,7 @@ pub fn run() {
             commands::auth::mask_token,
             commands::auth::init_token_from_storage,
             commands::auth::migrate_tokens,
+            commands::auth::get_current_user_id,
             commands::channels::save_favorite_channels,
             commands::channels::get_favorite_channels,
             commands::channels::save_recent_channels,

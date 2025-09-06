@@ -107,3 +107,24 @@ pub async fn init_token_from_storage(
 
     Ok(false)
 }
+
+// Get the current user ID
+#[tauri::command]
+pub async fn get_current_user_id(state: State<'_, AppState>) -> AppResult<Option<String>> {
+    // First check if we have it cached
+    if let Some(user_id) = state.get_user_id().await {
+        return Ok(Some(user_id));
+    }
+    
+    // If not cached, try to get it from the Slack API
+    let client = state.get_client().await?;
+    match client.test_auth().await {
+        Ok((true, Some(user_id))) => {
+            state.set_user_id(user_id.clone()).await;
+            Ok(Some(user_id))
+        }
+        Ok((true, None)) => Ok(None),
+        Ok((false, _)) => Err(crate::error::AppError::AuthError("Authentication failed".to_string())),
+        Err(e) => Err(crate::error::AppError::NetworkError(e.to_string())),
+    }
+}

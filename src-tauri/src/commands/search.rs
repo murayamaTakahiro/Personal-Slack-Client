@@ -448,6 +448,37 @@ pub async fn search_messages(
         });
     }
 
+    // Fetch reactions for recent messages (search API doesn't include them)
+    // Only fetch for the most recent messages to avoid rate limiting
+    const MAX_REACTIONS_TO_FETCH: usize = 10;
+    let messages_to_fetch = messages.len().min(MAX_REACTIONS_TO_FETCH);
+    
+    if messages_to_fetch > 0 {
+        info!("Fetching reactions for {} recent messages", messages_to_fetch);
+        
+        for message in messages.iter_mut().take(messages_to_fetch) {
+            match client.get_reactions(&message.channel, &message.ts).await {
+                Ok(reactions) => {
+                    if !reactions.is_empty() {
+                        debug!(
+                            "Found {} reactions for message {}",
+                            reactions.len(),
+                            message.ts
+                        );
+                        message.reactions = Some(reactions);
+                    }
+                }
+                Err(e) => {
+                    // Don't fail the entire search if we can't get reactions
+                    debug!(
+                        "Failed to get reactions for message {}: {}",
+                        message.ts, e
+                    );
+                }
+            }
+        }
+    }
+
     let execution_time_ms = start_time.elapsed().as_millis() as u64;
 
     info!(
@@ -586,13 +617,16 @@ pub async fn test_connection(token: String, state: State<'_, AppState>) -> AppRe
     let client = SlackClient::new(token.clone())?;
 
     match client.test_auth().await {
-        Ok(true) => {
-            info!("Slack authentication successful");
-            // Save the token for future use
+        Ok((true, user_id)) => {
+            info!("Slack authentication successful, user_id: {:?}", user_id);
+            // Save the token and user_id for future use
             state.set_token(token).await?;
+            if let Some(uid) = user_id {
+                state.set_user_id(uid).await;
+            }
             Ok(true)
         }
-        Ok(false) => {
+        Ok((false, _)) => {
             error!("Slack authentication failed");
             Ok(false)
         }

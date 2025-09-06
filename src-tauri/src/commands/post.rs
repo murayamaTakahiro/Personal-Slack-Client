@@ -46,7 +46,7 @@ pub async fn check_posting_permissions(state: tauri::State<'_, AppState>) -> Res
     // Try posting a test message to verify permissions
     // Using auth.test would be better but this gives us actual posting permission check
     match client.test_auth().await {
-        Ok(is_valid) => Ok(is_valid),
+        Ok((is_valid, _user_id)) => Ok(is_valid),
         Err(e) => {
             eprintln!("Failed to check permissions: {:?}", e);
             Ok(false) // Return false if we can't verify, safer than assuming true
