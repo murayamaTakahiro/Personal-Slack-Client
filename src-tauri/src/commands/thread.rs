@@ -29,25 +29,11 @@ pub async fn get_thread(
         }
     };
 
-    // Fetch the thread messages
-    let response = match client.get_thread(&channel_id, &thread_ts).await {
-        Ok(r) => {
-            info!("Received thread response from Slack API");
-            if let Some(ref messages) = r.messages {
-                info!("Thread contains {} messages", messages.len());
-                for (i, msg) in messages.iter().enumerate() {
-                    info!("  Message {}: ts={}, thread_ts={:?}, text_preview={}",
-                        i,
-                        msg.ts,
-                        msg.thread_ts,
-                        &msg.text.chars().take(50).collect::<String>()
-                    );
-                }
-            } else {
-                info!("Thread response has no messages");
-            }
-            r
-        }
+    // First, try to get the thread with the provided timestamp
+    // If it returns only one message and that message is a reply,
+    // we need to use the thread_ts from that message to get the full thread
+    let initial_response = match client.get_thread(&channel_id, &thread_ts).await {
+        Ok(r) => r,
         Err(e) => {
             error!("Failed to fetch thread from Slack API: {}", e);
             return Err(crate::error::AppError::ApiError(format!(
@@ -57,7 +43,103 @@ pub async fn get_thread(
         }
     };
 
-    let messages = response.messages.ok_or_else(|| {
+    // Check if we got a single reply message
+    let actual_thread_ts = if let Some(ref messages) = initial_response.messages {
+        if messages.len() == 1 {
+            if let Some(first_msg) = messages.first() {
+                // If this single message has a thread_ts different from its ts,
+                // it's a reply and we should use its thread_ts to get the full thread
+                if let Some(ref msg_thread_ts) = first_msg.thread_ts {
+                    if msg_thread_ts != &first_msg.ts {
+                        info!("Detected child message (ts={}, thread_ts={}). Fetching full thread using parent ts={}",
+                            first_msg.ts, msg_thread_ts, msg_thread_ts);
+                        msg_thread_ts.clone()
+                    } else {
+                        thread_ts.clone()
+                    }
+                } else {
+                    thread_ts.clone()
+                }
+            } else {
+                thread_ts.clone()
+            }
+        } else {
+            thread_ts.clone()
+        }
+    } else {
+        thread_ts.clone()
+    };
+
+    // If we determined we need to use a different thread_ts, fetch again
+    let response = if actual_thread_ts != thread_ts {
+        match client.get_thread(&channel_id, &actual_thread_ts).await {
+            Ok(r) => {
+                info!("Successfully fetched full thread using parent ts={}", actual_thread_ts);
+                if let Some(ref messages) = r.messages {
+                    info!("Thread contains {} messages", messages.len());
+                    for (i, msg) in messages.iter().enumerate() {
+                        info!("  Message {}: ts={}, thread_ts={:?}, text_preview={}",
+                            i,
+                            msg.ts,
+                            msg.thread_ts,
+                            &msg.text.chars().take(50).collect::<String>()
+                        );
+                    }
+                } else {
+                    info!("Thread response has no messages");
+                }
+                r
+            }
+            Err(e) => {
+                warn!("Failed to fetch full thread with parent ts={}, falling back to original response: {}", 
+                    actual_thread_ts, e);
+                initial_response
+            }
+        }
+    } else {
+        info!("Using initial response for thread");
+        if let Some(ref messages) = initial_response.messages {
+            info!("Thread contains {} messages", messages.len());
+            for (i, msg) in messages.iter().enumerate() {
+                info!("  Message {}: ts={}, thread_ts={:?}, text_preview={}",
+                    i,
+                    msg.ts,
+                    msg.thread_ts,
+                    &msg.text.chars().take(50).collect::<String>()
+                );
+            }
+        } else {
+            info!("Thread response has no messages");
+        }
+        initial_response
+    };
+    
+    // Special case: Check if we still need a synthetic parent
+    // This happens when the parent message is deleted or inaccessible
+    let mut synthetic_parent_needed = false;
+    let mut orphan_thread_ts = None;
+    
+    if let Some(ref messages) = response.messages {
+        // Check if we have any messages and none of them is a parent
+        let has_parent = messages.iter().any(|msg| {
+            msg.thread_ts.is_none() || msg.thread_ts.as_ref() == Some(&msg.ts)
+        });
+        
+        if !has_parent && !messages.is_empty() {
+            // All messages are replies, we need a synthetic parent
+            if let Some(first_msg) = messages.first() {
+                if let Some(ref msg_thread_ts) = first_msg.thread_ts {
+                    warn!("No parent message found in thread. Parent ts={} may be deleted or inaccessible.", 
+                        msg_thread_ts);
+                    info!("Creating synthetic parent message for orphaned thread");
+                    synthetic_parent_needed = true;
+                    orphan_thread_ts = Some(msg_thread_ts.clone());
+                }
+            }
+        }
+    }
+
+    let mut messages = response.messages.ok_or_else(|| {
         crate::error::AppError::ApiError("No messages in thread response".to_string())
     })?;
 
@@ -147,6 +229,28 @@ pub async fn get_thread(
     let user_cache_simple = state.get_user_cache().await;
     let user_cache_full = state.get_user_cache_full().await;
 
+    // If we need a synthetic parent, create it
+    if synthetic_parent_needed {
+        if let Some(ref thread_ts) = orphan_thread_ts {
+            info!("Inserting synthetic parent message with ts={}", thread_ts);
+            // Count the actual replies we have
+            let reply_count = messages.len();
+            // Create a synthetic parent message using SlackReplyMessage struct
+            let synthetic_parent = crate::slack::SlackReplyMessage {
+                ts: thread_ts.clone(),
+                thread_ts: Some(thread_ts.clone()), // Parent has thread_ts equal to ts
+                user: Some("system".to_string()),
+                text: "[Thread parent message is unavailable - may have been deleted or is inaccessible]".to_string(),
+                reply_count: Some(reply_count), // Set the actual reply count
+                reply_users: None,
+                reply_users_count: None,
+                latest_reply: None,
+            };
+            // Insert at the beginning
+            messages.insert(0, synthetic_parent);
+        }
+    }
+    
     // Convert messages to our format
     let mut converted_messages = Vec::new();
 
