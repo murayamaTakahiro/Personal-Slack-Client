@@ -28,6 +28,18 @@
   let urlLoading = false;
   let urlInputElement: HTMLInputElement;
   
+  // Keep local filter values in sync with searchParams store
+  // This ensures filters persist when dialogs are opened/closed or focus changes
+  $: if ($searchParams && !$searchLoading) {
+    // Only sync if we're not currently loading (to avoid race conditions)
+    if ($searchParams.channel !== undefined && channel !== $searchParams.channel) {
+      channel = $searchParams.channel || '';
+    }
+    if ($searchParams.user !== undefined && userId !== $searchParams.user) {
+      userId = $searchParams.user || '';
+    }
+  }
+  
   async function handleSearch(isRealtimeUpdate: boolean = false) {
     // If realtime mode is enabled and this is a realtime update, auto-set today's date
     if ($realtimeStore.isEnabled && isRealtimeUpdate) {
@@ -121,6 +133,20 @@
 
   // Export for external triggering (from App.svelte for realtime updates)
   export function triggerRealtimeSearch() {
+    // Preserve all current filters from searchParams when doing realtime updates
+    // This fixes the bug where filters get cleared after keyboard actions (P, T, R, Ctrl+,)
+    const currentParams = $searchParams;
+    if (currentParams) {
+      // Restore filters from searchParams if local values are empty
+      // This ensures filters persist across dialog opens/closes and keyboard actions
+      if (currentParams.channel && !channel) {
+        channel = currentParams.channel;
+      }
+      if (currentParams.user && !userId) {
+        userId = currentParams.user;
+      }
+      // Note: fromDate and toDate are set fresh in handleSearch for realtime mode
+    }
     handleSearch(true);
   }
   
