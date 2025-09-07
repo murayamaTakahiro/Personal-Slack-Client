@@ -44,14 +44,17 @@
   const decodedChannelName = writable('');
   
   $: {
-    const newUserName = decodeSlackText(message.userName);
+    // Use userName if available, otherwise fallback to user ID
+    const rawUserName = message.userName || message.user || 'Unknown';
+    const newUserName = decodeSlackText(rawUserName);
     if ($decodedUserName !== newUserName) {
       decodedUserName.set(newUserName);
     }
   }
   
   $: {
-    const newChannelName = decodeSlackText(message.channelName);
+    const rawChannelName = message.channelName || message.channel || 'Unknown';
+    const newChannelName = decodeSlackText(rawChannelName);
     if ($decodedChannelName !== newChannelName) {
       decodedChannelName.set(newChannelName);
     }

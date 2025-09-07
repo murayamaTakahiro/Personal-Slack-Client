@@ -258,6 +258,8 @@ pub struct PostMessageResponse {
 pub struct PostedMessage {
     pub text: String,
     pub user: String,
+    #[serde(rename = "userName", skip_serializing_if = "Option::is_none")]
+    pub user_name: Option<String>,
     pub ts: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thread_ts: Option<String>,

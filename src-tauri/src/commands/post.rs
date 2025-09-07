@@ -10,7 +10,39 @@ pub async fn post_to_channel(
     let client = state.get_client().await.map_err(|e| e.to_string())?;
 
     match client.post_message(&channel_id, &text, None).await {
-        Ok(response) => Ok(response),
+        Ok(mut response) => {
+            // Get current user ID and name for the posted message
+            if let Some(ref mut message) = response.message {
+                // Get current user ID from state
+                if let Ok((_, Some(user_id))) = client.test_auth().await {
+                    // Set the user ID
+                    message.user = user_id.clone();
+                    
+                    // Try to get user name from cache
+                    let user_cache = state.get_user_cache().await;
+                    if let Some(user_name) = user_cache.get(&user_id) {
+                        message.user_name = Some(user_name.clone());
+                    } else {
+                        // Fetch user info if not in cache
+                        if let Ok(user_info) = client.get_user_info(&user_id).await {
+                            let name = user_info
+                                .profile
+                                .as_ref()
+                                .and_then(|p| p.display_name.clone())
+                                .or_else(|| user_info.real_name.clone())
+                                .unwrap_or_else(|| user_info.name.clone());
+                            message.user_name = Some(name.clone());
+                            // Cache the user name
+                            state.cache_user(user_id.clone(), name, None).await;
+                        } else {
+                            // If we can't get the user info, at least set the user ID as the name
+                            message.user_name = Some(user_id.clone());
+                        }
+                    }
+                }
+            }
+            Ok(response)
+        }
         Err(e) => {
             eprintln!("Failed to post message: {e:?}");
             Err(format!("Failed to post message: {e}"))
@@ -31,7 +63,39 @@ pub async fn post_thread_reply(
         .post_message(&channel_id, &text, Some(&thread_ts))
         .await
     {
-        Ok(response) => Ok(response),
+        Ok(mut response) => {
+            // Get current user ID and name for the posted message
+            if let Some(ref mut message) = response.message {
+                // Get current user ID from state
+                if let Ok((_, Some(user_id))) = client.test_auth().await {
+                    // Set the user ID
+                    message.user = user_id.clone();
+                    
+                    // Try to get user name from cache
+                    let user_cache = state.get_user_cache().await;
+                    if let Some(user_name) = user_cache.get(&user_id) {
+                        message.user_name = Some(user_name.clone());
+                    } else {
+                        // Fetch user info if not in cache
+                        if let Ok(user_info) = client.get_user_info(&user_id).await {
+                            let name = user_info
+                                .profile
+                                .as_ref()
+                                .and_then(|p| p.display_name.clone())
+                                .or_else(|| user_info.real_name.clone())
+                                .unwrap_or_else(|| user_info.name.clone());
+                            message.user_name = Some(name.clone());
+                            // Cache the user name
+                            state.cache_user(user_id.clone(), name, None).await;
+                        } else {
+                            // If we can't get the user info, at least set the user ID as the name
+                            message.user_name = Some(user_id.clone());
+                        }
+                    }
+                }
+            }
+            Ok(response)
+        }
         Err(e) => {
             eprintln!("Failed to post thread reply: {e:?}");
             Err(format!("Failed to post thread reply: {e}"))

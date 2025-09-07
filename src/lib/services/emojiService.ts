@@ -191,6 +191,9 @@ const STANDARD_EMOJIS: Record<string, string> = {
   'person_raising_hand': '🙋',
   'man_raising_hand': '🙋‍♂️',
   'woman_raising_hand': '🙋‍♀️',
+  'woman-raising-hand': '🙋‍♀️',  // Hyphenated version
+  '挙手_女性': '🙋‍♀️',  // Japanese alias for woman_raising_hand
+  '挙手': '🙋',  // Japanese alias for person_raising_hand
   'deaf_person': '🧏',
   'person_gesturing_no': '🙅',
   'person_gesturing_ok': '🙆',

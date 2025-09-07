@@ -175,6 +175,7 @@ export interface PostMessageResponse {
 export interface PostedMessage {
   text: string;
   user: string;
+  userName?: string;
   ts: string;
   threadTs?: string;
 }

@@ -16,10 +16,10 @@ export function parseMessageWithEmojis(text: string): MessageSegment[] {
   
   // Combined regex for all patterns
   // Priority order: mentions, URLs, then emojis
-  const combinedRegex = /<@([A-Z0-9]+)(?:\|([^>]+))?>/g; // Mentions
+  // const combinedRegex = /<@([A-Z0-9]+)(?:\|([^>]+))?>/g; // Mentions - unused
   const urlRegex = /<(https?:\/\/[^|>]+)(?:\|([^>]+))?>/g; // URLs in Slack format
   const plainUrlRegex = /(?<![<"])(https?:\/\/[^\s<>"]+)/g; // Plain URLs
-  const emojiRegex = /:([a-zA-Z0-9_+-]+):/g; // Emoji codes
+  const emojiRegex = /:([^:\s]+):/g; // Emoji codes - allow any non-space, non-colon characters including Japanese
   
   // Create a master list of all matches with their positions
   const allMatches: Array<{
@@ -30,7 +30,7 @@ export function parseMessageWithEmojis(text: string): MessageSegment[] {
   }> = [];
   
   // Find all mentions
-  let match;
+  let match: RegExpExecArray | null;
   const mentionRegex = /<@([A-Z0-9]+)(?:\|([^>]+))?>/g;
   while ((match = mentionRegex.exec(text)) !== null) {
     allMatches.push({
@@ -163,9 +163,9 @@ export function parseMessageWithEmojis(text: string): MessageSegment[] {
  * Parse emojis only (for reaction display)
  */
 export function parseEmoji(emojiCode: string): { isCustom: boolean; value: string } {
-  // First check if this looks like an emoji name (alphanumeric with underscores/dashes)
+  // First check if this looks like an emoji name (any non-space characters between colons)
   // vs already being a Unicode emoji
-  const isEmojiName = /^:?[a-zA-Z0-9_+-]+:?$/.test(emojiCode);
+  const isEmojiName = /^:?[^:\s]+:?$/.test(emojiCode);
   
   if (!isEmojiName) {
     // If it doesn't look like an emoji name, it's probably already a Unicode emoji
