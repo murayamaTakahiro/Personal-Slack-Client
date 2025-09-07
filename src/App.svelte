@@ -60,6 +60,7 @@
   import SkeletonLoader from './lib/components/SkeletonLoader.svelte';
   import { initializeCurrentUser } from './lib/stores/currentUser';
   import UserIdSettings from './lib/components/UserIdSettings.svelte';
+  import PerformanceMonitor from './lib/components/PerformanceMonitor.svelte';
   
   let channels: [string, string][] = [];
   let showSettings = false;
@@ -1185,6 +1186,8 @@
   {#if $performanceSettings.performanceMetrics}
     <PerformanceDashboard />
   {/if}
+  <!-- Performance Monitor for real-time metrics -->
+  <PerformanceMonitor />
 </div>
 
 <style>

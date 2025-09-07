@@ -449,77 +449,17 @@ pub async fn search_messages(
         });
     }
 
-    // Fetch reactions for ALL messages using optimized parallel batch processing
+    // NEW OPTIMIZATION: Don't fetch reactions here at all for non-realtime mode
+    // Let the frontend handle progressive loading of reactions
     if !force_refresh.unwrap_or(false) && !messages.is_empty() {
-        info!("Fetching reactions for {} messages using optimized batch processing", messages.len());
+        info!("Skipping backend reaction fetching - will use progressive loading in frontend");
         
-        // First, check cache for already-fetched reactions
-        let mut messages_needing_reactions = Vec::new();
-        for (idx, message) in messages.iter_mut().enumerate() {
-            // Check cache first
+        // Only check cache for already-fetched reactions (instant)
+        for message in messages.iter_mut() {
             if let Some(cached_reactions) = state.get_cached_reactions(&message.channel, &message.ts).await {
                 message.reactions = Some(cached_reactions);
-            } else {
-                messages_needing_reactions.push((idx, message.channel.clone(), message.ts.clone()));
             }
-        }
-        
-        if messages_needing_reactions.is_empty() {
-            info!("All reactions loaded from cache!");
-        } else {
-            info!("Need to fetch reactions for {} messages", messages_needing_reactions.len());
-            
-            // Process in larger batches for better performance
-            const BATCH_SIZE: usize = 15; // Increased from 5
-            
-            // Process all messages in parallel batches
-            for chunk_start in (0..messages_needing_reactions.len()).step_by(BATCH_SIZE) {
-                let chunk_end = (chunk_start + BATCH_SIZE).min(messages_needing_reactions.len());
-                let chunk = &messages_needing_reactions[chunk_start..chunk_end];
-                
-                // Create futures for this batch
-                let reaction_futures = chunk.iter().map(|(idx, channel, ts)| {
-                    let client = Arc::clone(&client);
-                    let state = state.clone();
-                    let channel = channel.clone();
-                    let ts = ts.clone();
-                    let idx = *idx;
-                    
-                    async move {
-                        match client.get_reactions(&channel, &ts).await {
-                            Ok(reactions) => {
-                                // Cache the reactions
-                                state.cache_reactions(&channel, &ts, reactions.clone()).await;
-                                if !reactions.is_empty() {
-                                    debug!("Found {} reactions for message {}", reactions.len(), ts);
-                                }
-                                (idx, Some(reactions))
-                            }
-                            Err(e) => {
-                                debug!("Failed to get reactions for message {}: {}", ts, e);
-                                (idx, None)
-                            }
-                        }
-                    }
-                });
-                
-                // Execute batch in parallel
-                let batch_results = join_all(reaction_futures).await;
-                
-                // Apply the fetched reactions to messages
-                for (idx, reactions) in batch_results {
-                    if let Some(reactions) = reactions {
-                        messages[idx].reactions = Some(reactions);
-                    }
-                }
-                
-                // Minimal delay between batches (reduced from 30ms)
-                if chunk_end < messages_needing_reactions.len() {
-                    tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
-                }
-            }
-            
-            info!("Completed fetching reactions for {} messages", messages_needing_reactions.len());
+            // Don't fetch missing reactions - let frontend handle it progressively
         }
     }
 
@@ -783,8 +723,8 @@ pub async fn batch_fetch_reactions(
     let client = state.get_client().await?;
     let client = Arc::new(client);
     
-    // Use provided batch size or default to larger batch for better performance
-    let batch_size = request.batch_size.unwrap_or(10); // Increased default
+    // Use provided batch size or default to MUCH larger batch for aggressive performance
+    let batch_size = request.batch_size.unwrap_or(30); // Massively increased for 400+ messages
     
     info!(
         "Batch fetching reactions for {} messages in batches of {}",
@@ -875,10 +815,8 @@ pub async fn batch_fetch_reactions(
         
         all_responses.extend(batch_results);
         
-        // Minimal delay between batches (reduced from 50ms)
-        if chunk.len() == batch_size && all_responses.len() < request.requests.len() {
-            tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
-        }
+        // NO DELAY for aggressive performance - remove artificial delays completely
+        // Rate limiting is handled by the rate_limiter in get_reactions
     }
     
     info!(
@@ -903,6 +841,107 @@ pub async fn clear_reaction_cache(state: State<'_, AppState>) -> AppResult<()> {
 }
 
 #[tauri::command]
+pub async fn search_messages_fast(
+    query: String,
+    channel: Option<String>,
+    user: Option<String>,
+    from_date: Option<String>,
+    to_date: Option<String>,
+    limit: Option<usize>,
+    force_refresh: Option<bool>,
+    state: State<'_, AppState>,
+) -> AppResult<SearchResult> {
+    // This is an optimized version that returns messages immediately without reactions
+    // Reactions will be loaded progressively by the frontend
+    
+    let start_time = Instant::now();
+    
+    // Get the Slack client from app state
+    let client = state.get_client().await?;
+    let client = Arc::new(client);
+    
+    // Set default limit if not provided
+    let max_results = limit.unwrap_or(100);
+    
+    // Build search request
+    let search_request = SearchRequest {
+        query: query.clone(),
+        channel: channel.clone(),
+        user: user.clone(),
+        from_date: from_date.clone(),
+        to_date: to_date.clone(),
+        limit,
+        is_realtime: force_refresh,
+    };
+    
+    let search_query = build_search_query(&search_request);
+    info!("Fast search with query: {}", search_query);
+    
+    // Fetch messages WITHOUT reactions for instant display
+    let slack_messages = fetch_all_results(&client, search_query.clone(), max_results).await?;
+    
+    // Get user cache from state
+    let user_cache_simple = state.get_user_cache().await;
+    let channel_cache = state.get_channel_cache().await;
+    
+    // Convert to our Message format quickly
+    let mut messages = Vec::new();
+    for slack_msg in slack_messages {
+        let user_name = if let Some(user_id) = &slack_msg.user {
+            user_cache_simple.get(user_id).cloned().unwrap_or_else(|| user_id.clone())
+        } else {
+            slack_msg.username.unwrap_or_else(|| "Unknown".to_string())
+        };
+        
+        let channel_name = channel_cache.get(&slack_msg.channel.id)
+            .cloned()
+            .unwrap_or_else(|| slack_msg.channel.name.clone());
+        
+        // Get fresh user cache for mention replacement
+        let user_cache_full = state.get_user_cache_full().await;
+        let processed_text = replace_user_mentions(&slack_msg.text, &user_cache_full);
+        
+        messages.push(Message {
+            ts: slack_msg.ts.clone(),
+            thread_ts: slack_msg.thread_ts.clone(),
+            user: slack_msg.user.unwrap_or_else(|| "Unknown".to_string()),
+            user_name,
+            text: processed_text,
+            channel: slack_msg.channel.id.clone(),
+            channel_name,
+            permalink: slack_msg.permalink.clone(),
+            is_thread_parent: false,
+            reply_count: None,
+            reactions: None, // No reactions - frontend will load them
+        });
+    }
+    
+    // Check cache for any already-fetched reactions (instant)
+    for message in messages.iter_mut() {
+        if let Some(cached_reactions) = state.get_cached_reactions(&message.channel, &message.ts).await {
+            message.reactions = Some(cached_reactions);
+        }
+    }
+    
+    let execution_time_ms = start_time.elapsed().as_millis() as u64;
+    
+    info!(
+        "Fast search completed: {} results in {}ms (no reaction fetching)",
+        messages.len(),
+        execution_time_ms
+    );
+    
+    let total = messages.len();
+    
+    Ok(SearchResult {
+        messages,
+        total,
+        query: search_query,
+        execution_time_ms,
+    })
+}
+
+#[tauri::command]
 pub async fn fetch_reactions_progressive(
     channel_id: String,
     timestamps: Vec<String>,
@@ -912,7 +951,7 @@ pub async fn fetch_reactions_progressive(
     let client = state.get_client().await?;
     let client = Arc::new(client);
     
-    let initial_batch = initial_batch_size.unwrap_or(10);
+    let initial_batch = initial_batch_size.unwrap_or(30); // Increased default
     let mut results = vec![None; timestamps.len()];
     
     info!(

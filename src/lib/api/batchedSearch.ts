@@ -3,12 +3,19 @@ import type { SearchParams, SearchResult, Message } from '../types/slack';
 import { batchChannelSearch } from '../services/apiBatcher';
 import { get } from 'svelte/store';
 import { performanceSettings } from '../stores/performance';
+import { searchMessagesFast, shouldUseFastSearch } from './fastSearch';
 
 /**
  * Enhanced search function with batching support for multi-channel searches
  */
 export async function searchMessagesWithBatching(params: SearchParams): Promise<SearchResult> {
   const settings = get(performanceSettings);
+  
+  // Use ultra-fast search for large result sets
+  if (shouldUseFastSearch(params)) {
+    console.log('[BatchedSearch] Using ultra-fast search for optimal performance');
+    return searchMessagesFast(params);
+  }
   
   // Check if we have multiple channels and batching is enabled
   const hasMultipleChannels = params.channel && params.channel.includes(',');

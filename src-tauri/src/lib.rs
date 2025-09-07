@@ -68,6 +68,7 @@ pub fn run() {
             commands::reactions::remove_reaction,
             commands::reactions::get_reactions,
             commands::search::search_messages,
+            commands::search::search_messages_fast,
             commands::search::get_user_channels,
             commands::search::get_users,
             commands::search::test_connection,
