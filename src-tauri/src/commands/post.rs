@@ -12,8 +12,8 @@ pub async fn post_to_channel(
     match client.post_message(&channel_id, &text, None).await {
         Ok(response) => Ok(response),
         Err(e) => {
-            eprintln!("Failed to post message: {:?}", e);
-            Err(format!("Failed to post message: {}", e))
+            eprintln!("Failed to post message: {e:?}");
+            Err(format!("Failed to post message: {e}"))
         }
     }
 }
@@ -33,8 +33,8 @@ pub async fn post_thread_reply(
     {
         Ok(response) => Ok(response),
         Err(e) => {
-            eprintln!("Failed to post thread reply: {:?}", e);
-            Err(format!("Failed to post thread reply: {}", e))
+            eprintln!("Failed to post thread reply: {e:?}");
+            Err(format!("Failed to post thread reply: {e}"))
         }
     }
 }
@@ -48,7 +48,7 @@ pub async fn check_posting_permissions(state: tauri::State<'_, AppState>) -> Res
     match client.test_auth().await {
         Ok((is_valid, _user_id)) => Ok(is_valid),
         Err(e) => {
-            eprintln!("Failed to check permissions: {:?}", e);
+            eprintln!("Failed to check permissions: {e:?}");
             Ok(false) // Return false if we can't verify, safer than assuming true
         }
     }

@@ -14,7 +14,6 @@ use super::models::*;
 const SLACK_API_BASE: &str = "https://slack.com/api";
 const RATE_LIMIT_DELAY_MS: u64 = 20; // Further reduced for better performance
 const MAX_CONCURRENT_REQUESTS: usize = 30; // Massively increased for 400+ message performance
-const REACTION_BATCH_SIZE: usize = 50; // Aggressive batch size for fast reaction loading
 
 #[derive(Clone)]
 pub struct SlackClient {

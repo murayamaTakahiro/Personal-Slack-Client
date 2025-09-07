@@ -125,10 +125,6 @@ pub struct SlackMessage {
     pub text: String,
     pub channel: SlackChannelInfo,
     pub permalink: String,
-    pub reply_count: Option<usize>,
-    pub reply_users_count: Option<usize>,
-    pub latest_reply: Option<String>,
-    pub reply_users: Option<Vec<String>>,
     #[serde(default)]
     pub reactions: Option<Vec<SlackReaction>>,
 }

@@ -5,7 +5,6 @@ mod state;
 
 use state::AppState;
 use tauri::Manager;
-use tracing_subscriber;
 use tracing_subscriber::fmt;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
