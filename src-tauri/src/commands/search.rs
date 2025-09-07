@@ -863,22 +863,110 @@ pub async fn search_messages_fast(
     // Set default limit if not provided
     let max_results = limit.unwrap_or(100);
     
-    // Build search request
-    let search_request = SearchRequest {
-        query: query.clone(),
-        channel: channel.clone(),
-        user: user.clone(),
-        from_date: from_date.clone(),
-        to_date: to_date.clone(),
-        limit,
-        is_realtime: force_refresh,
-    };
+    // Handle multi-channel search
+    let mut all_slack_messages = Vec::new();
     
-    let search_query = build_search_query(&search_request);
-    info!("Fast search with query: {}", search_query);
-    
-    // Fetch messages WITHOUT reactions for instant display
-    let slack_messages = fetch_all_results(&client, search_query.clone(), max_results).await?;
+    if let Some(ref channel_param) = channel {
+        if channel_param.contains(',') {
+            // Multi-channel search: search each channel separately IN PARALLEL
+            let channels: Vec<String> = channel_param
+                .split(',')
+                .map(|ch| ch.trim().to_string())
+                .filter(|ch| !ch.is_empty())
+                .collect();
+            
+            info!(
+                "Fast search: Performing parallel multi-channel search for {} channels",
+                channels.len()
+            );
+            
+            // Create futures for parallel execution
+            let search_futures = channels.iter().map(|single_channel| {
+                let client = Arc::clone(&client);
+                let query = query.clone();
+                let channel = single_channel.clone();
+                let user = user.clone();
+                let from_date = from_date.clone();
+                let to_date = to_date.clone();
+                
+                async move {
+                    let search_request = SearchRequest {
+                        query: query.clone(),
+                        channel: Some(channel.clone()),
+                        user,
+                        from_date,
+                        to_date,
+                        limit: Some(max_results),
+                        is_realtime: force_refresh,
+                    };
+                    
+                    let search_query = build_search_query(&search_request);
+                    info!(
+                        "Fast search: Searching channel '{}' with query: {}",
+                        channel, search_query
+                    );
+                    
+                    match fetch_all_results(&client, search_query, max_results).await {
+                        Ok(messages) => {
+                            info!("Fast search: Found {} messages in channel '{}'", messages.len(), channel);
+                            Ok::<Vec<SlackMessage>, anyhow::Error>(messages)
+                        }
+                        Err(e) => {
+                            error!("Fast search: Failed to search channel '{}': {}", channel, e);
+                            // Return empty vec on error to continue with other channels
+                            Ok::<Vec<SlackMessage>, anyhow::Error>(vec![])
+                        }
+                    }
+                }
+            });
+            
+            // Execute all searches in parallel
+            let results = join_all(search_futures).await;
+            
+            // Combine all results
+            for result in results {
+                if let Ok(messages) = result {
+                    all_slack_messages.extend(messages);
+                }
+            }
+            
+            // Sort by timestamp (newest first) and limit to max_results
+            all_slack_messages.sort_by(|a, b| b.ts.cmp(&a.ts));
+            all_slack_messages = all_slack_messages.into_iter().take(max_results).collect();
+        } else {
+            // Single channel search
+            let search_request = SearchRequest {
+                query: query.clone(),
+                channel: channel.clone(),
+                user: user.clone(),
+                from_date: from_date.clone(),
+                to_date: to_date.clone(),
+                limit,
+                is_realtime: force_refresh,
+            };
+            
+            let search_query = build_search_query(&search_request);
+            info!("Fast search with query: {}", search_query);
+            
+            all_slack_messages = fetch_all_results(&client, search_query.clone(), max_results).await?;
+        }
+    } else {
+        // No channel specified
+        let search_request = SearchRequest {
+            query: query.clone(),
+            channel: channel.clone(),
+            user: user.clone(),
+            from_date: from_date.clone(),
+            to_date: to_date.clone(),
+            limit,
+            is_realtime: force_refresh,
+        };
+        
+        let search_query = build_search_query(&search_request);
+        info!("Fast search with query: {}", search_query);
+        
+        all_slack_messages = fetch_all_results(&client, search_query.clone(), max_results).await?;
+    }
     
     // Get user cache from state
     let user_cache_simple = state.get_user_cache().await;
@@ -886,7 +974,7 @@ pub async fn search_messages_fast(
     
     // Convert to our Message format quickly
     let mut messages = Vec::new();
-    for slack_msg in slack_messages {
+    for slack_msg in all_slack_messages {
         let user_name = if let Some(user_id) = &slack_msg.user {
             user_cache_simple.get(user_id).cloned().unwrap_or_else(|| user_id.clone())
         } else {
@@ -933,10 +1021,49 @@ pub async fn search_messages_fast(
     
     let total = messages.len();
     
+    // Build display query for multi-channel search
+    let display_query = if let Some(ref channel_param) = channel {
+        if channel_param.contains(',') {
+            let search_request = SearchRequest {
+                query: query.clone(),
+                channel: Some(format!("({})", channel_param.replace(",", " OR "))),
+                user: user.clone(),
+                from_date: from_date.clone(),
+                to_date: to_date.clone(),
+                limit,
+                is_realtime: force_refresh,
+            };
+            build_search_query(&search_request)
+        } else {
+            // Use the original query building for single channel
+            let search_request = SearchRequest {
+                query: query.clone(),
+                channel: channel.clone(),
+                user: user.clone(),
+                from_date: from_date.clone(),
+                to_date: to_date.clone(),
+                limit,
+                is_realtime: force_refresh,
+            };
+            build_search_query(&search_request)
+        }
+    } else {
+        let search_request = SearchRequest {
+            query: query.clone(),
+            channel: channel.clone(),
+            user: user.clone(),
+            from_date: from_date.clone(),
+            to_date: to_date.clone(),
+            limit,
+            is_realtime: force_refresh,
+        };
+        build_search_query(&search_request)
+    };
+    
     Ok(SearchResult {
         messages,
         total,
-        query: search_query,
+        query: display_query,
         execution_time_ms,
     })
 }
