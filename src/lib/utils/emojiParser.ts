@@ -18,7 +18,7 @@ export function parseMessageWithEmojis(text: string): MessageSegment[] {
   // Priority order: mentions, URLs, then emojis
   // const combinedRegex = /<@([A-Z0-9]+)(?:\|([^>]+))?>/g; // Mentions - unused
   const urlRegex = /<(https?:\/\/[^|>]+)(?:\|([^>]+))?>/g; // URLs in Slack format
-  const plainUrlRegex = /(?<![<"])(https?:\/\/[^\s<>"]+)/g; // Plain URLs
+  const plainUrlRegex = /(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g; // Plain URLs - matches thread view pattern
   const emojiRegex = /:([^:\s]+):/g; // Emoji codes - allow any non-space, non-colon characters including Japanese
   
   // Create a master list of all matches with their positions
@@ -186,8 +186,20 @@ export function parseMessageWithEmojis(text: string): MessageSegment[] {
         });
       }
     } else if (matchInfo.type === 'url') {
-      const url = matchInfo.match[1];
-      const displayText = matchInfo.match[2] || url;
+      // Handle both Slack-formatted URLs and plain URLs
+      let url: string;
+      let displayText: string;
+      
+      if (matchInfo.match[0].startsWith('<')) {
+        // Slack-formatted URL: <URL|display>
+        url = matchInfo.match[1];
+        displayText = matchInfo.match[2] || url;
+      } else {
+        // Plain URL: the entire match is the URL
+        url = matchInfo.match[0];
+        displayText = url;
+      }
+      
       segments.push({
         type: 'url',
         content: displayText,

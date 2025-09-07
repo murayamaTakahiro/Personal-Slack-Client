@@ -32,10 +32,19 @@
   
   // Process text only when message changes
   $: {
-    const newProcessedText = truncateText(decodeSlackText(message.text));
-    if ($processedText !== newProcessedText) {
-      processedText.set(newProcessedText);
-      messageSegments.set(parseMessageWithEmojis(newProcessedText));
+    // First decode and parse, then truncate at segment level to preserve URL integrity
+    const decodedText = decodeSlackText(message.text);
+    const parsedSegments = parseMessageWithEmojis(decodedText);
+    const truncatedSegments = truncateSegments(parsedSegments, 200);
+    
+    // Create a key for comparison
+    const segmentsKey = JSON.stringify(truncatedSegments);
+    const currentKey = JSON.stringify($messageSegments);
+    
+    if (segmentsKey !== currentKey) {
+      messageSegments.set(truncatedSegments);
+      // Update processedText for display
+      processedText.set(truncatedSegments.map(s => s.content).join(''));
     }
   }
 
@@ -81,7 +90,66 @@
 
   function truncateText(text: string, maxLength = 200) {
     if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
+    
+    // Check if we're cutting off in the middle of a Slack-formatted URL
+    const truncated = text.substring(0, maxLength);
+    const lastOpenBracket = truncated.lastIndexOf('<');
+    const lastCloseBracket = truncated.lastIndexOf('>');
+    
+    // If we have an unclosed '<' for a URL pattern, truncate before it
+    if (lastOpenBracket > lastCloseBracket && text.substring(lastOpenBracket).startsWith('<http')) {
+      // Truncate before the incomplete URL
+      return text.substring(0, lastOpenBracket) + '...';
+    }
+    
+    return truncated + '...';
+  }
+  
+  function truncateSegments(segments: any[], maxLength: number) {
+    let totalLength = 0;
+    const truncatedSegments = [];
+    
+    for (const segment of segments) {
+      const segmentLength = segment.content.length;
+      
+      if (totalLength + segmentLength <= maxLength) {
+        // Segment fits completely
+        truncatedSegments.push(segment);
+        totalLength += segmentLength;
+      } else if (totalLength < maxLength) {
+        // Segment needs truncation
+        const remainingLength = maxLength - totalLength;
+        
+        if (segment.type === 'url') {
+          // For URLs, either include fully or show ellipsis
+          if (remainingLength > 20) {
+            // If we have reasonable space, show truncated URL with ellipsis
+            truncatedSegments.push({
+              ...segment,
+              content: segment.content.substring(0, remainingLength - 3) + '...'
+            });
+          } else {
+            // Not enough space for meaningful URL display
+            truncatedSegments.push({
+              type: 'text',
+              content: '...'
+            });
+          }
+        } else {
+          // For text/emoji/mention, truncate normally
+          truncatedSegments.push({
+            ...segment,
+            content: segment.content.substring(0, remainingLength) + '...'
+          });
+        }
+        break;
+      } else {
+        // We've reached the max length
+        break;
+      }
+    }
+    
+    return truncatedSegments;
   }
 
   function generateSlackUrl(): string {
