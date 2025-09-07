@@ -105,9 +105,9 @@ export async function loadReactionsProgressive(messages: Message[]) {
       message_index: messages.findIndex(m => m.ts === msg.ts)
     }));
     
-    // Batch size: start with 3 for first batch, then 5 for subsequent
-    const INITIAL_BATCH_SIZE = 3;
-    const REGULAR_BATCH_SIZE = 5;
+    // Optimized batch sizes for much better performance
+    const INITIAL_BATCH_SIZE = 10; // Increased from 3 for faster initial load
+    const REGULAR_BATCH_SIZE = 15; // Increased from 5 for better throughput
     
     let processedCount = 0;
     let errorCount = 0;
@@ -141,9 +141,9 @@ export async function loadReactionsProgressive(messages: Message[]) {
       for (let i = 0; i < remainingRequests.length; i += REGULAR_BATCH_SIZE) {
         const chunk = remainingRequests.slice(i, i + REGULAR_BATCH_SIZE);
         
-        // Small delay between batches
+        // Minimal delay between batches - reduced from 100ms
         if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 20));
         }
         
         const response = await batchFetchReactions({

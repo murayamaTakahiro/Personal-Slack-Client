@@ -140,3 +140,7 @@ export async function fetchReactionsProgressive(
     initialBatchSize
   });
 }
+
+export async function clearReactionCache(): Promise<void> {
+  return await invoke('clear_reaction_cache', {});
+}

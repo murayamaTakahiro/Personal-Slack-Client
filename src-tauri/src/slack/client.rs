@@ -12,8 +12,9 @@ use tracing::{debug, error, info, warn};
 use super::models::*;
 
 const SLACK_API_BASE: &str = "https://slack.com/api";
-const RATE_LIMIT_DELAY_MS: u64 = 50; // Reduced from 100ms for better performance
-const MAX_CONCURRENT_REQUESTS: usize = 5; // Increased from 3 for better parallelism while staying safe
+const RATE_LIMIT_DELAY_MS: u64 = 20; // Further reduced for better performance
+const MAX_CONCURRENT_REQUESTS: usize = 10; // Doubled for much better parallelism
+const REACTION_BATCH_SIZE: usize = 15; // Optimal batch size for reactions
 
 #[derive(Clone)]
 pub struct SlackClient {
@@ -669,7 +670,14 @@ impl SlackClient {
             .await?;
 
         if !response.status().is_success() {
+            let status = response.status();
             let error_text = response.text().await?;
+            // Handle rate limiting specifically
+            if status == 429 {
+                // Wait a bit and return empty to avoid cascading failures
+                sleep(Duration::from_millis(100)).await;
+                return Ok(vec![]);
+            }
             return Err(anyhow::anyhow!("Failed to get reactions: {}", error_text));
         }
 
@@ -680,6 +688,10 @@ impl SlackClient {
                     .get("error")
                     .and_then(|v| v.as_str())
                     .unwrap_or("Unknown error");
+                // Handle "no_reaction" as normal case - message has no reactions
+                if error_msg.contains("no_reaction") {
+                    return Ok(vec![]);
+                }
                 return Err(anyhow::anyhow!("Slack API error: {}", error_msg));
             }
         }

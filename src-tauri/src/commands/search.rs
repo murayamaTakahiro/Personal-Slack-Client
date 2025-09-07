@@ -449,58 +449,78 @@ pub async fn search_messages(
         });
     }
 
-    // Fetch reactions for ALL messages using parallel batch processing
-    // This approach is more efficient than the old sequential approach
+    // Fetch reactions for ALL messages using optimized parallel batch processing
     if !force_refresh.unwrap_or(false) && !messages.is_empty() {
-        info!("Fetching reactions for {} messages using batch processing", messages.len());
+        info!("Fetching reactions for {} messages using optimized batch processing", messages.len());
         
-        // Process in batches of 5 to balance performance and rate limits
-        const BATCH_SIZE: usize = 5;
-        
-        // Process messages in chunks
-        for chunk_start in (0..messages.len()).step_by(BATCH_SIZE) {
-            let chunk_end = (chunk_start + BATCH_SIZE).min(messages.len());
-            let chunk = &messages[chunk_start..chunk_end];
-            
-            // Create futures for this batch
-            let reaction_futures = chunk.iter().enumerate().map(|(chunk_idx, message)| {
-                let client = Arc::clone(&client);
-                let channel = message.channel.clone();
-                let ts = message.ts.clone();
-                let global_idx = chunk_start + chunk_idx;
-                
-                async move {
-                    match client.get_reactions(&channel, &ts).await {
-                        Ok(reactions) if !reactions.is_empty() => {
-                            debug!("Found {} reactions for message {}", reactions.len(), ts);
-                            (global_idx, Some(reactions))
-                        }
-                        Ok(_) => (global_idx, None), // No reactions
-                        Err(e) => {
-                            debug!("Failed to get reactions for message {}: {}", ts, e);
-                            (global_idx, None)
-                        }
-                    }
-                }
-            });
-            
-            // Execute batch in parallel
-            let batch_results = join_all(reaction_futures).await;
-            
-            // Apply the fetched reactions to messages
-            for (idx, reactions) in batch_results {
-                if let Some(reactions) = reactions {
-                    messages[idx].reactions = Some(reactions);
-                }
-            }
-            
-            // Small delay between batches to respect rate limits
-            if chunk_end < messages.len() {
-                tokio::time::sleep(tokio::time::Duration::from_millis(30)).await;
+        // First, check cache for already-fetched reactions
+        let mut messages_needing_reactions = Vec::new();
+        for (idx, message) in messages.iter_mut().enumerate() {
+            // Check cache first
+            if let Some(cached_reactions) = state.get_cached_reactions(&message.channel, &message.ts).await {
+                message.reactions = Some(cached_reactions);
+            } else {
+                messages_needing_reactions.push((idx, message.channel.clone(), message.ts.clone()));
             }
         }
         
-        info!("Completed fetching reactions for all messages");
+        if messages_needing_reactions.is_empty() {
+            info!("All reactions loaded from cache!");
+        } else {
+            info!("Need to fetch reactions for {} messages", messages_needing_reactions.len());
+            
+            // Process in larger batches for better performance
+            const BATCH_SIZE: usize = 15; // Increased from 5
+            
+            // Process all messages in parallel batches
+            for chunk_start in (0..messages_needing_reactions.len()).step_by(BATCH_SIZE) {
+                let chunk_end = (chunk_start + BATCH_SIZE).min(messages_needing_reactions.len());
+                let chunk = &messages_needing_reactions[chunk_start..chunk_end];
+                
+                // Create futures for this batch
+                let reaction_futures = chunk.iter().map(|(idx, channel, ts)| {
+                    let client = Arc::clone(&client);
+                    let state = state.clone();
+                    let channel = channel.clone();
+                    let ts = ts.clone();
+                    let idx = *idx;
+                    
+                    async move {
+                        match client.get_reactions(&channel, &ts).await {
+                            Ok(reactions) => {
+                                // Cache the reactions
+                                state.cache_reactions(&channel, &ts, reactions.clone()).await;
+                                if !reactions.is_empty() {
+                                    debug!("Found {} reactions for message {}", reactions.len(), ts);
+                                }
+                                (idx, Some(reactions))
+                            }
+                            Err(e) => {
+                                debug!("Failed to get reactions for message {}: {}", ts, e);
+                                (idx, None)
+                            }
+                        }
+                    }
+                });
+                
+                // Execute batch in parallel
+                let batch_results = join_all(reaction_futures).await;
+                
+                // Apply the fetched reactions to messages
+                for (idx, reactions) in batch_results {
+                    if let Some(reactions) = reactions {
+                        messages[idx].reactions = Some(reactions);
+                    }
+                }
+                
+                // Minimal delay between batches (reduced from 30ms)
+                if chunk_end < messages_needing_reactions.len() {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+                }
+            }
+            
+            info!("Completed fetching reactions for {} messages", messages_needing_reactions.len());
+        }
     }
 
     let execution_time_ms = start_time.elapsed().as_millis() as u64;
@@ -763,8 +783,8 @@ pub async fn batch_fetch_reactions(
     let client = state.get_client().await?;
     let client = Arc::new(client);
     
-    // Use provided batch size or default to 3 for safety
-    let batch_size = request.batch_size.unwrap_or(3);
+    // Use provided batch size or default to larger batch for better performance
+    let batch_size = request.batch_size.unwrap_or(10); // Increased default
     
     info!(
         "Batch fetching reactions for {} messages in batches of {}",
@@ -775,34 +795,54 @@ pub async fn batch_fetch_reactions(
     let mut all_responses = Vec::new();
     let mut fetched_count = 0;
     let mut error_count = 0;
+    let mut cache_hits = 0;
     
-    // Process in batches to avoid overwhelming the API
-    for chunk in request.requests.chunks(batch_size) {
+    // First, check cache for all requests
+    let mut requests_needing_fetch = Vec::new();
+    for req in &request.requests {
+        if let Some(cached_reactions) = state.get_cached_reactions(&req.channel_id, &req.timestamp).await {
+            // Use cached reactions
+            all_responses.push(ReactionResponse {
+                message_index: req.message_index,
+                reactions: Some(cached_reactions),
+                error: None,
+            });
+            cache_hits += 1;
+            fetched_count += 1;
+        } else {
+            requests_needing_fetch.push(req.clone());
+        }
+    }
+    
+    if cache_hits > 0 {
+        info!("Loaded {} reactions from cache", cache_hits);
+    }
+    
+    // Process remaining requests in parallel batches
+    for chunk in requests_needing_fetch.chunks(batch_size) {
         let batch_futures = chunk.iter().map(|req| {
             let client = Arc::clone(&client);
+            let state = state.clone();
             let channel_id = req.channel_id.clone();
             let timestamp = req.timestamp.clone();
             let message_index = req.message_index;
             
             async move {
                 match client.get_reactions(&channel_id, &timestamp).await {
-                    Ok(reactions) if !reactions.is_empty() => {
-                        debug!(
-                            "Fetched {} reactions for message at index {}",
-                            reactions.len(),
-                            message_index
-                        );
+                    Ok(reactions) => {
+                        // Cache the reactions
+                        state.cache_reactions(&channel_id, &timestamp, reactions.clone()).await;
+                        
+                        if !reactions.is_empty() {
+                            debug!(
+                                "Fetched {} reactions for message at index {}",
+                                reactions.len(),
+                                message_index
+                            );
+                        }
                         ReactionResponse {
                             message_index,
                             reactions: Some(reactions),
-                            error: None,
-                        }
-                    }
-                    Ok(_) => {
-                        // No reactions for this message
-                        ReactionResponse {
-                            message_index,
-                            reactions: Some(vec![]),
                             error: None,
                         }
                     }
@@ -835,16 +875,17 @@ pub async fn batch_fetch_reactions(
         
         all_responses.extend(batch_results);
         
-        // Add a small delay between batches to respect rate limits
+        // Minimal delay between batches (reduced from 50ms)
         if chunk.len() == batch_size && all_responses.len() < request.requests.len() {
-            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
         }
     }
     
     info!(
-        "Batch reaction fetch completed in {}ms: {} fetched, {} errors",
+        "Batch reaction fetch completed in {}ms: {} fetched ({} from cache), {} errors",
         start_time.elapsed().as_millis(),
         fetched_count,
+        cache_hits,
         error_count
     );
     
@@ -853,6 +894,12 @@ pub async fn batch_fetch_reactions(
         fetched_count,
         error_count,
     })
+}
+
+#[tauri::command]
+pub async fn clear_reaction_cache(state: State<'_, AppState>) -> AppResult<()> {
+    state.clear_reaction_cache().await;
+    Ok(())
 }
 
 #[tauri::command]

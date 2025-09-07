@@ -1,5 +1,5 @@
 use crate::error::{AppError, AppResult};
-use crate::slack::{SearchResult, SlackClient};
+use crate::slack::{SearchResult, SlackClient, SlackReaction};
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
@@ -29,12 +29,19 @@ pub struct CachedSearchResult {
 }
 
 #[derive(Clone)]
+pub struct CachedReactions {
+    pub reactions: Vec<SlackReaction>,
+    pub cached_at: u64, // Unix timestamp
+}
+
+#[derive(Clone)]
 pub struct AppState {
     token: Arc<RwLock<Option<String>>>,
     user_id: Arc<RwLock<Option<String>>>,
     user_cache: Arc<RwLock<HashMap<String, CachedUser>>>,
     channel_cache: Arc<RwLock<HashMap<String, CachedChannel>>>,
     search_cache: Arc<RwLock<HashMap<u64, CachedSearchResult>>>, // Hash of search params -> result
+    reaction_cache: Arc<RwLock<HashMap<String, CachedReactions>>>, // Key: "channel:timestamp"
 }
 
 impl AppState {
@@ -45,6 +52,7 @@ impl AppState {
             user_cache: Arc::new(RwLock::new(HashMap::new())),
             channel_cache: Arc::new(RwLock::new(HashMap::new())),
             search_cache: Arc::new(RwLock::new(HashMap::new())),
+            reaction_cache: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -268,6 +276,63 @@ impl AppState {
             },
         );
         debug!("Cached search result for query: {}", query);
+    }
+
+    // Reaction cache methods
+    pub async fn get_cached_reactions(
+        &self,
+        channel: &str,
+        timestamp: &str,
+    ) -> Option<Vec<SlackReaction>> {
+        let cache_key = format!("{}:{}", channel, timestamp);
+        let cache = self.reaction_cache.read().await;
+        
+        if let Some(cached) = cache.get(&cache_key) {
+            // Check if cache is still valid (30 minutes for reactions)
+            const REACTION_CACHE_DURATION_SECS: u64 = 1800; // 30 minutes
+            let now = Self::current_timestamp();
+            if now - cached.cached_at < REACTION_CACHE_DURATION_SECS {
+                debug!("Reaction cache hit for {}:{}", channel, timestamp);
+                return Some(cached.reactions.clone());
+            }
+        }
+        None
+    }
+    
+    pub async fn cache_reactions(
+        &self,
+        channel: &str,
+        timestamp: &str,
+        reactions: Vec<SlackReaction>,
+    ) {
+        let cache_key = format!("{}:{}", channel, timestamp);
+        let mut cache = self.reaction_cache.write().await;
+        
+        // Keep cache size reasonable (max 1000 reactions)
+        if cache.len() >= 1000 {
+            // Remove oldest entry
+            if let Some(oldest_key) = cache
+                .iter()
+                .min_by_key(|(_, v)| v.cached_at)
+                .map(|(k, _)| k.clone())
+            {
+                cache.remove(&oldest_key);
+            }
+        }
+        
+        cache.insert(
+            cache_key,
+            CachedReactions {
+                reactions,
+                cached_at: Self::current_timestamp(),
+            },
+        );
+    }
+    
+    pub async fn clear_reaction_cache(&self) {
+        let mut cache = self.reaction_cache.write().await;
+        cache.clear();
+        info!("Reaction cache cleared");
     }
 }
 
