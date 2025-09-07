@@ -29,16 +29,40 @@ export function parseMessageWithEmojis(text: string): MessageSegment[] {
     match: RegExpExecArray;
   }> = [];
   
-  // Find all mentions
+  // Find all mentions (both Slack format and simple @mentions)
   let match: RegExpExecArray | null;
-  const mentionRegex = /<@([A-Z0-9]+)(?:\|([^>]+))?>/g;
-  while ((match = mentionRegex.exec(text)) !== null) {
+  
+  // First find Slack-formatted mentions <@U123|username>
+  const slackMentionRegex = /<@([A-Z0-9]+)(?:\|([^>]+))?>/g;
+  while ((match = slackMentionRegex.exec(text)) !== null) {
     allMatches.push({
       start: match.index,
       end: match.index + match[0].length,
       type: 'mention',
       match
     });
+  }
+  
+  // Then find simple @mentions (after text has been decoded from Slack format)
+  // Updated regex to capture full display names including spaces
+  // Matches @username or "@firstname lastname" patterns
+  const simpleMentionRegex = /@([\w.-]+(?:\s+[\w.-]+)*)/g;
+  while ((match = simpleMentionRegex.exec(text)) !== null) {
+    // Check if this mention is inside a Slack-formatted mention
+    const isInsideSlackMention = allMatches.some(m => 
+      m.type === 'mention' && 
+      match.index >= m.start && 
+      match.index < m.end
+    );
+    
+    if (!isInsideSlackMention) {
+      allMatches.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        type: 'mention',
+        match
+      });
+    }
   }
   
   // Find all Slack-formatted URLs
@@ -78,7 +102,41 @@ export function parseMessageWithEmojis(text: string): MessageSegment[] {
       match.index < m.end
     );
     
-    if (!isInsideOther) {
+    // Check if the emoji pattern is within a URL
+    // Look for any URL that contains this emoji pattern position
+    let isInUrl = false;
+    for (const urlMatch of allMatches.filter(m => m.type === 'url')) {
+      // Check if the emoji position is within the URL's range
+      if (match.index >= urlMatch.start && match.index < urlMatch.end) {
+        isInUrl = true;
+        break;
+      }
+    }
+    
+    // Also check for plain URLs that might contain emoji patterns
+    // This handles cases where the URL wasn't detected by URL regex but contains :
+    if (!isInUrl) {
+      // Get broader context to check for URL patterns
+      const beforeContext = text.substring(Math.max(0, match.index - 50), match.index);
+      const afterContext = text.substring(match.index + match[0].length, Math.min(text.length, match.index + match[0].length + 50));
+      const fullContext = beforeContext + match[0] + afterContext;
+      
+      // Check if we're in a URL context (has http:// or https:// before and continues without spaces)
+      const urlPattern = /https?:\/\/[^\s]*/;
+      const urlMatch = urlPattern.exec(fullContext);
+      if (urlMatch) {
+        // Check if our emoji pattern is within this URL
+        const emojiPosInContext = beforeContext.length;
+        const urlStartInContext = fullContext.indexOf(urlMatch[0]);
+        const urlEndInContext = urlStartInContext + urlMatch[0].length;
+        
+        if (emojiPosInContext >= urlStartInContext && emojiPosInContext < urlEndInContext) {
+          isInUrl = true;
+        }
+      }
+    }
+    
+    if (!isInsideOther && !isInUrl) {
       allMatches.push({
         start: match.index,
         end: match.index + match[0].length,
@@ -108,13 +166,25 @@ export function parseMessageWithEmojis(text: string): MessageSegment[] {
     
     // Add the matched segment
     if (matchInfo.type === 'mention') {
-      const userId = matchInfo.match[1];
-      const displayName = matchInfo.match[2] || `@${userId}`;
-      segments.push({
-        type: 'mention',
-        content: `@${displayName}`,
-        userId
-      });
+      // Check if it's a Slack-formatted mention or simple @mention
+      if (matchInfo.match[0].startsWith('<@')) {
+        // Slack format: <@U123|displayname>
+        const userId = matchInfo.match[1];
+        const displayName = matchInfo.match[2] || userId;
+        segments.push({
+          type: 'mention',
+          content: `@${displayName}`,
+          userId
+        });
+      } else {
+        // Simple format: @username
+        const username = matchInfo.match[1];
+        segments.push({
+          type: 'mention',
+          content: `@${username}`,
+          userId: username // Use username as userId for simple mentions
+        });
+      }
     } else if (matchInfo.type === 'url') {
       const url = matchInfo.match[1];
       const displayText = matchInfo.match[2] || url;
