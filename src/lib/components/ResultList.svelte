@@ -4,7 +4,7 @@
   import MessageItem from './MessageItem.svelte';
   import OptimizedMessageItem from './OptimizedMessageItem.svelte';
   import PostDialog from './PostDialog.svelte';
-  import { selectedMessage, searchParams } from '../stores/search';
+  import { selectedMessage, searchParams, reactionLoadingState } from '../stores/search';
   import { getKeyboardService } from '../services/keyboardService';
   import { urlService } from '../services/urlService';
   import { openUrlsSmart } from '../api/urls';
@@ -588,6 +588,17 @@
           {messages.length} message{messages.length !== 1 ? 's' : ''} found
         {/if}
       </h3>
+      {#if $reactionLoadingState.isLoading}
+        <div class="reaction-loading-indicator">
+          <span class="loading-spinner"></span>
+          <span class="loading-text">
+            Loading reactions: {$reactionLoadingState.loadedCount} / {$reactionLoadingState.totalCount}
+            {#if $reactionLoadingState.errors > 0}
+              ({$reactionLoadingState.errors} failed)
+            {/if}
+          </span>
+        </div>
+      {/if}
     </div>
     <div 
       class="messages" 
@@ -707,6 +718,28 @@
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--text-secondary);
+  }
+  
+  .reaction-loading-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+  }
+  
+  .loading-spinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  .loading-text {
+    opacity: 0.8;
   }
   
   .messages {

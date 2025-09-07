@@ -1,5 +1,6 @@
-import { writable, derived } from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
 import type { SearchResult, SearchParams, SearchHistory, Message } from '../types/slack';
+import { batchFetchReactions, type ReactionRequest } from '../api/slack';
 
 // Search state
 export const searchQuery = writable<string>('');
@@ -7,6 +8,19 @@ export const searchResults = writable<SearchResult | null>(null);
 export const searchLoading = writable<boolean>(false);
 export const searchError = writable<string | null>(null);
 export const searchProgress = writable<{ current: number; total: number; channel?: string } | null>(null);
+
+// Reaction loading state
+export const reactionLoadingState = writable<{
+  isLoading: boolean;
+  loadedCount: number;
+  totalCount: number;
+  errors: number;
+}>({
+  isLoading: false,
+  loadedCount: 0,
+  totalCount: 0,
+  errors: 0
+});
 
 // Search parameters
 export const searchParams = writable<SearchParams>({
@@ -58,4 +72,127 @@ export function clearSearch() {
   searchResults.set(null);
   searchError.set(null);
   selectedMessage.set(null);
+  reactionLoadingState.set({
+    isLoading: false,
+    loadedCount: 0,
+    totalCount: 0,
+    errors: 0
+  });
+}
+
+// Load reactions progressively for all messages
+export async function loadReactionsProgressive(messages: Message[]) {
+  // Skip if no messages or reactions already loaded
+  if (!messages || messages.length === 0) return;
+  
+  // Check if we already have reactions for most messages
+  const messagesNeedingReactions = messages.filter(m => !m.reactions);
+  if (messagesNeedingReactions.length === 0) return;
+  
+  // Update loading state
+  reactionLoadingState.set({
+    isLoading: true,
+    loadedCount: messages.length - messagesNeedingReactions.length,
+    totalCount: messages.length,
+    errors: 0
+  });
+  
+  try {
+    // Prepare requests for messages that need reactions
+    const requests: ReactionRequest[] = messagesNeedingReactions.map((msg, idx) => ({
+      channel_id: msg.channel,
+      timestamp: msg.ts,
+      message_index: messages.findIndex(m => m.ts === msg.ts)
+    }));
+    
+    // Batch size: start with 3 for first batch, then 5 for subsequent
+    const INITIAL_BATCH_SIZE = 3;
+    const REGULAR_BATCH_SIZE = 5;
+    
+    let processedCount = 0;
+    let errorCount = 0;
+    
+    // Process initial batch (visible messages)
+    if (requests.length > 0) {
+      const initialBatch = requests.slice(0, INITIAL_BATCH_SIZE);
+      const initialResponse = await batchFetchReactions({
+        requests: initialBatch,
+        batch_size: INITIAL_BATCH_SIZE
+      });
+      
+      // Apply reactions to messages
+      applyReactionsToMessages(messages, initialResponse.reactions);
+      processedCount += initialResponse.fetched_count;
+      errorCount += initialResponse.error_count;
+      
+      // Update loading state
+      reactionLoadingState.update(state => ({
+        ...state,
+        loadedCount: state.loadedCount + initialResponse.fetched_count,
+        errors: errorCount
+      }));
+    }
+    
+    // Process remaining messages in background
+    if (requests.length > INITIAL_BATCH_SIZE) {
+      const remainingRequests = requests.slice(INITIAL_BATCH_SIZE);
+      
+      // Process in chunks
+      for (let i = 0; i < remainingRequests.length; i += REGULAR_BATCH_SIZE) {
+        const chunk = remainingRequests.slice(i, i + REGULAR_BATCH_SIZE);
+        
+        // Small delay between batches
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        const response = await batchFetchReactions({
+          requests: chunk,
+          batch_size: REGULAR_BATCH_SIZE
+        });
+        
+        // Apply reactions to messages
+        applyReactionsToMessages(messages, response.reactions);
+        processedCount += response.fetched_count;
+        errorCount += response.error_count;
+        
+        // Update loading state
+        reactionLoadingState.update(state => ({
+          ...state,
+          loadedCount: state.loadedCount + response.fetched_count,
+          errors: state.errors + response.error_count
+        }));
+        
+        // Update the search results to trigger UI update
+        searchResults.update(results => {
+          if (results) {
+            return { ...results, messages: [...messages] };
+          }
+          return results;
+        });
+      }
+    }
+    
+  } catch (error) {
+    console.error('Error loading reactions:', error);
+    reactionLoadingState.update(state => ({
+      ...state,
+      errors: state.errors + 1
+    }));
+  } finally {
+    // Mark loading as complete
+    reactionLoadingState.update(state => ({
+      ...state,
+      isLoading: false
+    }));
+  }
+}
+
+// Helper function to apply reactions to messages
+function applyReactionsToMessages(messages: Message[], reactions: any[]) {
+  for (const reaction of reactions) {
+    if (reaction.reactions && reaction.message_index >= 0 && reaction.message_index < messages.length) {
+      messages[reaction.message_index].reactions = reaction.reactions;
+    }
+  }
 }

@@ -12,7 +12,9 @@
     searchError,
     searchParams,
     selectedMessage,
-    addToHistory
+    addToHistory,
+    loadReactionsProgressive,
+    reactionLoadingState
   } from './lib/stores/search';
   import { 
     updateTokenSecure, 
@@ -793,10 +795,20 @@
         // Use requestAnimationFrame for smoother rendering
         requestAnimationFrame(() => {
           searchResults.set(result);
+          // Don't load reactions progressively for realtime updates (they should already have reactions)
         });
       } else {
         // Normal search - immediate update
         searchResults.set(result);
+        
+        // Start loading reactions progressively for all messages
+        // This will load reactions in batches without blocking the UI
+        if (result.messages && result.messages.length > 0) {
+          // Start progressive reaction loading in the background
+          loadReactionsProgressive(result.messages).catch(err => {
+            console.error('Failed to load reactions progressively:', err);
+          });
+        }
       }
       
       // Update previousMessageIds after setting results for non-realtime searches

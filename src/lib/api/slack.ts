@@ -98,3 +98,45 @@ export async function openUrlsSmart(
 export async function validateUrls(urls: string[]): Promise<string[]> {
   return await invoke('validate_urls', { urls });
 }
+
+// Batch reaction fetching
+export interface ReactionRequest {
+  channel_id: string;
+  timestamp: string;
+  message_index: number;
+}
+
+export interface BatchReactionsRequest {
+  requests: ReactionRequest[];
+  batch_size?: number;
+}
+
+export interface ReactionResponse {
+  message_index: number;
+  reactions?: any[]; // SlackReaction[]
+  error?: string;
+}
+
+export interface BatchReactionsResponse {
+  reactions: ReactionResponse[];
+  fetched_count: number;
+  error_count: number;
+}
+
+export async function batchFetchReactions(
+  request: BatchReactionsRequest
+): Promise<BatchReactionsResponse> {
+  return await invoke('batch_fetch_reactions', { request });
+}
+
+export async function fetchReactionsProgressive(
+  channelId: string,
+  timestamps: string[],
+  initialBatchSize?: number
+): Promise<(any[] | null)[]> {
+  return await invoke('fetch_reactions_progressive', {
+    channelId,
+    timestamps,
+    initialBatchSize
+  });
+}

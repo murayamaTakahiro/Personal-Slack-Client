@@ -1,7 +1,7 @@
 use crate::error::AppResult;
 use crate::slack::{
     build_search_query, fetch_all_results, Message, SearchRequest, SearchResult, SlackClient,
-    SlackMessage, SlackUser,
+    SlackMessage, SlackReaction, SlackUser,
 };
 use crate::state::{AppState, CachedUser};
 use futures::future::join_all;
@@ -11,6 +11,7 @@ use tauri::State;
 use tracing::{debug, error, info, warn};
 
 use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 
 fn replace_user_mentions(text: &str, user_cache: &HashMap<String, CachedUser>) -> String {
     crate::slack::parser::replace_user_mentions(text, user_cache)
@@ -448,35 +449,58 @@ pub async fn search_messages(
         });
     }
 
-    // Fetch reactions for recent messages (search API doesn't include them)
-    // Only fetch for the most recent messages to avoid rate limiting
-    const MAX_REACTIONS_TO_FETCH: usize = 10;
-    let messages_to_fetch = messages.len().min(MAX_REACTIONS_TO_FETCH);
-    
-    if messages_to_fetch > 0 {
-        info!("Fetching reactions for {} recent messages", messages_to_fetch);
+    // Fetch reactions for ALL messages using parallel batch processing
+    // This approach is more efficient than the old sequential approach
+    if !force_refresh.unwrap_or(false) && !messages.is_empty() {
+        info!("Fetching reactions for {} messages using batch processing", messages.len());
         
-        for message in messages.iter_mut().take(messages_to_fetch) {
-            match client.get_reactions(&message.channel, &message.ts).await {
-                Ok(reactions) => {
-                    if !reactions.is_empty() {
-                        debug!(
-                            "Found {} reactions for message {}",
-                            reactions.len(),
-                            message.ts
-                        );
-                        message.reactions = Some(reactions);
+        // Process in batches of 5 to balance performance and rate limits
+        const BATCH_SIZE: usize = 5;
+        
+        // Process messages in chunks
+        for chunk_start in (0..messages.len()).step_by(BATCH_SIZE) {
+            let chunk_end = (chunk_start + BATCH_SIZE).min(messages.len());
+            let chunk = &messages[chunk_start..chunk_end];
+            
+            // Create futures for this batch
+            let reaction_futures = chunk.iter().enumerate().map(|(chunk_idx, message)| {
+                let client = Arc::clone(&client);
+                let channel = message.channel.clone();
+                let ts = message.ts.clone();
+                let global_idx = chunk_start + chunk_idx;
+                
+                async move {
+                    match client.get_reactions(&channel, &ts).await {
+                        Ok(reactions) if !reactions.is_empty() => {
+                            debug!("Found {} reactions for message {}", reactions.len(), ts);
+                            (global_idx, Some(reactions))
+                        }
+                        Ok(_) => (global_idx, None), // No reactions
+                        Err(e) => {
+                            debug!("Failed to get reactions for message {}: {}", ts, e);
+                            (global_idx, None)
+                        }
                     }
                 }
-                Err(e) => {
-                    // Don't fail the entire search if we can't get reactions
-                    debug!(
-                        "Failed to get reactions for message {}: {}",
-                        message.ts, e
-                    );
+            });
+            
+            // Execute batch in parallel
+            let batch_results = join_all(reaction_futures).await;
+            
+            // Apply the fetched reactions to messages
+            for (idx, reactions) in batch_results {
+                if let Some(reactions) = reactions {
+                    messages[idx].reactions = Some(reactions);
                 }
             }
+            
+            // Small delay between batches to respect rate limits
+            if chunk_end < messages.len() {
+                tokio::time::sleep(tokio::time::Duration::from_millis(30)).await;
+            }
         }
+        
+        info!("Completed fetching reactions for all messages");
     }
 
     let execution_time_ms = start_time.elapsed().as_millis() as u64;
@@ -700,4 +724,179 @@ pub async fn get_user_info(user_id: String, state: State<'_, AppState>) -> AppRe
 
 
     Ok(user)
+}
+
+// Batch reaction fetching structures
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReactionRequest {
+    pub channel_id: String,
+    pub timestamp: String,
+    pub message_index: usize, // To track which message this is for
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchReactionsRequest {
+    pub requests: Vec<ReactionRequest>,
+    pub batch_size: Option<usize>, // How many to fetch in parallel (default: 3)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReactionResponse {
+    pub message_index: usize,
+    pub reactions: Option<Vec<SlackReaction>>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchReactionsResponse {
+    pub reactions: Vec<ReactionResponse>,
+    pub fetched_count: usize,
+    pub error_count: usize,
+}
+
+#[tauri::command]
+pub async fn batch_fetch_reactions(
+    request: BatchReactionsRequest,
+    state: State<'_, AppState>,
+) -> AppResult<BatchReactionsResponse> {
+    let start_time = Instant::now();
+    let client = state.get_client().await?;
+    let client = Arc::new(client);
+    
+    // Use provided batch size or default to 3 for safety
+    let batch_size = request.batch_size.unwrap_or(3);
+    
+    info!(
+        "Batch fetching reactions for {} messages in batches of {}",
+        request.requests.len(),
+        batch_size
+    );
+    
+    let mut all_responses = Vec::new();
+    let mut fetched_count = 0;
+    let mut error_count = 0;
+    
+    // Process in batches to avoid overwhelming the API
+    for chunk in request.requests.chunks(batch_size) {
+        let batch_futures = chunk.iter().map(|req| {
+            let client = Arc::clone(&client);
+            let channel_id = req.channel_id.clone();
+            let timestamp = req.timestamp.clone();
+            let message_index = req.message_index;
+            
+            async move {
+                match client.get_reactions(&channel_id, &timestamp).await {
+                    Ok(reactions) if !reactions.is_empty() => {
+                        debug!(
+                            "Fetched {} reactions for message at index {}",
+                            reactions.len(),
+                            message_index
+                        );
+                        ReactionResponse {
+                            message_index,
+                            reactions: Some(reactions),
+                            error: None,
+                        }
+                    }
+                    Ok(_) => {
+                        // No reactions for this message
+                        ReactionResponse {
+                            message_index,
+                            reactions: Some(vec![]),
+                            error: None,
+                        }
+                    }
+                    Err(e) => {
+                        debug!(
+                            "Failed to fetch reactions for message at index {}: {}",
+                            message_index, e
+                        );
+                        ReactionResponse {
+                            message_index,
+                            reactions: None,
+                            error: Some(e.to_string()),
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Execute batch in parallel
+        let batch_results = join_all(batch_futures).await;
+        
+        // Count successes and failures
+        for result in &batch_results {
+            if result.error.is_none() {
+                fetched_count += 1;
+            } else {
+                error_count += 1;
+            }
+        }
+        
+        all_responses.extend(batch_results);
+        
+        // Add a small delay between batches to respect rate limits
+        if chunk.len() == batch_size && all_responses.len() < request.requests.len() {
+            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        }
+    }
+    
+    info!(
+        "Batch reaction fetch completed in {}ms: {} fetched, {} errors",
+        start_time.elapsed().as_millis(),
+        fetched_count,
+        error_count
+    );
+    
+    Ok(BatchReactionsResponse {
+        reactions: all_responses,
+        fetched_count,
+        error_count,
+    })
+}
+
+#[tauri::command]
+pub async fn fetch_reactions_progressive(
+    channel_id: String,
+    timestamps: Vec<String>,
+    initial_batch_size: Option<usize>,
+    state: State<'_, AppState>,
+) -> AppResult<Vec<Option<Vec<SlackReaction>>>> {
+    let client = state.get_client().await?;
+    let client = Arc::new(client);
+    
+    let initial_batch = initial_batch_size.unwrap_or(10);
+    let mut results = vec![None; timestamps.len()];
+    
+    info!(
+        "Progressive reaction fetch: {} messages, initial batch: {}",
+        timestamps.len(),
+        initial_batch
+    );
+    
+    // Fetch initial batch immediately (for visible messages)
+    let initial_count = initial_batch.min(timestamps.len());
+    if initial_count > 0 {
+        let initial_futures = timestamps[..initial_count].iter().enumerate().map(|(idx, ts)| {
+            let client = Arc::clone(&client);
+            let channel_id = channel_id.clone();
+            let ts = ts.clone();
+            
+            async move {
+                match client.get_reactions(&channel_id, &ts).await {
+                    Ok(reactions) => (idx, Some(reactions)),
+                    Err(_) => (idx, None),
+                }
+            }
+        });
+        
+        let initial_results = join_all(initial_futures).await;
+        for (idx, reactions) in initial_results {
+            results[idx] = reactions;
+        }
+    }
+    
+    // Return early results for UI update
+    // The frontend can call again for remaining messages
+    Ok(results)
 }
