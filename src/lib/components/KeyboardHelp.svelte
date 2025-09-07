@@ -228,6 +228,11 @@
             key: 'toggleKeyboardHelp', 
             description: 'Toggle Keyboard Help',
             shortcut: shortcuts.toggleKeyboardHelp || '?'
+          },
+          { 
+            key: 'togglePerformanceMonitor', 
+            description: 'Toggle Performance Monitor',
+            shortcut: shortcuts.togglePerformanceMonitor || 'Ctrl+Shift+P'
           }
         ]
       },

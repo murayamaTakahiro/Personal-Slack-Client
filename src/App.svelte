@@ -21,7 +21,7 @@
     updateWorkspaceSecure, 
     loadSecureSettings 
   } from './lib/stores/secureSettings';
-  import { settings, initializeSettings } from './lib/stores/settings';
+  import { settings, initializeSettings, toggleDebugMode } from './lib/stores/settings';
   import { maskTokenClient } from './lib/api/secure';
   import { 
     searchMessages, 
@@ -186,7 +186,8 @@
       zoomIn: 'Ctrl+=',
       zoomOut: 'Ctrl+-',
       zoomReset: 'Ctrl+0',
-      toggleChannelFavorite: 'f'
+      toggleChannelFavorite: 'f',
+      togglePerformanceMonitor: 'Ctrl+Shift+P'
     });
     
     // The reaction service already loads mappings from localStorage
@@ -585,6 +586,19 @@
         }
       },
       allowInInput: false  // Don't trigger when typing in inputs
+    });
+    
+    // Toggle Performance Monitor (Debug Mode)
+    keyboardService.registerHandler('togglePerformanceMonitor', {
+      action: () => {
+        toggleDebugMode();
+        const isDebugMode = get(settings).debugMode; // Value after toggle
+        const message = isDebugMode
+          ? 'Performance Monitor enabled'
+          : 'Performance Monitor disabled';
+        showToast(message, 'info');
+      },
+      allowInInput: true  // Allow from anywhere for debugging
     });
   }
   
@@ -1103,6 +1117,20 @@
         
         <PerformanceSettings />
         
+        <div class="setting-group">
+          <label>
+            <input
+              type="checkbox"
+              checked={$settings.debugMode}
+              on:change={(e) => settings.update(s => ({ ...s, debugMode: e.target.checked }))}
+            />
+            Enable Debug Mode
+          </label>
+          <p class="help-text">
+            Shows performance metrics panel in the bottom-right corner. Can also be toggled with Ctrl+Shift+P.
+          </p>
+        </div>
+        
         <UserIdSettings />
       </div>
       
@@ -1186,8 +1214,10 @@
   {#if $performanceSettings.performanceMetrics}
     <PerformanceDashboard />
   {/if}
-  <!-- Performance Monitor for real-time metrics -->
-  <PerformanceMonitor />
+  <!-- Performance Monitor for real-time metrics (only visible in debug mode) -->
+  {#if $settings.debugMode}
+    <PerformanceMonitor />
+  {/if}
 </div>
 
 <style>

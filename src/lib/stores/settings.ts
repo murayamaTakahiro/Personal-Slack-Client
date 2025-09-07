@@ -42,7 +42,8 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   zoomIn: 'Ctrl+=',
   zoomOut: 'Ctrl+-',
   zoomReset: 'Ctrl+0',
-  toggleChannelFavorite: 'f'
+  toggleChannelFavorite: 'f',
+  togglePerformanceMonitor: 'Ctrl+Shift+P'
 };
 
 // Default settings
@@ -50,7 +51,8 @@ const defaultSettings: AppSettings = {
   maxResults: 1000,
   theme: 'auto',
   keyboardShortcuts: defaultKeyboardShortcuts,
-  reactionMappings: DEFAULT_REACTION_MAPPINGS
+  reactionMappings: DEFAULT_REACTION_MAPPINGS,
+  debugMode: false  // Performance monitor is hidden by default
 };
 
 // Initialize settings with default values
@@ -100,7 +102,8 @@ export async function initializeSettings() {
     ...defaultSettings,
     ...loadedSettings,
     keyboardShortcuts: migrateShortcuts(loadedSettings.keyboardShortcuts),
-    reactionMappings: loadedSettings.reactionMappings || DEFAULT_REACTION_MAPPINGS
+    reactionMappings: loadedSettings.reactionMappings || DEFAULT_REACTION_MAPPINGS,
+    debugMode: loadedSettings.debugMode ?? false  // Default to false if not set
   };
   
   console.log('[Settings] Merged settings:', mergedSettings);
@@ -171,6 +174,10 @@ export function getKeyboardShortcuts(): KeyboardShortcuts {
 
 export function updateSettings(updates: Partial<AppSettings>) {
   settings.update(s => ({ ...s, ...updates }));
+}
+
+export function toggleDebugMode() {
+  settings.update(s => ({ ...s, debugMode: !s.debugMode }));
 }
 
 // Apply theme to document

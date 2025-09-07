@@ -117,6 +117,7 @@ export interface KeyboardShortcuts {
   zoomOut?: string | string[];
   zoomReset?: string | string[];
   toggleChannelFavorite?: string | string[];
+  togglePerformanceMonitor?: string | string[];
 }
 
 export interface MentionHistory {
@@ -134,6 +135,7 @@ export interface AppSettings {
   userFavorites?: UserFavorite[];
   reactionMappings?: ReactionMapping[];
   mentionHistory?: MentionHistory[];
+  debugMode?: boolean;
 }
 
 export interface SearchHistory {
