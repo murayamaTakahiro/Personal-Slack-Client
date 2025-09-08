@@ -19,7 +19,11 @@ export function parseMessageWithEmojis(text: string): MessageSegment[] {
   // const combinedRegex = /<@([A-Z0-9]+)(?:\|([^>]+))?>/g; // Mentions - unused
   const urlRegex = /<(https?:\/\/[^|>]+)(?:\|([^>]+))?>/g; // URLs in Slack format
   const plainUrlRegex = /(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g; // Plain URLs - matches thread view pattern
-  const emojiRegex = /:([^:\s]+):/g; // Emoji codes - allow any non-space, non-colon characters including Japanese
+  // Updated regex to properly handle emoji patterns
+  // - Basic emoji: :emoji_name:
+  // - With skin tone: :emoji_name::skin-tone-2:
+  // - Numbered emoji: :emoji_name:1 (not part of the emoji name)
+  const emojiRegex = /:([a-zA-Z0-9_+-]+)(?::skin-tone-\d)?:/g; // Emoji codes with optional skin tone modifier
   
   // Create a master list of all matches with their positions
   const allMatches: Array<{
@@ -206,21 +210,33 @@ export function parseMessageWithEmojis(text: string): MessageSegment[] {
         url
       });
     } else if (matchInfo.type === 'emoji') {
+      const fullMatch = matchInfo.match[0];
       const emojiName = matchInfo.match[1];
-      const emojiValue = emojiService.getEmoji(emojiName);
       
-      if (emojiValue) {
-        segments.push({
-          type: 'emoji',
-          content: matchInfo.match[0], // Original :emoji: text
-          emoji: emojiValue // URL or Unicode
-        });
-      } else {
-        // Keep as text if emoji not found
+      // Check if this is a valid emoji pattern
+      // Reject patterns that are just numbers or too short
+      if (emojiName.match(/^\d+$/) || emojiName.length < 2) {
+        // Just numbers or too short - keep as text
         segments.push({
           type: 'text',
-          content: matchInfo.match[0]
+          content: fullMatch
         });
+      } else {
+        const emojiValue = emojiService.getEmoji(emojiName);
+        
+        if (emojiValue) {
+          segments.push({
+            type: 'emoji',
+            content: fullMatch, // Original :emoji: text
+            emoji: emojiValue // URL or Unicode
+          });
+        } else {
+          // Keep as text if emoji not found
+          segments.push({
+            type: 'text',
+            content: fullMatch
+          });
+        }
       }
     }
     

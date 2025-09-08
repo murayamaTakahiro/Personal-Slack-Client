@@ -192,8 +192,11 @@ const STANDARD_EMOJIS: Record<string, string> = {
   'man_raising_hand': '🙋‍♂️',
   'woman_raising_hand': '🙋‍♀️',
   'woman-raising-hand': '🙋‍♀️',  // Hyphenated version
+  'woman_raising_hand': '🙋‍♀️',  // Underscore version
   '挙手_女性': '🙋‍♀️',  // Japanese alias for woman_raising_hand
   '挙手': '🙋',  // Japanese alias for person_raising_hand
+  'raising_hand': '🙋',  // Common alias
+  'raising-hand': '🙋',  // Common alias hyphenated
   'deaf_person': '🧏',
   'person_gesturing_no': '🙅',
   'person_gesturing_ok': '🙆',
@@ -248,6 +251,9 @@ const STANDARD_EMOJIS: Record<string, string> = {
   'dancer': '💃',
   'man_dancing': '🕺',
   'people_with_bunny_ears': '👯',
+  'bicyclist': '🚴',  // Added bicyclist
+  'person_biking': '🚴',  // Alternative name
+  'cyclist': '🚴',  // Alternative name
   'person_in_steamy_room': '🧖',
   'person_climbing': '🧗',
   'person_in_lotus_position': '🧘',
@@ -569,8 +575,21 @@ export class EmojiService {
   getEmoji(name: string): string | null {
     const data = get(emojiData);
     
-    // Remove colons if present
-    const cleanName = name.replace(/^:/, '').replace(/:$/, '');
+    // Remove colons and skin tone modifiers if present
+    let cleanName = name.replace(/^:/, '').replace(/:$/, '');
+    
+    // Handle skin tone variations (e.g., "woman-raising-hand::skin-tone-2" -> "woman-raising-hand")
+    const skinToneMatch = cleanName.match(/^(.+)::?skin-tone-\d$/i);
+    if (skinToneMatch) {
+      cleanName = skinToneMatch[1];
+    }
+    
+    // Remove trailing numbers that might be accidentally included
+    // e.g., "woman-raising-hand:1" -> "woman-raising-hand" 
+    const numberSuffixMatch = cleanName.match(/^(.+):(\d+)$/);
+    if (numberSuffixMatch) {
+      cleanName = numberSuffixMatch[1];
+    }
     
     // Check custom emojis first
     if (data.custom[cleanName]) {
@@ -582,7 +601,7 @@ export class EmojiService {
       return data.standard[cleanName];
     }
     
-    // Handle special cases
+    // Handle special cases and common variations
     if (cleanName === 'thumbsup' || cleanName === '+1') {
       return data.standard['thumbsup'] || '👍';
     }
@@ -590,37 +609,56 @@ export class EmojiService {
       return data.standard['thumbsdown'] || '👎';
     }
     
+    // Try hyphenated vs underscore variations
+    const hyphenToUnderscore = cleanName.replace(/-/g, '_');
+    const underscoreToHyphen = cleanName.replace(/_/g, '-');
+    
+    if (data.standard[hyphenToUnderscore]) {
+      return data.standard[hyphenToUnderscore];
+    }
+    if (data.standard[underscoreToHyphen]) {
+      return data.standard[underscoreToHyphen];
+    }
+    if (data.custom[hyphenToUnderscore]) {
+      return data.custom[hyphenToUnderscore];
+    }
+    if (data.custom[underscoreToHyphen]) {
+      return data.custom[underscoreToHyphen];
+    }
+    
     // Try to find variations for custom emojis that might not match exactly
-    if (!data.standard[cleanName]) {
-      // Try common variations
-      const variations = [
-        cleanName.replace('amadesu', 'ama'),  // otsukaresamadesu -> otsukaresama
-        cleanName.replace('desu', ''),         // Remove 'desu' suffix
-        cleanName.replace('shimasu', ''),      // kakuninshimasu -> kakunin
-        cleanName + '2',                       // Try with number suffix
-        cleanName + '1',
-        cleanName.replace('2', ''),            // Remove number suffix
-        cleanName.replace('1', ''),
-        cleanName.replace(/_/g, ''),           // Remove underscores
-        cleanName.replace(/-/g, ''),           // Remove dashes
-      ];
-      
-      for (const variant of variations) {
-        if (data.custom[variant]) {
-          console.log(`[EmojiService] Found emoji "${cleanName}" as variant "${variant}"`);
-          return data.custom[variant];
-        }
+    // Try common variations
+    const variations = [
+      cleanName.replace('amadesu', 'ama'),  // otsukaresamadesu -> otsukaresama
+      cleanName.replace('desu', ''),         // Remove 'desu' suffix
+      cleanName.replace('shimasu', ''),      // kakuninshimasu -> kakunin
+      cleanName + '2',                       // Try with number suffix
+      cleanName + '1',
+      cleanName.replace('2', ''),            // Remove number suffix
+      cleanName.replace('1', ''),
+      cleanName.replace(/_/g, ''),           // Remove underscores
+      cleanName.replace(/-/g, ''),           // Remove dashes
+    ];
+    
+    for (const variant of variations) {
+      if (data.custom[variant]) {
+        console.log(`[EmojiService] Found emoji "${cleanName}" as variant "${variant}"`);
+        return data.custom[variant];
       }
-      
-      // Try partial matching for Japanese-style emojis
-      const partialMatches = Object.keys(data.custom).filter(key => {
-        return key.includes(cleanName) || cleanName.includes(key);
-      });
-      
-      if (partialMatches.length > 0) {
-        console.log(`[EmojiService] Found partial match for "${cleanName}": "${partialMatches[0]}"`);
-        return data.custom[partialMatches[0]];
+      if (data.standard[variant]) {
+        console.log(`[EmojiService] Found standard emoji "${cleanName}" as variant "${variant}"`);
+        return data.standard[variant];
       }
+    }
+    
+    // Try partial matching for Japanese-style emojis
+    const partialMatches = Object.keys(data.custom).filter(key => {
+      return key.includes(cleanName) || cleanName.includes(key);
+    });
+    
+    if (partialMatches.length > 0) {
+      console.log(`[EmojiService] Found partial match for "${cleanName}": "${partialMatches[0]}"`);
+      return data.custom[partialMatches[0]];
     }
     
     // Log when emoji is not found (only for custom workspace emojis)
