@@ -27,6 +27,10 @@
   // Reset imageFailed when URL changes
   $: if (url) {
     imageFailed = false;
+    // Debug logging for specific problematic emoji
+    if (emoji.includes('ありがとうございます') || emoji.includes('thankyou')) {
+      console.log('[EmojiImage] DEBUG: Rendering emoji:', emoji, '-> URL:', url);
+    }
   }
 </script>
 

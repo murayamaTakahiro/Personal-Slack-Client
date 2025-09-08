@@ -631,10 +631,10 @@
             await initializeCurrentUser();
             logger.debug('[App] Current user ID initialized');
             
-            // Initialize emoji service after token is loaded
-            logger.debug('[App] Initializing emoji service after workspace switch...');
-            await emojiService.initialize();
-            console.log('[App] Emoji service initialized');
+            // Initialize emoji service after token is loaded with workspace ID
+            logger.debug('[App] Initializing emoji service after workspace switch...', { workspaceId: currentWorkspace.id });
+            await emojiService.initialize(currentWorkspace.id);
+            console.log('[App] Emoji service initialized for workspace:', currentWorkspace.id);
             
             await loadChannels();
           } else {

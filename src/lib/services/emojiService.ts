@@ -15,6 +15,10 @@ export interface EmojiData {
   lastFetched?: number;
 }
 
+export interface WorkspaceEmojiCache {
+  [workspaceId: string]: EmojiData;
+}
+
 // Cache duration: 24 hours
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 
@@ -344,12 +348,16 @@ export const emojiData = writable<EmojiData>({
   standard: STANDARD_EMOJIS
 });
 
+// Store for multi-workspace emoji cache
+export const workspaceEmojiCache = writable<WorkspaceEmojiCache>({});
+
 // Store for loading state
 export const emojiLoading = writable<boolean>(false);
 
 export class EmojiService {
   private static instance: EmojiService;
   private fetchPromise: Promise<void> | null = null;
+  private currentWorkspaceId: string | null = null;
 
   private constructor() {}
 
@@ -363,10 +371,23 @@ export class EmojiService {
   /**
    * Initialize emoji service and load cached data
    */
-  async initialize(): Promise<void> {
-    console.log('[EmojiService] Starting initialization...');
+  async initialize(workspaceId?: string): Promise<void> {
+    console.log('[EmojiService] Starting initialization...', { workspaceId });
+    
+    // Update current workspace ID if provided
+    if (workspaceId) {
+      this.currentWorkspaceId = workspaceId;
+    }
+    
     try {
-      // Load cached emoji data
+      // Load workspace emoji cache
+      const cachedWorkspaces = await loadFromStore<WorkspaceEmojiCache | null>('workspaceEmojiCache', null);
+      if (cachedWorkspaces) {
+        workspaceEmojiCache.set(cachedWorkspaces);
+        console.log('[EmojiService] Loaded emoji cache for', Object.keys(cachedWorkspaces).length, 'workspaces');
+      }
+      
+      // Load cached emoji data for current workspace
       const cached = await loadFromStore<EmojiData | null>('emojiData', null);
       console.log('[EmojiService] Cached data loaded:', {
         hasCached: !!cached,
@@ -537,13 +558,23 @@ export class EmojiService {
 
         emojiData.set(data);
         
-        // Cache the data
+        // Cache the data for current workspace
         await saveToStore('emojiData', data);
+        
+        // Also store in workspace-specific cache if we have a workspace ID
+        if (this.currentWorkspaceId) {
+          const cache = get(workspaceEmojiCache);
+          cache[this.currentWorkspaceId] = data;
+          workspaceEmojiCache.set(cache);
+          await saveToStore('workspaceEmojiCache', cache);
+          console.log('[EmojiService] Stored emojis for workspace:', this.currentWorkspaceId);
+        }
         
         console.log('[EmojiService] Successfully loaded emojis:', {
           customEmojis: Object.keys(customEmojis).length,
           standardEmojis: Object.keys(STANDARD_EMOJIS).length,
-          cachedAt: data.lastFetched ? new Date(data.lastFetched).toISOString() : 'never'
+          cachedAt: data.lastFetched ? new Date(data.lastFetched).toISOString() : 'never',
+          workspaceId: this.currentWorkspaceId
         });
         
         // Log some sample custom emojis for debugging
@@ -578,6 +609,11 @@ export class EmojiService {
     // Remove colons and skin tone modifiers if present
     let cleanName = name.replace(/^:/, '').replace(/:$/, '');
     
+    // Debug logging for specific problematic emoji
+    if (cleanName.includes('ありがとうございます') || cleanName.includes('thankyou')) {
+      console.log('[EmojiService] DEBUG: Looking up emoji:', cleanName);
+    }
+    
     // Handle skin tone variations (e.g., "woman-raising-hand::skin-tone-2" -> "woman-raising-hand")
     const skinToneMatch = cleanName.match(/^(.+)::?skin-tone-\d$/i);
     if (skinToneMatch) {
@@ -591,14 +627,29 @@ export class EmojiService {
       cleanName = numberSuffixMatch[1];
     }
     
-    // Check custom emojis first
+    // Check current workspace's custom emojis first
     if (data.custom[cleanName]) {
+      if (cleanName.includes('ありがとうございます') || cleanName.includes('thankyou')) {
+        console.log('[EmojiService] DEBUG: Found in current workspace:', data.custom[cleanName]);
+      }
       return data.custom[cleanName];
     }
     
     // Check standard emojis
     if (data.standard[cleanName]) {
       return data.standard[cleanName];
+    }
+    
+    // Search across all workspace caches for custom emojis
+    const allWorkspaces = get(workspaceEmojiCache);
+    for (const [workspaceId, workspaceData] of Object.entries(allWorkspaces)) {
+      if (workspaceData.custom[cleanName]) {
+        if (cleanName.includes('ありがとうございます') || cleanName.includes('thankyou')) {
+          console.log(`[EmojiService] DEBUG: Found in workspace ${workspaceId}:`, workspaceData.custom[cleanName]);
+        }
+        console.log(`[EmojiService] Found emoji "${cleanName}" in workspace ${workspaceId}`);
+        return workspaceData.custom[cleanName];
+      }
     }
     
     // Handle special cases and common variations
@@ -649,16 +700,47 @@ export class EmojiService {
         console.log(`[EmojiService] Found standard emoji "${cleanName}" as variant "${variant}"`);
         return data.standard[variant];
       }
+      
+      // Also check variations across all workspaces
+      for (const [workspaceId, workspaceData] of Object.entries(allWorkspaces)) {
+        if (workspaceData.custom[variant]) {
+          console.log(`[EmojiService] Found emoji "${cleanName}" as variant "${variant}" in workspace ${workspaceId}`);
+          return workspaceData.custom[variant];
+        }
+      }
     }
     
-    // Try partial matching for Japanese-style emojis
-    const partialMatches = Object.keys(data.custom).filter(key => {
-      return key.includes(cleanName) || cleanName.includes(key);
-    });
+    // Try partial matching for Japanese-style emojis (including all workspaces)
+    // Only do partial matching if the emoji name is long enough to avoid false positives
+    const partialMatches = cleanName.length > 3 ? Object.keys(data.custom).filter(key => {
+      // Only match if the key is a meaningful substring (at least 3 chars)
+      return (key.length > 3 && key.includes(cleanName)) || 
+             (cleanName.length > 3 && key.length > 3 && cleanName.includes(key));
+    }) : [];
     
     if (partialMatches.length > 0) {
+      if (cleanName.includes('ありがとうございます') || cleanName.includes('thankyou')) {
+        console.log(`[EmojiService] DEBUG: Partial match for "${cleanName}": "${partialMatches[0]}" -> URL:`, data.custom[partialMatches[0]]);
+      }
       console.log(`[EmojiService] Found partial match for "${cleanName}": "${partialMatches[0]}"`);
       return data.custom[partialMatches[0]];
+    }
+    
+    // Try partial matching across all workspaces
+    for (const [workspaceId, workspaceData] of Object.entries(allWorkspaces)) {
+      const wsPartialMatches = cleanName.length > 3 ? Object.keys(workspaceData.custom).filter(key => {
+        // Only match if the key is a meaningful substring (at least 3 chars)
+        return (key.length > 3 && key.includes(cleanName)) || 
+               (cleanName.length > 3 && key.length > 3 && cleanName.includes(key));
+      }) : [];
+      
+      if (wsPartialMatches.length > 0) {
+        if (cleanName.includes('ありがとうございます') || cleanName.includes('thankyou')) {
+          console.log(`[EmojiService] DEBUG: Partial match in workspace ${workspaceId} for "${cleanName}": "${wsPartialMatches[0]}" -> URL:`, workspaceData.custom[wsPartialMatches[0]]);
+        }
+        console.log(`[EmojiService] Found partial match for "${cleanName}": "${wsPartialMatches[0]}" in workspace ${workspaceId}`);
+        return workspaceData.custom[wsPartialMatches[0]];
+      }
     }
     
     // Log when emoji is not found (only for custom workspace emojis)
@@ -731,6 +813,31 @@ export class EmojiService {
   async refresh(): Promise<void> {
     this.fetchPromise = null;
     await this.fetchEmojis();
+  }
+  
+  /**
+   * Fetch emojis for all workspaces to enable cross-workspace emoji support
+   * This should be called when the app starts or when workspaces are updated
+   */
+  async fetchAllWorkspaceEmojis(workspaceIds: string[]): Promise<void> {
+    console.log('[EmojiService] Fetching emojis for all workspaces:', workspaceIds);
+    
+    for (const workspaceId of workspaceIds) {
+      // Check if we already have cached emojis for this workspace
+      const cache = get(workspaceEmojiCache);
+      if (cache[workspaceId] && cache[workspaceId].lastFetched) {
+        const age = Date.now() - cache[workspaceId].lastFetched;
+        if (age < CACHE_DURATION) {
+          console.log(`[EmojiService] Using cached emojis for workspace ${workspaceId}`);
+          continue;
+        }
+      }
+      
+      // We need to fetch emojis for this workspace
+      // This would require switching context temporarily to fetch emojis
+      console.log(`[EmojiService] Would fetch emojis for workspace ${workspaceId} (requires backend support)`);
+      // TODO: Implement backend support for fetching emojis from specific workspace
+    }
   }
   
   /**

@@ -278,6 +278,11 @@ export function parseEmoji(emojiCode: string): { isCustom: boolean; value: strin
   const cleanName = emojiCode.replace(/^:/, '').replace(/:$/, '');
   const emojiValue = emojiService.getEmoji(cleanName);
   
+  // Debug logging for specific problematic emoji
+  if (cleanName.includes('ありがとうございます') || cleanName.includes('thankyou')) {
+    console.log('[EmojiParser] DEBUG: parseEmoji for:', cleanName, '-> URL:', emojiValue);
+  }
+  
   if (emojiValue) {
     return {
       isCustom: emojiValue.startsWith('http'),
