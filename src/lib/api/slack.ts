@@ -69,12 +69,14 @@ export async function postToChannel(
 export async function postThreadReply(
   channelId: string,
   threadTs: string,
-  text: string
+  text: string,
+  replyBroadcast: boolean = false
 ): Promise<PostMessageResponse> {
   return await invoke('post_thread_reply', {
     channelId,
     threadTs,
-    text
+    text,
+    replyBroadcast
   });
 }
 

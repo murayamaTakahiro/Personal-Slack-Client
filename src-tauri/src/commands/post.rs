@@ -56,11 +56,12 @@ pub async fn post_thread_reply(
     channel_id: String,
     thread_ts: String,
     text: String,
+    reply_broadcast: Option<bool>,
 ) -> Result<PostMessageResponse, String> {
     let client = state.get_client().await.map_err(|e| e.to_string())?;
 
     match client
-        .post_message(&channel_id, &text, Some(&thread_ts))
+        .post_message_with_broadcast(&channel_id, &text, Some(&thread_ts), reply_broadcast.unwrap_or(false))
         .await
     {
         Ok(mut response) => {

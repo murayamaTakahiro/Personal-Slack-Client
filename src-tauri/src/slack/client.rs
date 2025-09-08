@@ -759,6 +759,66 @@ impl SlackClient {
         Ok(result)
     }
 
+    /// Post a message to a Slack channel with optional broadcast to channel for thread replies
+    pub async fn post_message_with_broadcast(
+        &self,
+        channel: &str,
+        text: &str,
+        thread_ts: Option<&str>,
+        reply_broadcast: bool,
+    ) -> Result<crate::slack::models::PostMessageResponse> {
+        let _permit = self.rate_limiter.acquire().await?;
+        let url = format!("{}/chat.postMessage", SLACK_API_BASE);
+
+        info!("Posting message to channel: {} (broadcast: {})", channel, reply_broadcast);
+
+        let mut body = serde_json::json!({
+            "channel": channel,
+            "text": text
+        });
+
+        if let Some(ts) = thread_ts {
+            body["thread_ts"] = serde_json::json!(ts);
+            // Add reply_broadcast parameter when posting to a thread
+            if reply_broadcast {
+                body["reply_broadcast"] = serde_json::json!(true);
+            }
+        }
+
+        let response = self.client.post(&url).json(&body).send().await?;
+
+        let status = response.status();
+        let response_text = response.text().await?;
+
+        if !status.is_success() {
+            error!(
+                "Failed to post message. Status: {}, Response: {}",
+                status, response_text
+            );
+            return Err(anyhow::anyhow!("Failed to post message: {}", response_text));
+        }
+
+        let result: crate::slack::models::PostMessageResponse =
+            serde_json::from_str(&response_text).map_err(|e| {
+                error!("Failed to parse post message response: {}", e);
+                error!("Response text: {}", response_text);
+                anyhow::anyhow!("Failed to parse response: {}", e)
+            })?;
+
+        if result.ok {
+            info!("Successfully posted message to channel: {}", channel);
+        } else {
+            let error_msg = result
+                .error
+                .clone()
+                .unwrap_or_else(|| "Unknown error".to_string());
+            error!("Slack API error: {}", error_msg);
+            return Err(anyhow::anyhow!("Slack API error: {}", error_msg));
+        }
+
+        Ok(result)
+    }
+
     pub async fn get_emoji_list(&self) -> Result<HashMap<String, String>> {
         let url = format!("{}/emoji.list", SLACK_API_BASE);
         

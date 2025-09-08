@@ -20,12 +20,14 @@
   let error: string | null = null;
   let mentionTextarea: MentionTextarea;
   let userMap: Map<string, SlackUser> = new Map();
+  let alsoSendToChannel = false; // For thread replies, option to also post to channel
   
   // Reset state and focus when component mounts (dialog opens)
   onMount(async () => {
     text = '';
     error = null;
     posting = false;
+    alsoSendToChannel = false; // Reset checkbox state
     
     // Load users for mention conversion
     const users = await userService.getAllUsers();
@@ -55,7 +57,8 @@
       if (mode === 'channel') {
         await postToChannel(channelId, formattedText);
       } else {
-        await postThreadReply(channelId, threadTs, formattedText);
+        // Pass the alsoSendToChannel flag to the API
+        await postThreadReply(channelId, threadTs, formattedText, alsoSendToChannel);
       }
       
       text = ''; // Reset text after successful post
@@ -103,6 +106,16 @@
       {#if mode === 'thread' && messagePreview}
         <div class="thread-preview">
           Replying to: {decodeSlackText(messagePreview)}
+        </div>
+        <div class="also-send-to-channel">
+          <label>
+            <input 
+              type="checkbox" 
+              bind:checked={alsoSendToChannel}
+              disabled={posting}
+            />
+            <span>Also send to <span class="channel-name">#{decodeSlackText(channelName)}</span></span>
+          </label>
         </div>
       {/if}
     </div>
@@ -231,6 +244,36 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .also-send-to-channel {
+    margin-top: 12px;
+    padding: 0;
+  }
+
+  .also-send-to-channel label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--color-text);
+  }
+
+  .also-send-to-channel input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+
+  .also-send-to-channel input[type="checkbox"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .also-send-to-channel .channel-name {
+    font-weight: 600;
+    color: var(--color-primary);
   }
 
   .dialog-body {
