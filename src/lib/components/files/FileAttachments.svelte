@@ -1,0 +1,291 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import type { SlackFile } from '$lib/types/slack';
+  import { 
+    groupFilesByType, 
+    getFileTypeDisplayName,
+    calculateTotalSize,
+    type FileGroup 
+  } from '$lib/services/fileService';
+  import ImagePreview from './ImagePreview.svelte';
+  import PdfPreview from './PdfPreview.svelte';
+  import GenericFilePreview from './GenericFilePreview.svelte';
+
+  export let files: SlackFile[] = [];
+  export let workspaceId: string;
+  export let compact: boolean = false;
+
+  let fileGroups: FileGroup[] = [];
+  let totalSize: string = '';
+  let isLoading = true;
+  let error: string | null = null;
+
+  $: if (files?.length > 0) {
+    processFiles();
+  }
+
+  function processFiles() {
+    try {
+      isLoading = true;
+      error = null;
+      
+      fileGroups = groupFilesByType(files);
+      totalSize = calculateTotalSize(files);
+      
+      isLoading = false;
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to process files';
+      isLoading = false;
+    }
+  }
+
+  function getComponentForFile(file: SlackFile) {
+    const mimeType = file.mimetype?.toLowerCase() || '';
+    
+    if (mimeType.startsWith('image/')) {
+      return ImagePreview;
+    } else if (mimeType === 'application/pdf') {
+      return PdfPreview;
+    } else {
+      return GenericFilePreview;
+    }
+  }
+</script>
+
+<div class="file-attachments" class:compact>
+  {#if isLoading}
+    <div class="loading-container">
+      <div class="skeleton-loader">
+        <div class="skeleton-item"></div>
+        <div class="skeleton-item"></div>
+        <div class="skeleton-item"></div>
+      </div>
+    </div>
+  {:else if error}
+    <div class="error-container">
+      <svg class="error-icon" width="16" height="16" viewBox="0 0 16 16">
+        <path fill="currentColor" d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13a6 6 0 110-12 6 6 0 010 12zm1-6V4H7v4h2zm0 3V9H7v2h2z"/>
+      </svg>
+      <span class="error-message">{error}</span>
+    </div>
+  {:else if fileGroups.length > 0}
+    <div class="files-container">
+      {#each fileGroups as group}
+        <div class="file-group">
+          {#if !compact}
+            <div class="group-header">
+              <h4 class="group-title">{getFileTypeDisplayName(group.type)}</h4>
+              <span class="group-count">({group.files.length})</span>
+            </div>
+          {/if}
+          
+          <div class="files-grid" class:image-grid={group.type === 'image'}>
+            {#each group.files as metadata}
+              <div class="file-item">
+                {#if group.type === 'image'}
+                  <ImagePreview 
+                    file={metadata.file}
+                    {workspaceId}
+                    showMetadata={!compact}
+                  />
+                {:else if group.type === 'pdf'}
+                  <PdfPreview 
+                    file={metadata.file}
+                    {workspaceId}
+                    {compact}
+                  />
+                {:else}
+                  <GenericFilePreview 
+                    file={metadata.file}
+                    {workspaceId}
+                    {compact}
+                  />
+                {/if}
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/each}
+      
+      {#if !compact && files.length > 1}
+        <div class="files-footer">
+          <span class="total-info">
+            Total: {files.length} file{files.length !== 1 ? 's' : ''} • {totalSize}
+          </span>
+        </div>
+      {/if}
+    </div>
+  {/if}
+</div>
+
+<style>
+  .file-attachments {
+    margin: 0.75rem 0;
+    border-radius: 0.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+  }
+
+  .file-attachments.compact {
+    margin: 0.5rem 0;
+    background: transparent;
+    border: none;
+  }
+
+  .loading-container {
+    padding: 1.5rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  .skeleton-loader {
+    display: flex;
+    gap: 1rem;
+    width: 100%;
+    max-width: 600px;
+  }
+
+  .skeleton-item {
+    flex: 1;
+    height: 100px;
+    background: linear-gradient(
+      90deg,
+      var(--color-skeleton-base) 25%,
+      var(--color-skeleton-shine) 50%,
+      var(--color-skeleton-base) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+    border-radius: 0.375rem;
+  }
+
+  @keyframes skeleton-loading {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  .error-container {
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-error);
+    background: var(--color-error-bg);
+    border-radius: 0.375rem;
+    margin: 0.5rem;
+  }
+
+  .error-icon {
+    flex-shrink: 0;
+  }
+
+  .error-message {
+    font-size: 0.875rem;
+  }
+
+  .files-container {
+    padding: 1rem;
+  }
+
+  .compact .files-container {
+    padding: 0;
+  }
+
+  .file-group {
+    margin-bottom: 1.5rem;
+  }
+
+  .file-group:last-child {
+    margin-bottom: 0;
+  }
+
+  .group-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .group-title {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  .group-count {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+  }
+
+  .files-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+
+  .files-grid.image-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.5rem;
+  }
+
+  .compact .files-grid {
+    gap: 0.5rem;
+  }
+
+  .file-item {
+    display: flex;
+  }
+
+  .files-footer {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .total-info {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+  }
+
+  @media (max-width: 640px) {
+    .files-grid {
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+
+    .files-grid.image-grid {
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    }
+  }
+
+  :global([data-theme="dark"]) {
+    --color-surface: #1a1d21;
+    --color-border: #565856;
+    --color-text-primary: #d1d2d3;
+    --color-text-secondary: #ababad;
+    --color-error: #e01e5a;
+    --color-error-bg: rgba(224, 30, 90, 0.1);
+    --color-skeleton-base: #2c2d2e;
+    --color-skeleton-shine: #3a3b3c;
+  }
+
+  :global([data-theme="light"]) {
+    --color-surface: #ffffff;
+    --color-border: #dddddd;
+    --color-text-primary: #1d1c1d;
+    --color-text-secondary: #616061;
+    --color-error: #e01e5a;
+    --color-error-bg: rgba(224, 30, 90, 0.05);
+    --color-skeleton-base: #f0f0f0;
+    --color-skeleton-shine: #e0e0e0;
+  }
+</style>
