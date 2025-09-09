@@ -2,7 +2,7 @@
   import type { SlackFile } from '$lib/types/slack';
   import { formatFileSize, getFileIcon } from '$lib/api/files';
   import { getFileType } from '$lib/services/fileService';
-  import { downloadFileWithProgress } from '$lib/stores/filePreview';
+  import { downloadFile } from '$lib/api/files';
 
   export let file: SlackFile;
   export let workspaceId: string;
@@ -23,7 +23,7 @@
     downloadError = null;
 
     try {
-      const localPath = await downloadFileWithProgress(workspaceId, file);
+      const localPath = await downloadFile(workspaceId, file);
       
       if (localPath) {
         // For now, just log success - we can add open functionality later

@@ -2,8 +2,8 @@
   import { onMount } from 'svelte';
   import type { SlackFile } from '$lib/types/slack';
   import { getBestThumbnailUrl, formatFileSize } from '$lib/api/files';
-  import { openFilesInLightbox } from '$lib/stores/filePreview';
-  import { downloadFileWithProgress } from '$lib/stores/filePreview';
+  import { filePreviewStore } from '$lib/stores/filePreview';
+  import { processFileMetadata } from '$lib/services/fileService';
 
   export let file: SlackFile;
   export let workspaceId: string;
@@ -63,21 +63,8 @@
 
   async function handleClick() {
     // Open in lightbox
-    openFilesInLightbox([file], file);
-  }
-
-  async function downloadFullImage() {
-    if (isDownloading) return;
-    
-    isDownloading = true;
-    const localPath = await downloadFileWithProgress(workspaceId, file);
-    
-    if (localPath) {
-      // Convert local path to URL that can be displayed
-      displayUrl = `file://${localPath}`;
-    }
-    
-    isDownloading = false;
+    const metadata = processFileMetadata(file);
+    filePreviewStore.openLightbox(metadata, [metadata]);
   }
 
   function handleImageError() {

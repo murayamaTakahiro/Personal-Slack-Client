@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import sveltePreprocess from "svelte-preprocess";
+import { resolve } from "path";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
@@ -12,6 +13,13 @@ export default defineConfig(async ({ mode }) => ({
       typescript: true
     })
   })],
+  
+  // Path resolution
+  resolve: {
+    alias: {
+      $lib: resolve('./src/lib')
+    }
+  },
   
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

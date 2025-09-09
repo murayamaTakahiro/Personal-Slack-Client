@@ -40,6 +40,7 @@
   import PerformanceSettings from './lib/components/PerformanceSettings.svelte';
   import PerformanceDashboard from './lib/components/PerformanceDashboard.svelte';
   import Toast from './lib/components/Toast.svelte';
+  import LightboxContainer from './lib/components/files/LightboxContainer.svelte';
   import { workspaceStore, activeWorkspace } from './lib/stores/workspaces';
   import { channelStore } from './lib/stores/channels';
   import userStore from './lib/stores/users';
@@ -1211,6 +1212,7 @@
     }}
   />
   <Toast />
+  <LightboxContainer />
   {#if $performanceSettings.performanceMetrics}
     <PerformanceDashboard />
   {/if}

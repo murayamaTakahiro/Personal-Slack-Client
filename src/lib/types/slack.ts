@@ -32,6 +32,7 @@ export interface Message {
   isThreadParent: boolean;
   replyCount?: number;
   reactions?: EmojiReaction[];
+  files?: SlackFile[];
 }
 
 export interface ThreadMessages {
@@ -190,4 +191,63 @@ export interface OpenUrlsResult {
 export interface ExtractedUrls {
   slackUrls: string[];
   externalUrls: string[];
+}
+
+// File types
+export interface SlackFile {
+  id: string;
+  created: number;
+  timestamp: number;
+  name: string;
+  title: string;
+  mimetype: string;
+  filetype: string;
+  pretty_type: string;
+  user: string;
+  username?: string;
+  editable: boolean;
+  size: number;
+  mode: string;
+  is_external: boolean;
+  external_type: string;
+  is_public: boolean;
+  public_url_shared: boolean;
+  display_as_bot: boolean;
+  
+  // URLs
+  url_private: string;
+  url_private_download: string;
+  permalink: string;
+  permalink_public?: string;
+  
+  // Thumbnails
+  thumb_64?: string;
+  thumb_80?: string;
+  thumb_160?: string;
+  thumb_360?: string;
+  thumb_360_gif?: string;
+  thumb_480?: string;
+  thumb_720?: string;
+  thumb_960?: string;
+  thumb_1024?: string;
+  thumb_pdf?: string;
+  thumb_video?: string;
+  
+  // Image properties
+  image_exif_rotation?: number;
+  original_w?: number;
+  original_h?: number;
+  deanimate_gif?: string;
+  
+  // Preview
+  preview?: string;
+  preview_highlight?: string;
+  preview_is_truncated?: boolean;
+  has_rich_preview?: boolean;
+  
+  // Sharing
+  channels?: string[];
+  groups?: string[];
+  ims?: string[];
+  comments_count?: number;
 }

@@ -9,6 +9,7 @@
   import { showSuccess, showError, showInfo } from '../stores/toast';
   import ReactionPicker from './ReactionPicker.svelte';
   import EmojiImage from './EmojiImage.svelte';
+  import FileAttachments from './files/FileAttachments.svelte';
   import { parseMessageWithEmojis, parseEmoji } from '../utils/emojiParser';
   import { decodeSlackText } from '../utils/htmlEntities';
   import { currentUserId } from '../stores/currentUser';
@@ -471,6 +472,14 @@
       {/if}
     {/each}
   </div>
+  
+  {#if message.files && message.files.length > 0 && $activeWorkspace}
+    <FileAttachments 
+      files={message.files} 
+      workspaceId={$activeWorkspace.id}
+      compact={!selected}
+    />
+  {/if}
   
   {#if selected && enableReactions}
     <div class="reaction-shortcuts">

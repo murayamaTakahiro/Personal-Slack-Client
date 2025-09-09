@@ -1,5 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { SlackFile } from '$lib/types/slack';
+import {
+  getMessageFilesMock,
+  getFileInfoMock,
+  downloadFileMock,
+  clearFileCacheMock,
+  getCacheStatsMock
+} from './filesMock';
 
 export interface FileDownloadProgress {
   fileId: string;
@@ -29,11 +36,16 @@ export async function getMessageFiles(
   channelId: string,
   messageTs: string
 ): Promise<SlackFile[]> {
-  return await invoke('get_message_files', {
-    workspaceId,
-    channelId,
-    messageTs
-  });
+  try {
+    return await invoke('get_message_files', {
+      workspaceId,
+      channelId,
+      messageTs
+    });
+  } catch (error) {
+    console.warn('Tauri command not available, using mock:', error);
+    return getMessageFilesMock(workspaceId, channelId, messageTs);
+  }
 }
 
 /**
@@ -43,10 +55,15 @@ export async function getFileInfo(
   workspaceId: string,
   fileId: string
 ): Promise<FileInfoResult> {
-  return await invoke('get_file_info', {
-    workspaceId,
-    fileId
-  });
+  try {
+    return await invoke('get_file_info', {
+      workspaceId,
+      fileId
+    });
+  } catch (error) {
+    console.warn('Tauri command not available, using mock:', error);
+    return getFileInfoMock(workspaceId, fileId);
+  }
 }
 
 /**
@@ -110,9 +127,14 @@ export async function getOrDownloadFile(
  * Clear file cache for a specific workspace
  */
 export async function clearFileCache(workspaceId: string): Promise<void> {
-  return await invoke('clear_file_cache', {
-    workspaceId
-  });
+  try {
+    return await invoke('clear_file_cache', {
+      workspaceId
+    });
+  } catch (error) {
+    console.warn('Tauri command not available, using mock:', error);
+    return clearFileCacheMock(workspaceId);
+  }
 }
 
 /**
@@ -123,9 +145,14 @@ export async function getCacheStats(workspaceId: string): Promise<{
   fileCount: number;
   maxSize: number;
 }> {
-  return await invoke('get_cache_stats', {
-    workspaceId
-  });
+  try {
+    return await invoke('get_cache_stats', {
+      workspaceId
+    });
+  } catch (error) {
+    console.warn('Tauri command not available, using mock:', error);
+    return getCacheStatsMock(workspaceId);
+  }
 }
 
 /**
