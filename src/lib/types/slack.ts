@@ -119,6 +119,16 @@ export interface KeyboardShortcuts {
   zoomReset?: string | string[];
   toggleChannelFavorite?: string | string[];
   togglePerformanceMonitor?: string | string[];
+  // Lightbox shortcuts
+  openLightbox?: string | string[];
+  lightboxNext?: string | string[];
+  lightboxPrevious?: string | string[];
+  lightboxScrollUp?: string | string[];
+  lightboxScrollDown?: string | string[];
+  lightboxZoomIn?: string | string[];
+  lightboxZoomOut?: string | string[];
+  lightboxZoomReset?: string | string[];
+  lightboxClose?: string | string[];
 }
 
 export interface MentionHistory {

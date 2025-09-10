@@ -5,6 +5,7 @@
   import { downloadFile } from '$lib/api/files';
   import { formatFileSize } from '$lib/api/files';
   import { activeWorkspace } from '$lib/stores/workspaces';
+  import LightboxHelp from './LightboxHelp.svelte';
 
   export let file: FileMetadata;
   export let allFiles: FileMetadata[] = [];
@@ -27,6 +28,10 @@
   let isLoadingFullImage = false;
   let fullImageUrl: string | null = null;
   let imageLoadError = false;
+  let scrollPosition = 0;
+  let maxScroll = 0;
+  let scrollSpeed = 50; // pixels per key press
+  let showHelp = false;
 
   $: hasNext = currentIndex < allFiles.length - 1;
   $: hasPrevious = currentIndex > 0;
@@ -42,15 +47,52 @@
   }
 
   function handleKeydown(event: KeyboardEvent) {
+    // Prevent default behavior for navigation keys
+    const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'j', 'k', 'h', 'l'];
+    if (navigationKeys.includes(event.key)) {
+      event.preventDefault();
+    }
+    
     switch (event.key) {
       case 'Escape':
         onClose();
         break;
       case 'ArrowLeft':
+      case 'h':
         if (hasPrevious) onPrevious();
         break;
-      case 'ArrowRight':
+      case 'ArrowRight': 
+      case 'l':
         if (hasNext) onNext();
+        break;
+      case 'Tab':
+        if (event.shiftKey) {
+          // Shift+Tab - previous image
+          if (hasPrevious) onPrevious();
+        } else {
+          // Tab - next image
+          if (hasNext) onNext();
+        }
+        break;
+      case 'ArrowUp':
+      case 'k':
+        scrollUp();
+        break;
+      case 'ArrowDown':
+      case 'j':
+        scrollDown();
+        break;
+      case 'Home':
+        scrollToTop();
+        break;
+      case 'End':
+        scrollToBottom();
+        break;
+      case 'PageUp':
+        scrollPageUp();
+        break;
+      case 'PageDown':
+        scrollPageDown();
         break;
       case '+':
       case '=':
@@ -62,7 +104,75 @@
       case '0':
         resetZoom();
         break;
+      case '?':
+        // Show help (optional - could trigger a help overlay)
+        showKeyboardHelp();
+        break;
     }
+  }
+  
+  function scrollUp() {
+    if (!isImage || !imageElement) return;
+    
+    const container = imageElement.parentElement;
+    if (container) {
+      container.scrollTop = Math.max(0, container.scrollTop - scrollSpeed);
+    }
+  }
+  
+  function scrollDown() {
+    if (!isImage || !imageElement) return;
+    
+    const container = imageElement.parentElement;
+    if (container) {
+      container.scrollTop = Math.min(
+        container.scrollHeight - container.clientHeight,
+        container.scrollTop + scrollSpeed
+      );
+    }
+  }
+  
+  function scrollPageUp() {
+    if (!isImage || !imageElement) return;
+    
+    const container = imageElement.parentElement;
+    if (container) {
+      container.scrollTop = Math.max(0, container.scrollTop - container.clientHeight);
+    }
+  }
+  
+  function scrollPageDown() {
+    if (!isImage || !imageElement) return;
+    
+    const container = imageElement.parentElement;
+    if (container) {
+      container.scrollTop = Math.min(
+        container.scrollHeight - container.clientHeight,
+        container.scrollTop + container.clientHeight
+      );
+    }
+  }
+  
+  function scrollToTop() {
+    if (!isImage || !imageElement) return;
+    
+    const container = imageElement.parentElement;
+    if (container) {
+      container.scrollTop = 0;
+    }
+  }
+  
+  function scrollToBottom() {
+    if (!isImage || !imageElement) return;
+    
+    const container = imageElement.parentElement;
+    if (container) {
+      container.scrollTop = container.scrollHeight - container.clientHeight;
+    }
+  }
+  
+  function showKeyboardHelp() {
+    showHelp = !showHelp;
   }
 
   function handleWheel(event: WheelEvent) {
@@ -405,6 +515,8 @@
   </div>
 </div>
 
+<LightboxHelp isOpen={showHelp} onClose={() => showHelp = false} />
+
 <style>
   .lightbox-backdrop {
     position: fixed;
@@ -531,8 +643,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
+    overflow: auto;
     cursor: zoom-in;
+    position: relative;
   }
 
   .image-wrapper.zoomed {

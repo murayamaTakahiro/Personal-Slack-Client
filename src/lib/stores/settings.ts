@@ -43,7 +43,17 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   zoomOut: 'Ctrl+-',
   zoomReset: 'Ctrl+0',
   toggleChannelFavorite: 'f',
-  togglePerformanceMonitor: 'Ctrl+Shift+P'
+  togglePerformanceMonitor: 'Ctrl+Shift+P',
+  // Lightbox shortcuts
+  openLightbox: 'i',
+  lightboxNext: ['ArrowRight', 'l', 'Tab'],
+  lightboxPrevious: ['ArrowLeft', 'h', 'Shift+Tab'],
+  lightboxScrollUp: ['ArrowUp', 'k'],
+  lightboxScrollDown: ['ArrowDown', 'j'],
+  lightboxZoomIn: ['+', '='],
+  lightboxZoomOut: '-',
+  lightboxZoomReset: '0',
+  lightboxClose: 'Escape'
 };
 
 // Default settings

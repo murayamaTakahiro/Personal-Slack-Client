@@ -14,6 +14,8 @@
   import { decodeSlackText } from '../utils/htmlEntities';
   import { derived, writable } from 'svelte/store';
   import { currentUserId } from '../stores/currentUser';
+  import { filePreviewStore } from '../stores/filePreview';
+  import { processFileMetadata } from '../services/fileService';
 
   export let message: Message;
   export let selected = false;
@@ -27,6 +29,7 @@
   let handlersRegistered = false;
   let isPickerOpen = false;
   let messageItemElement: HTMLElement;
+  let lastFocusedFileIndex = 0; // Track which file was last focused for keyboard navigation
 
   // Memoized text processing - only recomputes when message text changes
   const processedText = writable('');
@@ -285,6 +288,21 @@
     }
   }
 
+  function handleOpenLightbox() {
+    if (!selected || !message.files || message.files.length === 0) return;
+    
+    // Process all file metadata
+    const metadata = message.files.map(file => processFileMetadata(file));
+    
+    // Open lightbox with the first image file or first file if no images
+    const imageFiles = metadata.filter(m => m.type === 'image');
+    const fileToOpen = imageFiles[lastFocusedFileIndex] || imageFiles[0] || metadata[0];
+    
+    if (fileToOpen) {
+      filePreviewStore.openLightbox(fileToOpen, metadata);
+    }
+  }
+
   function registerKeyboardHandlers() {
     const keyboardService = getKeyboardService();
     
@@ -296,6 +314,14 @@
     // handlersRegistered flag will be set at the end
     
     try {
+      // Register 'i' key for opening image/file lightbox
+      keyboardService.registerHandler('openLightbox', {
+        action: () => {
+          handleOpenLightbox();
+        },
+        allowInInput: false
+      });
+      
       // Register 'r' key for opening reaction picker
       keyboardService.registerHandler('openReactionPicker', {
         action: () => {
@@ -336,6 +362,7 @@
     try {
       // Always attempt to unregister, even if handlersRegistered is false
       // This handles cases where state might be inconsistent
+      keyboardService.unregisterHandler('openLightbox');
       keyboardService.unregisterHandler('openReactionPicker');
       for (let i = 1; i <= 9; i++) {
         keyboardService.unregisterHandler(`reaction${i}` as any);
