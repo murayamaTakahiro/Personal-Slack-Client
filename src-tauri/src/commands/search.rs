@@ -446,6 +446,7 @@ pub async fn search_messages(
             is_thread_parent,
             reply_count,
             reactions: slack_msg.reactions.clone(),
+            files: slack_msg.files.clone(),
         });
     }
 
@@ -1059,6 +1060,7 @@ pub async fn search_messages_fast(
             is_thread_parent: false,
             reply_count: None,
             reactions: None, // No reactions - frontend will load them
+            files: slack_msg.files.clone(),
         });
     }
     

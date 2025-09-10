@@ -30,6 +30,8 @@ pub struct Message {
     pub reply_count: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reactions: Option<Vec<SlackReaction>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub files: Option<Vec<SlackFile>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -127,6 +129,8 @@ pub struct SlackMessage {
     pub permalink: String,
     #[serde(default)]
     pub reactions: Option<Vec<SlackReaction>>,
+    #[serde(default)]
+    pub files: Option<Vec<SlackFile>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -232,6 +236,66 @@ pub struct ReactionRequest {
 pub struct ReactionResponse {
     pub ok: bool,
     pub error: Option<String>,
+}
+
+// File models
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlackFile {
+    pub id: String,
+    pub created: Option<i64>,
+    pub timestamp: Option<i64>,
+    pub name: String,
+    pub title: String,
+    pub mimetype: String,
+    pub filetype: Option<String>,
+    pub pretty_type: Option<String>,
+    pub user: Option<String>,
+    pub username: Option<String>,
+    pub editable: Option<bool>,
+    pub size: i64,
+    pub mode: Option<String>,
+    pub is_external: Option<bool>,
+    pub external_type: Option<String>,
+    pub is_public: Option<bool>,
+    pub public_url_shared: Option<bool>,
+    pub display_as_bot: Option<bool>,
+    
+    // URLs
+    pub url_private: Option<String>,
+    pub url_private_download: Option<String>,
+    pub permalink: Option<String>,
+    pub permalink_public: Option<String>,
+    
+    // Thumbnails
+    pub thumb_64: Option<String>,
+    pub thumb_80: Option<String>,
+    pub thumb_160: Option<String>,
+    pub thumb_360: Option<String>,
+    pub thumb_360_gif: Option<String>,
+    pub thumb_480: Option<String>,
+    pub thumb_720: Option<String>,
+    pub thumb_960: Option<String>,
+    pub thumb_1024: Option<String>,
+    pub thumb_pdf: Option<String>,
+    pub thumb_video: Option<String>,
+    
+    // Image properties
+    pub image_exif_rotation: Option<i32>,
+    pub original_w: Option<i32>,
+    pub original_h: Option<i32>,
+    pub deanimate_gif: Option<String>,
+    
+    // Preview
+    pub preview: Option<String>,
+    pub preview_highlight: Option<String>,
+    pub preview_is_truncated: Option<bool>,
+    pub has_rich_preview: Option<bool>,
+    
+    // Sharing
+    pub channels: Option<Vec<String>>,
+    pub groups: Option<Vec<String>>,
+    pub ims: Option<Vec<String>>,
+    pub comments_count: Option<i32>,
 }
 
 // Post message models

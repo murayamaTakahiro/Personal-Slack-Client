@@ -4,40 +4,6 @@ import { batchChannelSearch } from '../services/apiBatcher';
 import { get } from 'svelte/store';
 import { performanceSettings } from '../stores/performance';
 import { searchMessagesFast, shouldUseFastSearch } from './fastSearch';
-import { getMockFiles } from '../test/fileTestData';
-
-/**
- * TEMPORARY: Add mock files to search results for testing
- * Remove this when backend supports file data
- */
-function addMockFilesToResult(result: SearchResult) {
-  console.log('[DEBUG BatchedSearch] Search result before adding files:', result);
-  
-  if (result.messages && result.messages.length > 0) {
-    const mockFiles = getMockFiles();
-    console.log('[DEBUG BatchedSearch] Mock files:', mockFiles);
-    
-    // Create new message objects with files to ensure Svelte detects the change
-    // Add files to ALL messages for testing visibility
-    result.messages = result.messages.map((message, index) => {
-      // Rotate through different file types for variety
-      let filesArray;
-      if (index % 3 === 0) {
-        filesArray = [mockFiles.image1, mockFiles.image2];
-        console.log('[DEBUG BatchedSearch] Added image files to message', index);
-      } else if (index % 3 === 1) {
-        filesArray = [mockFiles.pdf];
-        console.log('[DEBUG BatchedSearch] Added PDF file to message', index);
-      } else {
-        filesArray = [mockFiles.codeFile];
-        console.log('[DEBUG BatchedSearch] Added code file to message', index);
-      }
-      return { ...message, files: filesArray };
-    });
-    
-    console.log('[DEBUG BatchedSearch] Total messages with files added:', result.messages.length);
-  }
-}
 
 /**
  * Enhanced search function with batching support for multi-channel searches
@@ -66,10 +32,6 @@ export async function searchMessagesWithBatching(params: SearchParams): Promise<
       limit: params.limit,
       forceRefresh: params.isRealtimeUpdate || false
     });
-    
-    // TEMPORARY: Add mock files to some messages for testing
-    // Remove this when backend supports file data
-    addMockFilesToResult(result);
     
     return result;
   }
@@ -120,10 +82,6 @@ export async function searchMessagesWithBatching(params: SearchParams): Promise<
       query: params.query || '',
       executionTimeMs: 0
     };
-    
-    // TEMPORARY: Add mock files to some messages for testing
-    // Remove this when backend supports file data
-    addMockFilesToResult(result);
     
     return result;
   } catch (error) {

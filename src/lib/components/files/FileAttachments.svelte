@@ -15,9 +15,6 @@
   export let workspaceId: string;
   export let compact: boolean = false;
   
-  onMount(() => {
-    console.log('[DEBUG FileAttachments] Component mounted with files:', files);
-  });
 
   let fileGroups: FileGroup[] = [];
   let totalSize: string = '';
@@ -25,8 +22,6 @@
   let error: string | null = null;
 
   $: if (files?.length > 0) {
-    console.log('[DEBUG FileAttachments] Received files:', files);
-    console.log('[DEBUG FileAttachments] Workspace ID:', workspaceId);
     processFiles();
   }
 
@@ -34,6 +29,10 @@
     try {
       isLoading = true;
       error = null;
+      
+      // Debug: Log received files
+      console.log('[FileAttachments] Received files:', files);
+      console.log('[FileAttachments] Files detailed:', JSON.stringify(files, null, 2));
       
       // Validate workspace ID
       if (!workspaceId) {
@@ -47,6 +46,17 @@
           console.warn('[FileAttachments] Skipping invalid file:', file);
           return false;
         }
+        // Debug: Log valid file details
+        console.log('[FileAttachments] Valid file:', {
+          id: file.id,
+          name: file.name,
+          mimetype: file.mimetype,
+          url_private: file.url_private,
+          thumb_360: file.thumb_360,
+          thumb_480: file.thumb_480,
+          thumb_720: file.thumb_720,
+          permalink: file.permalink
+        });
         return true;
       });
       

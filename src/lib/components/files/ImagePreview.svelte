@@ -27,6 +27,15 @@
     : null;
 
   onMount(() => {
+    console.log('[ImagePreview] Component mounted with file:', {
+      id: file.id,
+      name: file.name,
+      mimetype: file.mimetype,
+      url_private: file.url_private,
+      thumb_360: file.thumb_360,
+      thumb_480: file.thumb_480,
+      thumb_720: file.thumb_720
+    });
     loadImage();
   });
 
@@ -34,26 +43,72 @@
     isLoading = true;
     hasError = false;
 
+    console.log('[ImagePreview] Loading image, thumbnailUrl:', thumbnailUrl);
+    console.log('[ImagePreview] File size:', file.size);
+
     try {
-      // First try to use thumbnail, replacing external placeholders
-      if (thumbnailUrl) {
+      // For Slack images, we need to fetch them with authentication
+      // and convert them to data URLs for display
+      if (thumbnailUrl && thumbnailUrl.startsWith('https://files.slack.com')) {
+        console.log('[ImagePreview] Fetching Slack thumbnail with auth:', thumbnailUrl);
+        try {
+          // Import the function directly here to avoid circular dependencies
+          const { createFileDataUrl } = await import('$lib/api/files');
+          const dataUrl = await createFileDataUrl(thumbnailUrl, file.mimetype || 'image/jpeg');
+          console.log('[ImagePreview] Got data URL from Slack thumbnail');
+          displayUrl = dataUrl;
+          await preloadImage(dataUrl);
+        } catch (error) {
+          console.error('[ImagePreview] Failed to fetch Slack thumbnail:', error);
+          // Fallback to placeholder
+          displayUrl = replaceExternalPlaceholder(thumbnailUrl, file.pretty_type || file.mimetype);
+        }
+      } else if (thumbnailUrl) {
+        // Non-Slack URL or already a data URL
+        console.log('[ImagePreview] Using non-Slack thumbnail URL:', thumbnailUrl);
         const safeUrl = replaceExternalPlaceholder(thumbnailUrl, file.pretty_type || file.mimetype);
+        console.log('[ImagePreview] Safe URL after placeholder replacement:', safeUrl);
         displayUrl = safeUrl;
         await preloadImage(safeUrl);
       }
 
       // For small images, load full size immediately
-      if (file.size < 500000 && file.url_private) { // < 500KB
-        const safeUrl = replaceExternalPlaceholder(file.url_private, file.pretty_type || file.mimetype);
-        imageUrl = safeUrl;
-        displayUrl = safeUrl;
-        await preloadImage(safeUrl);
+      if (!displayUrl && file.size < 500000 && file.url_private) { // < 500KB
+        console.log('[ImagePreview] Loading full size for small image:', file.url_private);
+        if (file.url_private.startsWith('https://files.slack.com')) {
+          try {
+            const { createFileDataUrl } = await import('$lib/api/files');
+            const dataUrl = await createFileDataUrl(file.url_private, file.mimetype || 'image/jpeg');
+            console.log('[ImagePreview] Got data URL from Slack full image');
+            imageUrl = dataUrl;
+            displayUrl = dataUrl;
+            await preloadImage(dataUrl);
+          } catch (error) {
+            console.error('[ImagePreview] Failed to fetch full Slack image:', error);
+            displayUrl = generateErrorPlaceholder(maxWidth);
+          }
+        } else {
+          const safeUrl = replaceExternalPlaceholder(file.url_private, file.pretty_type || file.mimetype);
+          console.log('[ImagePreview] Full size safe URL:', safeUrl);
+          imageUrl = safeUrl;
+          displayUrl = safeUrl;
+          await preloadImage(safeUrl);
+        }
+      }
+
+      // If still no display URL, generate placeholder
+      if (!displayUrl) {
+        console.log('[ImagePreview] No valid URL found, using placeholder');
+        displayUrl = generateErrorPlaceholder(maxWidth);
+        hasError = true;
       }
     } catch (error) {
-      console.error('Failed to load image:', error);
+      console.error('[ImagePreview] Failed to load image:', error);
       hasError = true;
+      displayUrl = generateErrorPlaceholder(maxWidth);
     } finally {
       isLoading = false;
+      console.log('[ImagePreview] Loading complete. hasError:', hasError, 'displayUrl:', displayUrl);
     }
   }
 
@@ -132,6 +187,7 @@
         class="preview-image"
         class:blur={isDownloading}
         on:error={handleImageError}
+        on:load={() => console.log('[ImagePreview] Image loaded successfully:', displayUrl)}
         loading="lazy"
       />
       {#if isDownloading}

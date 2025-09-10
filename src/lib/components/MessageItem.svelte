@@ -22,14 +22,6 @@
   const dispatch = createEventDispatcher();
   
   // DEBUG: Log message files
-  $: {
-    console.log('[DEBUG] MessageItem received message:', message.ts, 'files:', message.files);
-    if (message.files && message.files.length > 0) {
-      console.log('[DEBUG] MessageItem HAS files for message:', message.ts, message.files);
-    } else {
-      console.log('[DEBUG] MessageItem NO files for message:', message.ts);
-    }
-  }
   
   let reactions: EmojiReaction[] = message.reactions || [];
   let showReactionPicker = false;
@@ -484,15 +476,11 @@
   </div>
   
   {#if message.files && message.files.length > 0}
-    <!-- DEBUG: File attachments section -->
-    {@const _ = console.log('[DEBUG] Rendering FileAttachments for:', message.ts, 'with', message.files.length, 'files')}
     <FileAttachments 
       files={message.files} 
       workspaceId={$activeWorkspace?.id || 'default'}
       compact={!selected}
     />
-  {:else}
-    {@const _ = console.log('[DEBUG] NOT rendering FileAttachments for:', message.ts, 'files:', message.files)}
   {/if}
   
   {#if selected && enableReactions}

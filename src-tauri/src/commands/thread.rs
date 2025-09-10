@@ -292,6 +292,7 @@ pub async fn get_thread(
             is_thread_parent: msg.reply_count.unwrap_or(0) > 0,
             reply_count: msg.reply_count,
             reactions: None, // Thread messages don't include reactions for now
+            files: None, // Thread messages don't include files for now
         });
     }
 
@@ -341,6 +342,7 @@ pub async fn get_thread(
                 is_thread_parent: false,
                 reply_count: Some(0),
                 reactions: None,
+                files: None,
             }
         }
     });

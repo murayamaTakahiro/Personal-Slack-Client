@@ -21,16 +21,6 @@
   export let error: string | null = null;
   
   // DEBUG: Log messages received
-  $: {
-    console.log('[DEBUG] ResultList received messages:', messages.length);
-    if (messages.length > 0) {
-      const messagesWithFiles = messages.filter(m => m.files && m.files.length > 0);
-      console.log('[DEBUG] ResultList messages with files:', messagesWithFiles.length);
-      if (messagesWithFiles.length > 0) {
-        console.log('[DEBUG] ResultList first message with files:', messagesWithFiles[0]);
-      }
-    }
-  }
   
   let focusedIndex = -1;
   let listContainer: HTMLDivElement;

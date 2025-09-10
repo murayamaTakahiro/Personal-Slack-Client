@@ -81,6 +81,10 @@ pub fn run() {
             commands::thread::get_thread_from_url,
             commands::thread::open_in_slack,
             commands::url::open_urls_smart,
+            commands::files::get_slack_file,
+            commands::files::get_authenticated_file_url,
+            commands::files::download_slack_file,
+            commands::files::create_file_data_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
