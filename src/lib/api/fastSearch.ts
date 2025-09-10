@@ -3,6 +3,7 @@ import type { SearchParams, SearchResult } from '../types/slack';
 import { batchFetchReactions, type ReactionRequest } from './slack';
 import { get } from 'svelte/store';
 import { reactionLoadingState } from '../stores/search';
+import { getMockFiles } from '../test/fileTestData';
 
 /**
  * Ultra-fast search implementation that returns messages immediately
@@ -23,6 +24,33 @@ export async function searchMessagesFast(params: SearchParams): Promise<SearchRe
   });
   
   console.log(`[FastSearch] Got ${result.messages.length} messages instantly`);
+  
+  // TEMPORARY: Add mock files to some messages for testing
+  // Remove this when backend supports file data
+  if (result.messages && result.messages.length > 0) {
+    const mockFiles = getMockFiles();
+    console.log('[DEBUG FastSearch] Adding mock files to messages');
+    
+    // Create new message objects with files to ensure Svelte detects the change
+    // Add files to ALL messages for testing visibility
+    result.messages = result.messages.map((message, index) => {
+      // Rotate through different file types for variety
+      let filesArray;
+      if (index % 3 === 0) {
+        filesArray = [mockFiles.image1, mockFiles.image2];
+        console.log('[DEBUG FastSearch] Added image files to message', index);
+      } else if (index % 3 === 1) {
+        filesArray = [mockFiles.pdf];
+        console.log('[DEBUG FastSearch] Added PDF file to message', index);
+      } else {
+        filesArray = [mockFiles.codeFile];
+        console.log('[DEBUG FastSearch] Added code file to message', index);
+      }
+      return { ...message, files: filesArray };
+    });
+    
+    console.log('[DEBUG FastSearch] Total messages with files added:', result.messages.length);
+  }
   
   // Start loading reactions in the background without blocking
   if (result.messages.length > 0) {

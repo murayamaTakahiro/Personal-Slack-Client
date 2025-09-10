@@ -815,6 +815,17 @@
         });
       } else {
         // Normal search - immediate update
+        
+        // DEBUG: Check if result has files
+        console.log('[DEBUG] App.svelte search result:', result);
+        if (result.messages && result.messages.length > 0) {
+          const messagesWithFiles = result.messages.filter(m => m.files && m.files.length > 0);
+          console.log('[DEBUG] App.svelte messages with files:', messagesWithFiles.length);
+          if (messagesWithFiles.length > 0) {
+            console.log('[DEBUG] App.svelte first message with files:', messagesWithFiles[0]);
+          }
+        }
+        
         searchResults.set(result);
         
         // Start loading reactions progressively for all messages

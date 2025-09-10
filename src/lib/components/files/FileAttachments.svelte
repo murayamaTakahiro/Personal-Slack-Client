@@ -14,6 +14,10 @@
   export let files: SlackFile[] = [];
   export let workspaceId: string;
   export let compact: boolean = false;
+  
+  onMount(() => {
+    console.log('[DEBUG FileAttachments] Component mounted with files:', files);
+  });
 
   let fileGroups: FileGroup[] = [];
   let totalSize: string = '';
@@ -21,6 +25,8 @@
   let error: string | null = null;
 
   $: if (files?.length > 0) {
+    console.log('[DEBUG FileAttachments] Received files:', files);
+    console.log('[DEBUG FileAttachments] Workspace ID:', workspaceId);
     processFiles();
   }
 
@@ -29,12 +35,38 @@
       isLoading = true;
       error = null;
       
-      fileGroups = groupFilesByType(files);
-      totalSize = calculateTotalSize(files);
+      // Validate workspace ID
+      if (!workspaceId) {
+        console.warn('[FileAttachments] No workspace ID provided, using default');
+        workspaceId = 'default';
+      }
+      
+      // Filter out invalid files
+      const validFiles = files.filter(file => {
+        if (!file || !file.id) {
+          console.warn('[FileAttachments] Skipping invalid file:', file);
+          return false;
+        }
+        return true;
+      });
+      
+      if (validFiles.length === 0) {
+        console.warn('[FileAttachments] No valid files to display');
+        fileGroups = [];
+        totalSize = '0 B';
+        isLoading = false;
+        return;
+      }
+      
+      fileGroups = groupFilesByType(validFiles);
+      totalSize = calculateTotalSize(validFiles);
       
       isLoading = false;
     } catch (err) {
+      console.error('[FileAttachments] Error processing files:', err);
       error = err instanceof Error ? err.message : 'Failed to process files';
+      fileGroups = [];
+      totalSize = '0 B';
       isLoading = false;
     }
   }

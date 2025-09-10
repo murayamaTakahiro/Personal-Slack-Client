@@ -5,11 +5,13 @@ import type {
   ThreadMessages, 
   ParsedUrl,
   PostMessageResponse,
-  OpenUrlsResult
+  OpenUrlsResult,
+  SlackFile
 } from '../types/slack';
+import { getMockFiles } from '../test/fileTestData';
 
 export async function searchMessages(params: SearchParams): Promise<SearchResult> {
-  return await invoke('search_messages', {
+  const result = await invoke<SearchResult>('search_messages', {
     query: params.query || '',  // Send empty string if no query
     channel: params.channel,
     user: params.user,
@@ -18,6 +20,36 @@ export async function searchMessages(params: SearchParams): Promise<SearchResult
     limit: params.limit,
     forceRefresh: params.isRealtimeUpdate || false  // Add force refresh for realtime updates
   });
+  
+  // TEMPORARY: Add mock files to some messages for testing
+  // Remove this when backend supports file data
+  console.log('[DEBUG] Search result before adding files:', result);
+  
+  if (result.messages && result.messages.length > 0) {
+    const mockFiles = getMockFiles();
+    console.log('[DEBUG] Mock files:', mockFiles);
+    
+    // Add files to first few messages for testing
+    result.messages.forEach((message, index) => {
+      if (index === 0) {
+        // First message gets image files
+        message.files = [mockFiles.image1, mockFiles.image2];
+        console.log('[DEBUG] Added files to message 0:', message.files);
+      } else if (index === 1) {
+        // Second message gets PDF
+        message.files = [mockFiles.pdf];
+        console.log('[DEBUG] Added files to message 1:', message.files);
+      } else if (index === 2) {
+        // Third message gets code file
+        message.files = [mockFiles.codeFile];
+        console.log('[DEBUG] Added files to message 2:', message.files);
+      }
+    });
+    
+    console.log('[DEBUG] Search result after adding files:', result);
+  }
+  
+  return result;
 }
 
 export async function getThread(channelId: string, threadTs: string): Promise<ThreadMessages> {

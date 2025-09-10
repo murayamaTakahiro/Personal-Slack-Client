@@ -9,6 +9,7 @@
   import { decodeSlackText } from '../utils/htmlEntities';
   import LoadingSpinner from './LoadingSpinner.svelte';
   import SkeletonLoader from './SkeletonLoader.svelte';
+  import MessageItem from './MessageItem.svelte';
   import { logger } from '../services/logger';
   
   export let message: Message | null = null;
@@ -392,32 +393,12 @@
     
     <div class="thread-messages">
       <div class="thread-parent">
-        <button 
-          class="message thread-message-0" 
-          class:selected={selectedIndex === 0}
-          type="button"
-          aria-label="Thread parent message from {decodeSlackText(thread.parent.userName)}"
+        <MessageItem 
+          message={thread.parent}
+          selected={selectedIndex === 0}
+          enableReactions={false}
           on:click={() => handleMessageClick(0)}
-          on:keydown={(e) => handleMessageKeyDown(e, 0, thread.parent)}
-        >
-          <div class="message-header">
-            <span class="user-name">{decodeSlackText(thread.parent.userName)}</span>
-            <span class="timestamp">{formatTimestamp(thread.parent.ts)}</span>
-          </div>
-          <div class="message-text">
-            {#each parseMessageWithMentions(decodeSlackText(thread.parent.text)) as segment}
-              {#if segment.type === 'mention'}
-                <span class="mention">{segment.content}</span>
-              {:else if segment.type === 'url'}
-                <a href={segment.url || segment.content} target="_blank" rel="noopener noreferrer" class="url-link">
-                  {segment.content}
-                </a>
-              {:else}
-                <span>{segment.content}</span>
-              {/if}
-            {/each}
-          </div>
-        </button>
+        />
       </div>
       
       {#if thread.replies.length > 0}
@@ -426,32 +407,12 @@
             {thread.replies.length} {thread.replies.length === 1 ? 'reply' : 'replies'}
           </div>
           {#each thread.replies as reply, index}
-            <button 
-              class="message reply thread-message-{index + 1}" 
-              class:selected={selectedIndex === index + 1}
-              type="button"
-              aria-label="Reply from {decodeSlackText(reply.userName)}"
+            <MessageItem 
+              message={reply}
+              selected={selectedIndex === index + 1}
+              enableReactions={false}
               on:click={() => handleMessageClick(index + 1)}
-              on:keydown={(e) => handleMessageKeyDown(e, index + 1, reply)}
-            >
-              <div class="message-header">
-                <span class="user-name">{decodeSlackText(reply.userName)}</span>
-                <span class="timestamp">{formatTimestamp(reply.ts)}</span>
-              </div>
-              <div class="message-text">
-                {#each parseMessageWithMentions(decodeSlackText(reply.text)) as segment}
-                  {#if segment.type === 'mention'}
-                    <span class="mention">{segment.content}</span>
-                  {:else if segment.type === 'url'}
-                    <a href={segment.url || segment.content} target="_blank" rel="noopener noreferrer" class="url-link">
-                      {segment.content}
-                    </a>
-                  {:else}
-                    <span>{segment.content}</span>
-                  {/if}
-                {/each}
-              </div>
-            </button>
+            />
           {/each}
         </div>
       {:else}
@@ -480,32 +441,12 @@
         </button>
       </div>
       
-      <button 
-        class="message thread-message-0" 
-        class:selected={selectedIndex === 0}
-        type="button"
-        aria-label="Message from {decodeSlackText(message.userName)}"
+      <MessageItem 
+        message={message}
+        selected={selectedIndex === 0}
+        enableReactions={false}
         on:click={() => handleMessageClick(0)}
-        on:keydown={(e) => handleMessageKeyDown(e, 0, message)}
-      >
-        <div class="message-header">
-          <span class="user-name">{decodeSlackText(message.userName)}</span>
-          <span class="timestamp">{formatTimestamp(message.ts)}</span>
-        </div>
-        <div class="message-text">
-          {#each parseMessageWithMentions(decodeSlackText(message.text)) as segment}
-            {#if segment.type === 'mention'}
-              <span class="mention">{segment.content}</span>
-            {:else if segment.type === 'url'}
-              <a href={segment.url || segment.content} target="_blank" rel="noopener noreferrer" class="url-link">
-                {segment.content}
-              </a>
-            {:else}
-              <span>{segment.content}</span>
-            {/if}
-          {/each}
-        </div>
-      </button>
+      />
     </div>
   {/if}
 </div>
@@ -605,7 +546,9 @@
     padding: 1rem;
   }
   
-  .message {
+  /* Removed .message styles - now using MessageItem component */
+
+  .thread-parent {
     display: block;
     width: 100%;
     text-align: left;
@@ -680,29 +623,7 @@
     background: var(--border);
   }
   
-  .message-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
-  }
-  
-  .user-name {
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-  
-  .timestamp {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-  }
-  
-  .message-text {
-    color: var(--text-primary);
-    line-height: 1.5;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
+  /* Message styling handled by MessageItem component */
   
   .no-replies {
     padding: 2rem;
@@ -711,51 +632,5 @@
     font-style: italic;
   }
   
-  .mention {
-    display: inline-block;
-    padding: 0.125rem 0.25rem;
-    background: rgba(255, 235, 59, 0.25);
-    color: inherit;
-    font-weight: 600;
-    border-radius: 3px;
-    transition: background 0.2s;
-    border: 1px solid rgba(255, 235, 59, 0.4);
-  }
-  
-  .mention:hover {
-    background: rgba(255, 235, 59, 0.35);
-    text-decoration: none;
-    cursor: pointer;
-    border-color: rgba(255, 235, 59, 0.6);
-  }
-  
-  .message.selected .mention {
-    background: rgba(255, 235, 59, 0.3);
-    color: inherit;
-    border-color: rgba(255, 235, 59, 0.5);
-  }
-  
-  .url-link {
-    color: #1d9bd1;
-    text-decoration: none;
-    border-bottom: 1px solid transparent;
-    transition: all 0.2s;
-    word-break: break-all;
-  }
-  
-  .url-link:hover {
-    text-decoration: none;
-    border-bottom-color: #1d9bd1;
-    background: rgba(29, 155, 209, 0.05);
-  }
-  
-  .url-link:visited {
-    color: #7a5fb5;
-  }
-  
-  .message.selected .url-link {
-    background: rgba(29, 155, 209, 0.08);
-    padding: 0 0.125rem;
-    border-radius: 3px;
-  }
+  /* Mention and URL styling handled by MessageItem component */
 </style>

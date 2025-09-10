@@ -1,6 +1,7 @@
 // Mock implementation for file operations when Tauri commands are not available
 import type { SlackFile } from '$lib/types/slack';
 import type { FileDownloadProgress, FileDownloadResult, FileInfoResult } from './files';
+import { generateFilePlaceholder, generateThumbnailPlaceholder } from '$lib/utils/placeholder';
 
 // Mock data for testing
 const mockFiles: SlackFile[] = [
@@ -23,15 +24,15 @@ const mockFiles: SlackFile[] = [
     is_public: false,
     public_url_shared: false,
     display_as_bot: false,
-    url_private: 'https://via.placeholder.com/1920x1080/4a90e2/ffffff?text=Screenshot',
-    url_private_download: 'https://via.placeholder.com/1920x1080/4a90e2/ffffff?text=Screenshot',
+    url_private: generateThumbnailPlaceholder(1920, 1080, 'Screenshot'),
+    url_private_download: generateThumbnailPlaceholder(1920, 1080, 'Screenshot'),
     permalink: 'https://test.slack.com/files/U123/F456/screenshot.png',
-    thumb_64: 'https://via.placeholder.com/64x64/4a90e2/ffffff?text=IMG',
-    thumb_80: 'https://via.placeholder.com/80x80/4a90e2/ffffff?text=IMG',
-    thumb_160: 'https://via.placeholder.com/160x160/4a90e2/ffffff?text=IMG',
-    thumb_360: 'https://via.placeholder.com/360x360/4a90e2/ffffff?text=IMG',
-    thumb_480: 'https://via.placeholder.com/480x480/4a90e2/ffffff?text=IMG',
-    thumb_720: 'https://via.placeholder.com/720x720/4a90e2/ffffff?text=IMG',
+    thumb_64: generateThumbnailPlaceholder(64, 64),
+    thumb_80: generateThumbnailPlaceholder(80, 80),
+    thumb_160: generateThumbnailPlaceholder(160, 160),
+    thumb_360: generateThumbnailPlaceholder(360, 360),
+    thumb_480: generateThumbnailPlaceholder(480, 480),
+    thumb_720: generateThumbnailPlaceholder(720, 720),
     original_w: 1920,
     original_h: 1080,
     has_rich_preview: true

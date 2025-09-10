@@ -165,9 +165,12 @@ export async function loadReactionsProgressive(messages: Message[]) {
         }));
         
         // Update the search results to trigger UI update
+        // IMPORTANT: Preserve all properties of messages including 'files'
         searchResults.update(results => {
           if (results) {
-            return { ...results, messages: [...messages] };
+            // Create a deep copy to preserve all properties including 'files'
+            const updatedMessages = messages.map(msg => ({...msg}));
+            return { ...results, messages: updatedMessages };
           }
           return results;
         });

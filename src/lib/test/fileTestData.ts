@@ -1,4 +1,5 @@
 import type { Message, SlackFile } from '../types/slack';
+import { generateFilePlaceholder, generateThumbnailPlaceholder } from '../utils/placeholder';
 
 export const testFiles: SlackFile[] = [
   {
@@ -85,6 +86,132 @@ export const testFiles: SlackFile[] = [
     has_rich_preview: true
   }
 ];
+
+export function getMockFiles() {
+  return {
+    image1: {
+      id: 'F_IMG_001',
+      created: Date.now() / 1000,
+      timestamp: Date.now() / 1000,
+      name: 'sample-image.jpg',
+      title: 'Sample Image',
+      mimetype: 'image/jpeg',
+      filetype: 'jpg',
+      pretty_type: 'JPEG Image',
+      user: 'U1234567890',
+      username: 'testuser',
+      editable: false,
+      size: 156789,
+      mode: 'hosted',
+      is_external: false,
+      external_type: '',
+      is_public: false,
+      public_url_shared: false,
+      display_as_bot: false,
+      url_private: generateThumbnailPlaceholder(800, 600, 'Sample Image'),
+      url_private_download: generateThumbnailPlaceholder(800, 600, 'Sample Image'),
+      permalink: 'https://test.slack.com/files/U123/F_IMG_001/sample-image.jpg',
+      thumb_64: generateThumbnailPlaceholder(64, 64),
+      thumb_80: generateThumbnailPlaceholder(80, 80),
+      thumb_160: generateThumbnailPlaceholder(160, 160),
+      thumb_360: generateThumbnailPlaceholder(360, 360),
+      thumb_480: generateThumbnailPlaceholder(480, 480),
+      thumb_720: generateThumbnailPlaceholder(720, 720),
+      original_w: 800,
+      original_h: 600,
+      has_rich_preview: true
+    } as SlackFile,
+    image2: {
+      id: 'F_IMG_002',
+      created: Date.now() / 1000,
+      timestamp: Date.now() / 1000,
+      name: 'screenshot.png',
+      title: 'App Screenshot',
+      mimetype: 'image/png',
+      filetype: 'png',
+      pretty_type: 'PNG Image',
+      user: 'U1234567890',
+      username: 'testuser',
+      editable: false,
+      size: 245678,
+      mode: 'hosted',
+      is_external: false,
+      external_type: '',
+      is_public: false,
+      public_url_shared: false,
+      display_as_bot: false,
+      url_private: generateThumbnailPlaceholder(1920, 1080, 'Screenshot'),
+      url_private_download: generateThumbnailPlaceholder(1920, 1080, 'Screenshot'),
+      permalink: 'https://test.slack.com/files/U123/F_IMG_002/screenshot.png',
+      thumb_64: generateThumbnailPlaceholder(64, 64),
+      thumb_80: generateThumbnailPlaceholder(80, 80),
+      thumb_160: generateThumbnailPlaceholder(160, 160),
+      thumb_360: generateThumbnailPlaceholder(360, 360, 'Screenshot'),
+      thumb_480: generateThumbnailPlaceholder(480, 480, 'Screenshot'),
+      thumb_720: generateThumbnailPlaceholder(720, 720, 'Screenshot'),
+      original_w: 1920,
+      original_h: 1080,
+      has_rich_preview: true
+    } as SlackFile,
+    pdf: {
+      id: 'F_PDF_001',
+      created: Date.now() / 1000,
+      timestamp: Date.now() / 1000,
+      name: 'document.pdf',
+      title: 'Project Proposal',
+      mimetype: 'application/pdf',
+      filetype: 'pdf',
+      pretty_type: 'PDF Document',
+      user: 'U1234567890',
+      username: 'testuser',
+      editable: false,
+      size: 1234567,
+      mode: 'hosted',
+      is_external: false,
+      external_type: '',
+      is_public: false,
+      public_url_shared: false,
+      display_as_bot: false,
+      url_private: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+      url_private_download: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+      permalink: 'https://test.slack.com/files/U123/F_PDF_001/document.pdf',
+      thumb_pdf: generateFilePlaceholder('pdf', 360),
+      preview: 'This is a preview of the PDF content...',
+      has_rich_preview: true
+    } as SlackFile,
+    codeFile: {
+      id: 'F_CODE_001',
+      created: Date.now() / 1000,
+      timestamp: Date.now() / 1000,
+      name: 'app.js',
+      title: 'Application Code',
+      mimetype: 'text/javascript',
+      filetype: 'javascript',
+      pretty_type: 'JavaScript Code',
+      user: 'U1234567890',
+      username: 'testuser',
+      editable: true,
+      size: 4567,
+      mode: 'snippet',
+      is_external: false,
+      external_type: '',
+      is_public: false,
+      public_url_shared: false,
+      display_as_bot: false,
+      url_private: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/base/common/arrays.ts',
+      url_private_download: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/base/common/arrays.ts',
+      permalink: 'https://test.slack.com/files/U123/F_CODE_001/app.js',
+      preview: `function hello() {
+  console.log("Hello, World!");
+  return "Hello from JavaScript";
+}
+
+const result = hello();
+console.log(result);`,
+      has_rich_preview: true
+    } as SlackFile
+  };
+}
 
 export const testMessageWithFiles: Message = {
   ts: '1699000000.000000',

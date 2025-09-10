@@ -4,6 +4,7 @@
   import { getBestThumbnailUrl, formatFileSize } from '$lib/api/files';
   import { filePreviewStore } from '$lib/stores/filePreview';
   import { processFileMetadata } from '$lib/services/fileService';
+  import { replaceExternalPlaceholder, generateErrorPlaceholder } from '$lib/utils/placeholder';
 
   export let file: SlackFile;
   export let workspaceId: string;
@@ -33,29 +34,43 @@
     isLoading = true;
     hasError = false;
 
-    // First try to use thumbnail
-    if (thumbnailUrl) {
-      displayUrl = thumbnailUrl;
-      await preloadImage(thumbnailUrl);
-    }
+    try {
+      // First try to use thumbnail, replacing external placeholders
+      if (thumbnailUrl) {
+        const safeUrl = replaceExternalPlaceholder(thumbnailUrl, file.pretty_type || file.mimetype);
+        displayUrl = safeUrl;
+        await preloadImage(safeUrl);
+      }
 
-    // For small images, load full size immediately
-    if (file.size < 500000 && file.url_private) { // < 500KB
-      imageUrl = file.url_private;
-      displayUrl = file.url_private;
-      await preloadImage(file.url_private);
+      // For small images, load full size immediately
+      if (file.size < 500000 && file.url_private) { // < 500KB
+        const safeUrl = replaceExternalPlaceholder(file.url_private, file.pretty_type || file.mimetype);
+        imageUrl = safeUrl;
+        displayUrl = safeUrl;
+        await preloadImage(safeUrl);
+      }
+    } catch (error) {
+      console.error('Failed to load image:', error);
+      hasError = true;
+    } finally {
+      isLoading = false;
     }
-
-    isLoading = false;
   }
 
   async function preloadImage(url: string): Promise<void> {
     return new Promise((resolve, reject) => {
+      // Skip preloading for data URLs as they don't need network requests
+      if (url.startsWith('data:')) {
+        resolve();
+        return;
+      }
+      
       const img = new Image();
       img.onload = () => resolve();
-      img.onerror = () => {
+      img.onerror = (error) => {
+        console.error('Image preload failed:', url, error);
         hasError = true;
-        reject();
+        reject(error);
       };
       img.src = url;
     });
@@ -67,7 +82,24 @@
     filePreviewStore.openLightbox(metadata, [metadata]);
   }
 
-  function handleImageError() {
+  function handleImageError(event: Event) {
+    console.warn('Image loading error:', {
+      file: file.name,
+      url: displayUrl,
+      event
+    });
+    
+    // Try fallback to local placeholder
+    if (displayUrl && !displayUrl.startsWith('data:')) {
+      displayUrl = replaceExternalPlaceholder(displayUrl, file.pretty_type || file.mimetype);
+      // If still not a data URL, generate error placeholder
+      if (!displayUrl.startsWith('data:')) {
+        displayUrl = generateErrorPlaceholder(maxWidth);
+      }
+    } else {
+      displayUrl = generateErrorPlaceholder(maxWidth);
+    }
+    
     hasError = true;
     isLoading = false;
   }
@@ -95,7 +127,7 @@
     {:else}
       <img
         bind:this={imageElement}
-        src={displayUrl}
+        src={displayUrl || generateErrorPlaceholder(maxWidth)}
         alt={file.name || file.title}
         class="preview-image"
         class:blur={isDownloading}
