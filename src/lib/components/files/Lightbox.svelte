@@ -24,12 +24,22 @@
   let translateY = 0;
   let isDownloading = false;
   let downloadError: string | null = null;
+  let isLoadingFullImage = false;
+  let fullImageUrl: string | null = null;
+  let imageLoadError = false;
 
   $: hasNext = currentIndex < allFiles.length - 1;
   $: hasPrevious = currentIndex > 0;
   $: isImage = file.type === 'image';
   $: isPdf = file.type === 'pdf';
-  $: displayUrl = file.thumbnailUrl || file.downloadUrl;
+  // For lightbox, prioritize full size image (downloadUrl) over thumbnail
+  $: displayUrl = fullImageUrl || file.downloadUrl || file.thumbnailUrl;
+  
+  // Reload full image when file changes
+  $: if (file && isImage) {
+    fullImageUrl = null;
+    loadFullImage();
+  }
 
   function handleKeydown(event: KeyboardEvent) {
     switch (event.key) {
@@ -145,11 +155,66 @@
     }
   }
 
-  onMount(() => {
+  async function loadFullImage() {
+    if (!isImage || !file.file.url_private) return;
+    
+    isLoadingFullImage = true;
+    imageLoadError = false;
+    
+    console.log('[Lightbox] Loading full image:', {
+      name: file.file.name,
+      url_private: file.file.url_private,
+      size: file.file.size
+    });
+    
+    try {
+      // For Slack images, fetch with authentication and convert to data URL
+      if (file.file.url_private.startsWith('https://files.slack.com')) {
+        const { createFileDataUrl } = await import('$lib/api/files');
+        const dataUrl = await createFileDataUrl(
+          file.file.url_private, 
+          file.file.mimetype || 'image/jpeg'
+        );
+        fullImageUrl = dataUrl;
+        console.log('[Lightbox] Successfully loaded full image as data URL');
+      } else {
+        // Non-Slack URL or local file
+        fullImageUrl = file.file.url_private;
+      }
+    } catch (error) {
+      console.error('[Lightbox] Failed to load full image:', error);
+      imageLoadError = true;
+      // Fall back to thumbnail if available
+      fullImageUrl = null;
+    } finally {
+      isLoadingFullImage = false;
+    }
+  }
+
+  function handleImageLoad() {
+    console.log('[Lightbox] Image loaded successfully');
+    imageLoadError = false;
+  }
+
+  function handleImageError() {
+    console.error('[Lightbox] Image failed to load');
+    imageLoadError = true;
+    // Try to fall back to thumbnail
+    if (fullImageUrl && file.thumbnailUrl) {
+      fullImageUrl = null; // This will trigger reactive update to use thumbnailUrl
+    }
+  }
+
+  onMount(async () => {
     document.addEventListener('keydown', handleKeydown);
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
     document.body.style.overflow = 'hidden';
+    
+    // Load full image if it's an image file
+    if (isImage) {
+      await loadFullImage();
+    }
   });
 
   onDestroy(() => {
@@ -253,13 +318,31 @@
           on:mousedown={handleMouseDown}
           on:dblclick={toggleZoom}
         >
+          {#if isLoadingFullImage}
+            <div class="loading-indicator">
+              <div class="spinner"></div>
+              <p>Loading full resolution image...</p>
+            </div>
+          {/if}
           <img
             bind:this={imageElement}
             src={displayUrl}
             alt={file.file.name}
             class="lightbox-image"
+            class:loading={isLoadingFullImage}
             style="transform: scale({zoomLevel}) translate({translateX / zoomLevel}px, {translateY / zoomLevel}px)"
+            on:load={handleImageLoad}
+            on:error={handleImageError}
           />
+          {#if imageLoadError && !isLoadingFullImage}
+            <div class="error-overlay">
+              <svg class="error-icon" width="48" height="48" viewBox="0 0 48 48">
+                <path fill="currentColor" d="M24 4C12.95 4 4 12.95 4 24s8.95 20 20 20 20-8.95 20-20S35.05 4 24 4zm2 30h-4v-4h4v4zm0-8h-4V14h4v12z"/>
+              </svg>
+              <p>Failed to load full resolution image</p>
+              <p class="error-hint">Showing thumbnail instead</p>
+            </div>
+          {/if}
         </div>
       {:else if isPdf}
         <div class="pdf-preview">
@@ -464,8 +547,65 @@
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
-    transition: transform 0.2s ease;
+    transition: transform 0.2s ease, opacity 0.3s ease;
     user-select: none;
+  }
+  
+  .lightbox-image.loading {
+    opacity: 0.5;
+  }
+  
+  .loading-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: var(--color-text-secondary);
+    z-index: 10;
+  }
+  
+  .loading-indicator .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--color-border);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 1rem;
+  }
+  
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
+  .error-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: var(--color-text-secondary);
+    background: rgba(0, 0, 0, 0.8);
+    padding: 2rem;
+    border-radius: 8px;
+    z-index: 10;
+  }
+  
+  .error-overlay .error-icon {
+    margin-bottom: 1rem;
+    opacity: 0.7;
+  }
+  
+  .error-overlay p {
+    margin: 0.5rem 0;
+  }
+  
+  .error-overlay .error-hint {
+    font-size: 0.875rem;
+    opacity: 0.7;
   }
 
   .pdf-preview {
@@ -580,6 +720,7 @@
     --color-button-bg: transparent;
     --color-error: #e01e5a;
     --color-error-bg: rgba(224, 30, 90, 0.1);
+    --color-primary: #1264a3;
   }
 
   :global([data-theme="light"]) {
@@ -591,5 +732,6 @@
     --color-button-bg: transparent;
     --color-error: #e01e5a;
     --color-error-bg: rgba(224, 30, 90, 0.05);
+    --color-primary: #1264a3;
   }
 </style>
