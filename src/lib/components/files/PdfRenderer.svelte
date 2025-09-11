@@ -158,11 +158,13 @@
       // Use the smaller scale to ensure the PDF fits both dimensions
       let optimalScale = Math.min(scaleToFitWidth, scaleToFitHeight);
       
-      // Apply a slight reduction (95%) to add some padding
-      optimalScale = optimalScale * 0.95;
+      // For better readability, use more of the available space
+      // Instead of 95%, use 98% to maximize viewport usage while keeping minimal padding
+      optimalScale = optimalScale * 0.98;
       
-      // Ensure scale is within reasonable bounds
-      optimalScale = Math.max(0.5, Math.min(3, optimalScale));
+      // Increase the minimum scale for better readability
+      // Ensure scale is within reasonable bounds (0.8 minimum for readability)
+      optimalScale = Math.max(0.8, Math.min(3, optimalScale));
       
       console.log('[PdfRenderer] Calculated initial scale:', {
         pageWidth: viewport.width,
@@ -407,6 +409,10 @@
       }
       console.log('[PdfRenderer] Got canvas context successfully');
       
+      // Account for high DPI displays
+      const devicePixelRatio = window.devicePixelRatio || 1;
+      console.log(`[PdfRenderer] Device pixel ratio: ${devicePixelRatio}`);
+      
       // Set canvas dimensions
       console.log(`[PdfRenderer] Setting canvas dimensions to ${viewport.width}x${viewport.height}...`);
       
@@ -417,9 +423,18 @@
         return;
       }
       
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-      console.log(`[PdfRenderer] Canvas dimensions set: width=${canvas.width}, height=${canvas.height}`);
+      // Set actual canvas size accounting for device pixel ratio
+      canvas.height = Math.floor(viewport.height * devicePixelRatio);
+      canvas.width = Math.floor(viewport.width * devicePixelRatio);
+      
+      // Set CSS size to maintain correct display size
+      canvas.style.width = viewport.width + 'px';
+      canvas.style.height = viewport.height + 'px';
+      
+      // Scale the context to account for device pixel ratio
+      context.scale(devicePixelRatio, devicePixelRatio);
+      
+      console.log(`[PdfRenderer] Canvas dimensions set: actual=${canvas.width}x${canvas.height}, display=${viewport.width}x${viewport.height}, dpr=${devicePixelRatio}`);
       
       // Verify canvas dimensions were actually set
       if (canvas.width !== viewport.width || canvas.height !== viewport.height) {
@@ -437,14 +452,17 @@
       context.fillRect(0, 0, canvas.width, canvas.height);
       console.log('[PdfRenderer] Canvas cleared and test background drawn');
       
-      // Create render context
+      // Create render context with high DPI support
       console.log('[PdfRenderer] Creating render context...');
+      
+      // Use the original viewport for rendering - the context scaling handles high DPI
       const renderContext = {
         canvasContext: context,
         viewport: viewport
       };
       console.log('[PdfRenderer] Render context created:', {
         viewport: { width: viewport.width, height: viewport.height },
+        devicePixelRatio,
         hasContext: !!context
       });
       
@@ -559,7 +577,7 @@
   }
   
   export function zoomIn() {
-    scale = Math.min(scale * 1.2, 3);
+    scale = Math.min(scale * 1.2, 5);
   }
   
   export function zoomOut() {
@@ -568,6 +586,15 @@
   
   export function resetZoom() {
     scale = 1.0;
+  }
+  
+  export function fitToView() {
+    if (!pdfDoc || !maxWidth || !maxHeight) return;
+    calculateInitialScale().then(newScale => {
+      if (newScale) {
+        scale = newScale;
+      }
+    });
   }
   
   // Force a re-render (useful for testing)

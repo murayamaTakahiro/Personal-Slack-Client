@@ -17,6 +17,7 @@
 
   let imageElement: HTMLImageElement;
   let containerElement: HTMLDivElement;
+  let containerDiv: HTMLDivElement;
   let isZoomed = false;
   let zoomLevel = 1;
   let isDragging = false;
@@ -119,21 +120,13 @@
         break;
       case 'ArrowUp':
       case 'k':
-        if (isPdf) {
-          event.preventDefault();
-          pdfZoomIn();
-        } else {
-          scrollUp();
-        }
+        // Both PDF and images should scroll, not zoom
+        scrollUp();
         break;
       case 'ArrowDown':
       case 'j':
-        if (isPdf) {
-          event.preventDefault();
-          pdfZoomOut();
-        } else {
-          scrollDown();
-        }
+        // Both PDF and images should scroll, not zoom
+        scrollDown();
         break;
       case 'Home':
         scrollToTop();
@@ -142,18 +135,10 @@
         scrollToBottom();
         break;
       case 'PageUp':
-        if (isPdf && pdfCurrentPage > 1) {
-          pdfPreviousPage();
-        } else {
-          scrollPageUp();
-        }
+        scrollPageUp();
         break;
       case 'PageDown':
-        if (isPdf && pdfCurrentPage < pdfTotalPages) {
-          pdfNextPage();
-        } else {
-          scrollPageDown();
-        }
+        scrollPageDown();
         break;
       case '+':
       case '=':
@@ -180,6 +165,15 @@
           }
         }
         break;
+      case 'f':
+      case 'F':
+        // Fit to viewport (mainly for PDFs, but also resets zoom for images)
+        if (isPdf && pdfRenderer) {
+          pdfRenderer.fitToView();
+        } else if (isImage) {
+          resetZoom();
+        }
+        break;
       case '?':
         // Show help (optional - could trigger a help overlay)
         showKeyboardHelp();
@@ -188,62 +182,126 @@
   }
   
   function scrollUp() {
-    if (!isImage || !imageElement) return;
-    
-    const container = imageElement.parentElement;
-    if (container) {
-      container.scrollTop = Math.max(0, container.scrollTop - scrollSpeed);
+    if (isPdf) {
+      // For PDF, scroll the PDF container
+      const pdfContainer = containerDiv?.querySelector('.pdf-content');
+      if (pdfContainer) {
+        pdfContainer.scrollTop = Math.max(0, pdfContainer.scrollTop - scrollSpeed);
+      }
+    } else if (isImage && imageElement) {
+      // For images, scroll the image container
+      const container = imageElement.parentElement;
+      if (container) {
+        container.scrollTop = Math.max(0, container.scrollTop - scrollSpeed);
+      }
     }
   }
   
   function scrollDown() {
-    if (!isImage || !imageElement) return;
-    
-    const container = imageElement.parentElement;
-    if (container) {
-      container.scrollTop = Math.min(
-        container.scrollHeight - container.clientHeight,
-        container.scrollTop + scrollSpeed
-      );
+    if (isPdf) {
+      // For PDF, scroll the PDF container
+      const pdfContainer = containerDiv?.querySelector('.pdf-content');
+      if (pdfContainer) {
+        pdfContainer.scrollTop = Math.min(
+          pdfContainer.scrollHeight - pdfContainer.clientHeight,
+          pdfContainer.scrollTop + scrollSpeed
+        );
+      }
+    } else if (isImage && imageElement) {
+      // For images, scroll the image container
+      const container = imageElement.parentElement;
+      if (container) {
+        container.scrollTop = Math.min(
+          container.scrollHeight - container.clientHeight,
+          container.scrollTop + scrollSpeed
+        );
+      }
     }
   }
   
   function scrollPageUp() {
-    if (!isImage || !imageElement) return;
-    
-    const container = imageElement.parentElement;
-    if (container) {
-      container.scrollTop = Math.max(0, container.scrollTop - container.clientHeight);
+    if (isPdf) {
+      // For PDF, try to go to previous page first, then scroll
+      if (pdfCurrentPage > 1) {
+        pdfPreviousPage();
+      } else {
+        const pdfContainer = containerDiv?.querySelector('.pdf-content');
+        if (pdfContainer) {
+          pdfContainer.scrollTop = Math.max(0, pdfContainer.scrollTop - pdfContainer.clientHeight);
+        }
+      }
+    } else if (isImage && imageElement) {
+      const container = imageElement.parentElement;
+      if (container) {
+        container.scrollTop = Math.max(0, container.scrollTop - container.clientHeight);
+      }
     }
   }
   
   function scrollPageDown() {
-    if (!isImage || !imageElement) return;
-    
-    const container = imageElement.parentElement;
-    if (container) {
-      container.scrollTop = Math.min(
-        container.scrollHeight - container.clientHeight,
-        container.scrollTop + container.clientHeight
-      );
+    if (isPdf) {
+      // For PDF, try to go to next page first, then scroll
+      if (pdfCurrentPage < pdfTotalPages) {
+        pdfNextPage();
+      } else {
+        const pdfContainer = containerDiv?.querySelector('.pdf-content');
+        if (pdfContainer) {
+          pdfContainer.scrollTop = Math.min(
+            pdfContainer.scrollHeight - pdfContainer.clientHeight,
+            pdfContainer.scrollTop + pdfContainer.clientHeight
+          );
+        }
+      }
+    } else if (isImage && imageElement) {
+      const container = imageElement.parentElement;
+      if (container) {
+        container.scrollTop = Math.min(
+          container.scrollHeight - container.clientHeight,
+          container.scrollTop + container.clientHeight
+        );
+      }
     }
   }
   
   function scrollToTop() {
-    if (!isImage || !imageElement) return;
-    
-    const container = imageElement.parentElement;
-    if (container) {
-      container.scrollTop = 0;
+    if (isPdf) {
+      // For PDF, go to first page and scroll to top
+      if (pdfCurrentPage !== 1) {
+        pdfCurrentPage = 1;
+        if (pdfRenderer) {
+          pdfRenderer.forceRender();
+        }
+      }
+      const pdfContainer = containerDiv?.querySelector('.pdf-content');
+      if (pdfContainer) {
+        pdfContainer.scrollTop = 0;
+      }
+    } else if (isImage && imageElement) {
+      const container = imageElement.parentElement;
+      if (container) {
+        container.scrollTop = 0;
+      }
     }
   }
   
   function scrollToBottom() {
-    if (!isImage || !imageElement) return;
-    
-    const container = imageElement.parentElement;
-    if (container) {
-      container.scrollTop = container.scrollHeight - container.clientHeight;
+    if (isPdf) {
+      // For PDF, go to last page and scroll to bottom
+      if (pdfCurrentPage !== pdfTotalPages) {
+        pdfCurrentPage = pdfTotalPages;
+        if (pdfRenderer) {
+          pdfRenderer.forceRender();
+        }
+      }
+      const pdfContainer = containerDiv?.querySelector('.pdf-content');
+      if (pdfContainer) {
+        pdfContainer.scrollTop = pdfContainer.scrollHeight - pdfContainer.clientHeight;
+      }
+    } else if (isImage && imageElement) {
+      const container = imageElement.parentElement;
+      if (container) {
+        container.scrollTop = container.scrollHeight - container.clientHeight;
+      }
     }
   }
   
@@ -483,7 +541,7 @@
   on:wheel={handleWheel}
   transition:fade={{ duration: 200 }}
 >
-  <div class="lightbox-container" transition:scale={{ duration: 200, start: 0.9 }}>
+  <div class="lightbox-container" bind:this={containerDiv} transition:scale={{ duration: 200, start: 0.9 }}>
     <!-- Header -->
     <div class="lightbox-header">
       <div class="file-info">
@@ -660,8 +718,8 @@
               mimeType={file.file.mimetype || 'application/pdf'}
               on:totalPages={updatePdfTotalPages}
               renderText={true}
-              maxWidth={window.innerWidth * 0.9}
-              maxHeight={window.innerHeight * 0.8}
+              maxWidth={window.innerWidth * 0.95}
+              maxHeight={window.innerHeight * 0.85}
               fitToViewport={true}
             />
           {/if}

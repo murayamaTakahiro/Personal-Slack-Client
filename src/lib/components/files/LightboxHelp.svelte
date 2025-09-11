@@ -6,24 +6,26 @@
   
   const shortcuts = [
     { category: 'Navigation', items: [
-      { key: '← / h', description: 'Previous image' },
-      { key: '→ / l', description: 'Next image' },
-      { key: 'Tab', description: 'Next image' },
-      { key: 'Shift+Tab', description: 'Previous image' }
+      { key: '← / h', description: 'Previous file/page' },
+      { key: '→ / l', description: 'Next file/page' },
+      { key: 'Tab', description: 'Next file' },
+      { key: 'Shift+Tab', description: 'Previous file' }
     ]},
     { category: 'Scrolling', items: [
       { key: '↑ / k', description: 'Scroll up' },
       { key: '↓ / j', description: 'Scroll down' },
-      { key: 'PageUp', description: 'Scroll page up' },
-      { key: 'PageDown', description: 'Scroll page down' },
-      { key: 'Home', description: 'Scroll to top' },
-      { key: 'End', description: 'Scroll to bottom' }
+      { key: 'PageUp', description: 'Previous page (PDF) / Scroll page up' },
+      { key: 'PageDown', description: 'Next page (PDF) / Scroll page down' },
+      { key: 'Home', description: 'First page (PDF) / Scroll to top' },
+      { key: 'End', description: 'Last page (PDF) / Scroll to bottom' }
     ]},
     { category: 'Zoom', items: [
       { key: '+ / =', description: 'Zoom in' },
       { key: '-', description: 'Zoom out' },
-      { key: '0', description: 'Reset zoom' },
-      { key: 'Double-click', description: 'Toggle zoom' }
+      { key: 'Ctrl+0', description: 'Reset zoom' },
+      { key: 'f', description: 'Fit to viewport' },
+      { key: 'Double-click', description: 'Toggle zoom (images only)' },
+      { key: 'Scroll wheel', description: 'Zoom in/out (images only)' }
     ]},
     { category: 'General', items: [
       { key: 'ESC', description: 'Close lightbox' },
