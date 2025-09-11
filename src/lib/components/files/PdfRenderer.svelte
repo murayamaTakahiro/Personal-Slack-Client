@@ -441,9 +441,17 @@
       canvas.height = Math.floor(viewport.height * devicePixelRatio);
       canvas.width = Math.floor(viewport.width * devicePixelRatio);
       
-      // Set CSS size to maintain correct display size
-      canvas.style.width = viewport.width + 'px';
-      canvas.style.height = viewport.height + 'px';
+      // SIMPLE SOLUTION: Set canvas display size explicitly
+      // This makes the canvas grow beyond container when zoomed, creating scrollbars
+      canvas.style.width = `${viewport.width}px`;
+      canvas.style.height = `${viewport.height}px`;
+      // Ensure no CSS constraints interfere
+      canvas.style.maxWidth = 'none';
+      canvas.style.maxHeight = 'none';
+      canvas.style.minWidth = 'auto';
+      canvas.style.minHeight = 'auto';
+      
+      console.log(`[PdfRenderer] Canvas style dimensions set: ${viewport.width}x${viewport.height}px`);
       
       // Scale the context to account for device pixel ratio
       context.scale(devicePixelRatio, devicePixelRatio);
@@ -640,7 +648,8 @@
       <p>{error}</p>
     </div>
   {:else}
-    <div class="canvas-container" style="width: 100%; height: 100%;">
+    <!-- Canvas container that expands with content -->
+    <div class="canvas-container">
       <canvas bind:this={canvas} class="pdf-canvas"></canvas>
       {#if renderText}
         <div class="text-layer" bind:this={textLayer}></div>
@@ -654,16 +663,31 @@
     position: relative;
     width: 100%;
     height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    /* SIMPLE SCROLLING SOLUTION: Fixed container with overflow auto */
+    overflow: auto !important;
     background: transparent;
-    overflow: auto;
-    /* Important: Create a scrollable viewport with fixed dimensions */
-    max-width: 100%;
-    max-height: 100%;
-    /* Ensure scrollbars appear when content exceeds container */
-    scroll-behavior: smooth;
+    /* Add scrollbar styling */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(155, 155, 155, 0.5) transparent;
+  }
+  
+  /* Custom scrollbar for webkit browsers */
+  .pdf-renderer::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  
+  .pdf-renderer::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .pdf-renderer::-webkit-scrollbar-thumb {
+    background: rgba(155, 155, 155, 0.5);
+    border-radius: 5px;
+  }
+  
+  .pdf-renderer::-webkit-scrollbar-thumb:hover {
+    background: rgba(155, 155, 155, 0.7);
   }
   
   .loading,
@@ -674,6 +698,7 @@
     justify-content: center;
     gap: 1rem;
     color: var(--color-text-secondary);
+    height: 100%;
   }
   
   .spinner {
@@ -692,20 +717,19 @@
   }
   
   .canvas-container {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    /* Allow canvas to grow beyond container when zoomed */
-    width: auto;
-    height: auto;
-    min-width: 100%;
-    min-height: 100%;
-    /* Padding provides visual space around the PDF */
+    /* SIMPLE SOLUTION: Container grows with canvas, creating scrollable area */
+    display: inline-block;
     padding: 20px;
     background: transparent;
-    /* Center the canvas when it's smaller than container */
-    margin: auto;
+    /* Don't constrain the container - let it grow */
+    width: max-content;
+    height: max-content;
+    /* Minimum size for centering when PDF is small */
+    min-width: calc(100% - 40px);
+    min-height: calc(100% - 40px);
+    /* Center content when smaller than viewport */
+    margin: 0 auto;
+    position: relative;
   }
   
   .pdf-canvas,
@@ -714,6 +738,12 @@
     background: white;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     border-radius: 4px;
+    /* CRITICAL: Canvas must have no size constraints to grow with zoom */
+    max-width: none !important;
+    max-height: none !important;
+    width: auto !important;
+    height: auto !important;
+    /* Canvas dimensions are set via JavaScript - don't override */
   }
   
   .text-layer {

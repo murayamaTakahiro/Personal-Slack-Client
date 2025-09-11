@@ -64,7 +64,7 @@
 
   function handleKeydown(event: KeyboardEvent) {
     // Prevent default behavior for navigation keys and stop propagation to prevent message list from capturing them
-    const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'j', 'k', 'h', 'l'];
+    const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'j', 'k', 'h', 'l', 'PageUp', 'PageDown', 'Home', 'End'];
     if (navigationKeys.includes(event.key)) {
       event.preventDefault();
       event.stopPropagation();
@@ -72,24 +72,32 @@
     }
     
     // Handle PDF-specific navigation
-    if (isPdf && pdfTotalPages > 1) {
+    // For single-page PDFs, h/l should navigate files directly
+    // For multi-page PDFs, h/l navigate pages first, then files at boundaries
+    if (isPdf) {
       switch (event.key) {
         case 'ArrowLeft':
         case 'h':
-          if (pdfCurrentPage > 1) {
+          // Multi-page PDF: navigate pages first
+          if (pdfTotalPages > 1 && pdfCurrentPage > 1) {
             pdfPreviousPage();
             return;
-          } else if (hasPrevious) {
+          } 
+          // At first page or single-page PDF: navigate to previous file
+          else if (hasPrevious) {
             onPrevious();
             return;
           }
           break;
         case 'ArrowRight':
         case 'l':
-          if (pdfCurrentPage < pdfTotalPages) {
+          // Multi-page PDF: navigate pages first
+          if (pdfTotalPages > 1 && pdfCurrentPage < pdfTotalPages) {
             pdfNextPage();
             return;
-          } else if (hasNext) {
+          } 
+          // At last page or single-page PDF: navigate to next file
+          else if (hasNext) {
             onNext();
             return;
           }
@@ -103,10 +111,12 @@
         break;
       case 'ArrowLeft':
       case 'h':
+        // For non-PDF files, navigate between files
         if (hasPrevious && !isPdf) onPrevious();
         break;
       case 'ArrowRight': 
       case 'l':
+        // For non-PDF files, navigate between files
         if (hasNext && !isPdf) onNext();
         break;
       case 'Tab':
@@ -120,12 +130,12 @@
         break;
       case 'ArrowUp':
       case 'k':
-        // Both PDF and images should scroll, not zoom
+        // Always scroll, never zoom
         scrollUp();
         break;
       case 'ArrowDown':
       case 'j':
-        // Both PDF and images should scroll, not zoom
+        // Always scroll, never zoom
         scrollDown();
         break;
       case 'Home':
@@ -135,9 +145,15 @@
         scrollToBottom();
         break;
       case 'PageUp':
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         scrollPageUp();
         break;
       case 'PageDown':
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         scrollPageDown();
         break;
       case '+':
@@ -183,8 +199,8 @@
   
   function scrollUp() {
     if (isPdf) {
-      // For PDF, scroll the PDF container
-      const pdfContainer = containerDiv?.querySelector('.pdf-content');
+      // For PDF, scroll the PDF renderer container (which has overflow: auto)
+      const pdfContainer = containerDiv?.querySelector('.pdf-renderer');
       if (pdfContainer) {
         pdfContainer.scrollTop = Math.max(0, pdfContainer.scrollTop - scrollSpeed);
       }
@@ -199,8 +215,8 @@
   
   function scrollDown() {
     if (isPdf) {
-      // For PDF, scroll the PDF container
-      const pdfContainer = containerDiv?.querySelector('.pdf-content');
+      // For PDF, scroll the PDF renderer container (which has overflow: auto)
+      const pdfContainer = containerDiv?.querySelector('.pdf-renderer');
       if (pdfContainer) {
         pdfContainer.scrollTop = Math.min(
           pdfContainer.scrollHeight - pdfContainer.clientHeight,
@@ -225,7 +241,7 @@
       if (pdfCurrentPage > 1) {
         pdfPreviousPage();
       } else {
-        const pdfContainer = containerDiv?.querySelector('.pdf-content');
+        const pdfContainer = containerDiv?.querySelector('.pdf-renderer');
         if (pdfContainer) {
           pdfContainer.scrollTop = Math.max(0, pdfContainer.scrollTop - pdfContainer.clientHeight);
         }
@@ -244,7 +260,7 @@
       if (pdfCurrentPage < pdfTotalPages) {
         pdfNextPage();
       } else {
-        const pdfContainer = containerDiv?.querySelector('.pdf-content');
+        const pdfContainer = containerDiv?.querySelector('.pdf-renderer');
         if (pdfContainer) {
           pdfContainer.scrollTop = Math.min(
             pdfContainer.scrollHeight - pdfContainer.clientHeight,
@@ -272,7 +288,7 @@
           pdfRenderer.forceRender();
         }
       }
-      const pdfContainer = containerDiv?.querySelector('.pdf-content');
+      const pdfContainer = containerDiv?.querySelector('.pdf-renderer');
       if (pdfContainer) {
         pdfContainer.scrollTop = 0;
       }
@@ -293,7 +309,7 @@
           pdfRenderer.forceRender();
         }
       }
-      const pdfContainer = containerDiv?.querySelector('.pdf-content');
+      const pdfContainer = containerDiv?.querySelector('.pdf-renderer');
       if (pdfContainer) {
         pdfContainer.scrollTop = pdfContainer.scrollHeight - pdfContainer.clientHeight;
       }
@@ -308,6 +324,7 @@
   function showKeyboardHelp() {
     showHelp = !showHelp;
   }
+  
 
   function handleWheel(event: WheelEvent) {
     if (!isImage) return;
@@ -718,9 +735,10 @@
               mimeType={file.file.mimetype || 'application/pdf'}
               on:totalPages={updatePdfTotalPages}
               renderText={true}
-              maxWidth={window.innerWidth * 0.95}
-              maxHeight={window.innerHeight * 0.85}
+              maxWidth={window.innerWidth * 0.9}
+              maxHeight={window.innerHeight * 0.75}
               fitToViewport={true}
+              allowScrollOnZoom={true}
             />
           {/if}
         </div>
@@ -853,13 +871,17 @@
 
   .lightbox-container {
     position: relative;
-    max-width: 90vw;
-    max-height: 90vh;
+    width: 90vw;
+    height: 90vh;
+    max-width: 1400px;
+    max-height: 900px;
     background: var(--color-surface);
     border-radius: 8px;
     display: flex;
     flex-direction: column;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    /* Ensure container doesn't overflow */
+    overflow: hidden;
   }
 
   .lightbox-header {
@@ -955,6 +977,8 @@
     overflow: hidden;
     position: relative;
     min-height: 400px;
+    /* Ensure content area has proper dimensions */
+    width: 100%;
   }
 
   .image-wrapper {
@@ -1042,20 +1066,24 @@
   }
 
   .pdf-content {
+    /* SIMPLE SOLUTION: Fixed size container for PDF */
     width: 100%;
     height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: auto;
+    /* Don't use flexbox - it can interfere with child sizing */
+    overflow: hidden;
     position: relative;
     background: #525252;
+    /* Ensure the container has defined dimensions */
+    display: block;
   }
   
-  /* Ensure PdfRenderer fills the available space */
+  /* CRITICAL: PdfRenderer must fill the container exactly */
   .pdf-content :global(.pdf-renderer) {
     width: 100%;
     height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
   }
   
   .page-info {
