@@ -12,6 +12,7 @@
   export let renderText: boolean = false;
   export let mimeType: string = 'application/pdf';
   export let fitToViewport: boolean = true; // New prop to enable auto-fit
+  export let allowScrollOnZoom: boolean = true; // Allow canvas to grow beyond container when zoomed
   
   const dispatch = createEventDispatcher();
   
@@ -24,6 +25,8 @@
   let error: string | null = null;
   let isMounted = false;
   let initialScaleCalculated = false;
+  let initialScale: number = 1.0; // Store the initial scale for comparison
+  let isUserZoom = false; // Track if current scale is from user zoom
   
   // Render queue management
   let renderQueue: { pageNum: number; scale: number } | null = null;
@@ -158,9 +161,9 @@
       // Use the smaller scale to ensure the PDF fits both dimensions
       let optimalScale = Math.min(scaleToFitWidth, scaleToFitHeight);
       
-      // For better readability, use more of the available space
-      // Instead of 95%, use 98% to maximize viewport usage while keeping minimal padding
-      optimalScale = optimalScale * 0.98;
+      // Maximize viewport usage - use 99.5% to get as close to the edge as possible
+      // while maintaining a tiny buffer to prevent edge clipping
+      optimalScale = optimalScale * 0.995;
       
       // Increase the minimum scale for better readability
       // Ensure scale is within reasonable bounds (0.8 minimum for readability)
@@ -249,10 +252,12 @@
       
       // Calculate initial scale to fit viewport if enabled
       if (fitToViewport && !initialScaleCalculated && (maxWidth || maxHeight)) {
-        const initialScale = await calculateInitialScale();
-        if (initialScale) {
-          scale = initialScale;
+        const calculatedScale = await calculateInitialScale();
+        if (calculatedScale) {
+          initialScale = calculatedScale;
+          scale = calculatedScale;
           initialScaleCalculated = true;
+          isUserZoom = false;
           console.log('[PdfRenderer] Set initial scale to:', scale);
         }
       }
@@ -374,23 +379,32 @@
       let viewport = page.getViewport({ scale: renderScale });
       console.log(`[PdfRenderer] Initial viewport: ${viewport.width}x${viewport.height}, scale: ${renderScale}`);
       
-      // Apply max width/height constraints if specified
-      if (maxWidth || maxHeight) {
+      // Determine if this is user zoom (scale changed from initial)
+      isUserZoom = initialScaleCalculated && Math.abs(renderScale - initialScale) > 0.01;
+      
+      // Apply viewport constraints only for initial fit, not for user zoom
+      if ((maxWidth || maxHeight) && !isUserZoom && fitToViewport) {
         const currentWidth = viewport.width;
         const currentHeight = viewport.height;
-        let newScale = renderScale;
+        let constrainedScale = renderScale;
         
         if (maxWidth && currentWidth > maxWidth) {
-          newScale = Math.min(newScale, (maxWidth / currentWidth) * renderScale);
-          console.log(`[PdfRenderer] Adjusting scale for maxWidth: ${renderScale} -> ${newScale}`);
+          constrainedScale = Math.min(constrainedScale, (maxWidth / currentWidth) * renderScale);
+          console.log(`[PdfRenderer] Adjusting scale for maxWidth: ${renderScale} -> ${constrainedScale}`);
         }
         if (maxHeight && currentHeight > maxHeight) {
-          newScale = Math.min(newScale, (maxHeight / currentHeight) * renderScale);
-          console.log(`[PdfRenderer] Adjusting scale for maxHeight: ${renderScale} -> ${newScale}`);
+          constrainedScale = Math.min(constrainedScale, (maxHeight / currentHeight) * renderScale);
+          console.log(`[PdfRenderer] Adjusting scale for maxHeight: ${renderScale} -> ${constrainedScale}`);
         }
         
-        viewport = page.getViewport({ scale: newScale });
+        viewport = page.getViewport({ scale: constrainedScale });
         console.log(`[PdfRenderer] Adjusted viewport: ${viewport.width}x${viewport.height}`);
+      }
+      // For user-initiated zoom when scroll is allowed, use the scale directly without constraints
+      // This allows the PDF to grow larger than viewport and become scrollable
+      else if (isUserZoom && allowScrollOnZoom) {
+        console.log(`[PdfRenderer] User zoom detected: scale=${renderScale}, initial=${initialScale}`);
+        console.log(`[PdfRenderer] Canvas will be ${viewport.width}x${viewport.height}px (scrollable)`);
       }
       
       // Check if still mounted and canvas exists before proceeding
@@ -578,21 +592,26 @@
   
   export function zoomIn() {
     scale = Math.min(scale * 1.2, 5);
+    isUserZoom = true;
   }
   
   export function zoomOut() {
     scale = Math.max(scale * 0.8, 0.5);
+    isUserZoom = true;
   }
   
   export function resetZoom() {
-    scale = 1.0;
+    scale = initialScaleCalculated ? initialScale : 1.0;
+    isUserZoom = false;
   }
   
   export function fitToView() {
     if (!pdfDoc || !maxWidth || !maxHeight) return;
     calculateInitialScale().then(newScale => {
       if (newScale) {
+        initialScale = newScale;
         scale = newScale;
+        isUserZoom = false;
       }
     });
   }
@@ -640,6 +659,11 @@
     justify-content: center;
     background: transparent;
     overflow: auto;
+    /* Important: Create a scrollable viewport with fixed dimensions */
+    max-width: 100%;
+    max-height: 100%;
+    /* Ensure scrollbars appear when content exceeds container */
+    scroll-behavior: smooth;
   }
   
   .loading,
@@ -669,12 +693,19 @@
   
   .canvas-container {
     position: relative;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 100%;
-    height: 100%;
+    /* Allow canvas to grow beyond container when zoomed */
+    width: auto;
+    height: auto;
+    min-width: 100%;
+    min-height: 100%;
+    /* Padding provides visual space around the PDF */
+    padding: 20px;
     background: transparent;
+    /* Center the canvas when it's smaller than container */
+    margin: auto;
   }
   
   .pdf-canvas,
