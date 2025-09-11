@@ -21,7 +21,8 @@
   "dependencies": {
     "@tauri-apps/api": "2.7.0",
     "@tauri-apps/plugin-store": "2.3.0",
-    "lru-cache": "^11.2.1"
+    "lru-cache": "^11.2.1",
+    "pdfjs-dist": "^5.4.149"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^3.0.0",
