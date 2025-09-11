@@ -20,25 +20,34 @@
   $: formattedSize = formatFileSize(file.size);
   $: pageInfo = totalPages > 0 ? `Page ${currentPage} of ${totalPages}` : '';
   
+  // Watch for file changes and reload PDF URL
+  $: if (file && file.url_private) {
+    loadPdfUrl();
+  }
+  
   onMount(async () => {
-    document.addEventListener('keydown', handleKeydown);
-    await loadPdfUrl();
+    // Use capture phase to intercept events before they reach other handlers
+    document.addEventListener('keydown', handleKeydown, true);
   });
   
   onDestroy(() => {
-    document.removeEventListener('keydown', handleKeydown);
+    document.removeEventListener('keydown', handleKeydown, true);
   });
   
   async function loadPdfUrl() {
     isLoading = true;
     error = null;
     
+    // Reset page number when loading a new PDF
+    currentPage = 1;
+    totalPages = 0;
+    
     try {
       if (file.url_private) {
         // For PDF.js, we pass the original URL, not a data URL
         // The PdfRenderer component will handle authentication
         pdfUrl = file.url_private;
-        console.log('[PdfLightbox] Using PDF URL:', pdfUrl);
+        console.log('[PdfLightbox] Loading new PDF URL:', pdfUrl, 'for file:', file.name);
       } else {
         throw new Error('No PDF URL available');
       }
@@ -51,40 +60,48 @@
   }
   
   function handleKeydown(event: KeyboardEvent) {
+    // Stop propagation for all handled keys to prevent message list navigation
+    const handledKeys = ['Escape', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'j', 'k', 'h', 'l', '0', '+', '=', '-'];
+    
+    if (handledKeys.includes(event.key) || 
+        (event.key === 'j' || event.key === 'k' || event.key === 'h' || event.key === 'l')) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
     switch (event.key) {
       case 'Escape':
         onClose();
         break;
       case 'ArrowLeft':
+      case 'h':
         prevPage();
         break;
       case 'ArrowRight':
+      case 'l':
         nextPage();
         break;
       case 'ArrowUp':
-        event.preventDefault();
+      case 'k':
         zoomIn();
         break;
       case 'ArrowDown':
-        event.preventDefault();
+      case 'j':
         zoomOut();
         break;
       case '0':
         if (event.ctrlKey || event.metaKey) {
-          event.preventDefault();
           resetZoom();
         }
         break;
       case '+':
       case '=':
         if (event.ctrlKey || event.metaKey) {
-          event.preventDefault();
           zoomIn();
         }
         break;
       case '-':
         if (event.ctrlKey || event.metaKey) {
-          event.preventDefault();
           zoomOut();
         }
         break;
@@ -222,6 +239,9 @@
         mimeType={file.mimetype || 'application/pdf'}
         on:totalPages={updateTotalPages}
         renderText={true}
+        maxWidth={window.innerWidth * 0.9}
+        maxHeight={window.innerHeight * 0.8}
+        fitToViewport={true}
       />
     {/if}
   </div>
@@ -359,6 +379,16 @@
     justify-content: center;
     overflow: auto;
     padding: 2rem;
+    min-height: 0; /* Fix for flex container */
+    position: relative;
+  }
+  
+  /* Ensure PdfRenderer takes available space */
+  .lightbox-content :global(.pdf-renderer) {
+    width: 100%;
+    height: 100%;
+    max-width: 90vw;
+    max-height: 80vh;
   }
   
   .loading,

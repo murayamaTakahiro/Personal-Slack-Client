@@ -107,7 +107,7 @@ export default defineConfig(async ({ mode }) => ({
   
   // Optimize dependencies
   optimizeDeps: {
-    include: ['svelte', '@tauri-apps/api'],
+    include: ['svelte', '@tauri-apps/api', 'pdfjs-dist'],
     exclude: []
   }
 }));

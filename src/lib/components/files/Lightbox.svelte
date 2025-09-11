@@ -6,6 +6,7 @@
   import { formatFileSize } from '$lib/api/files';
   import { activeWorkspace } from '$lib/stores/workspaces';
   import LightboxHelp from './LightboxHelp.svelte';
+  import PdfRenderer from './PdfRenderer.svelte';
 
   export let file: FileMetadata;
   export let allFiles: FileMetadata[] = [];
@@ -32,6 +33,15 @@
   let maxScroll = 0;
   let scrollSpeed = 50; // pixels per key press
   let showHelp = false;
+  
+  // PDF-specific state
+  let pdfRenderer: PdfRenderer;
+  let pdfCurrentPage = 1;
+  let pdfTotalPages = 0;
+  let pdfScale = 1.0;
+  let pdfUrl: string | null = null;
+  let isPdfLoading = false;
+  let pdfError: string | null = null;
 
   $: hasNext = currentIndex < allFiles.length - 1;
   $: hasPrevious = currentIndex > 0;
@@ -45,12 +55,45 @@
     fullImageUrl = null;
     loadFullImage();
   }
+  
+  // Load PDF when file changes
+  $: if (file && isPdf) {
+    loadPdf();
+  }
 
   function handleKeydown(event: KeyboardEvent) {
-    // Prevent default behavior for navigation keys
+    // Prevent default behavior for navigation keys and stop propagation to prevent message list from capturing them
     const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'j', 'k', 'h', 'l'];
     if (navigationKeys.includes(event.key)) {
       event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    }
+    
+    // Handle PDF-specific navigation
+    if (isPdf && pdfTotalPages > 1) {
+      switch (event.key) {
+        case 'ArrowLeft':
+        case 'h':
+          if (pdfCurrentPage > 1) {
+            pdfPreviousPage();
+            return;
+          } else if (hasPrevious) {
+            onPrevious();
+            return;
+          }
+          break;
+        case 'ArrowRight':
+        case 'l':
+          if (pdfCurrentPage < pdfTotalPages) {
+            pdfNextPage();
+            return;
+          } else if (hasNext) {
+            onNext();
+            return;
+          }
+          break;
+      }
     }
     
     switch (event.key) {
@@ -59,11 +102,11 @@
         break;
       case 'ArrowLeft':
       case 'h':
-        if (hasPrevious) onPrevious();
+        if (hasPrevious && !isPdf) onPrevious();
         break;
       case 'ArrowRight': 
       case 'l':
-        if (hasNext) onNext();
+        if (hasNext && !isPdf) onNext();
         break;
       case 'Tab':
         if (event.shiftKey) {
@@ -76,11 +119,21 @@
         break;
       case 'ArrowUp':
       case 'k':
-        scrollUp();
+        if (isPdf) {
+          event.preventDefault();
+          pdfZoomIn();
+        } else {
+          scrollUp();
+        }
         break;
       case 'ArrowDown':
       case 'j':
-        scrollDown();
+        if (isPdf) {
+          event.preventDefault();
+          pdfZoomOut();
+        } else {
+          scrollDown();
+        }
         break;
       case 'Home':
         scrollToTop();
@@ -89,20 +142,43 @@
         scrollToBottom();
         break;
       case 'PageUp':
-        scrollPageUp();
+        if (isPdf && pdfCurrentPage > 1) {
+          pdfPreviousPage();
+        } else {
+          scrollPageUp();
+        }
         break;
       case 'PageDown':
-        scrollPageDown();
+        if (isPdf && pdfCurrentPage < pdfTotalPages) {
+          pdfNextPage();
+        } else {
+          scrollPageDown();
+        }
         break;
       case '+':
       case '=':
-        zoomIn();
+        if (isPdf) {
+          pdfZoomIn();
+        } else {
+          zoomIn();
+        }
         break;
       case '-':
-        zoomOut();
+        if (isPdf) {
+          pdfZoomOut();
+        } else {
+          zoomOut();
+        }
         break;
       case '0':
-        resetZoom();
+        if (event.ctrlKey || event.metaKey) {
+          event.preventDefault();
+          if (isPdf) {
+            pdfResetZoom();
+          } else {
+            resetZoom();
+          }
+        }
         break;
       case '?':
         // Show help (optional - could trigger a help overlay)
@@ -314,9 +390,70 @@
       fullImageUrl = null; // This will trigger reactive update to use thumbnailUrl
     }
   }
+  
+  // PDF-specific functions
+  async function loadPdf() {
+    isPdfLoading = true;
+    pdfError = null;
+    pdfCurrentPage = 1;
+    
+    try {
+      if (file.file.url_private) {
+        pdfUrl = file.file.url_private;
+        console.log('[Lightbox] Loading PDF:', pdfUrl);
+      } else {
+        throw new Error('No PDF URL available');
+      }
+    } catch (err) {
+      console.error('[Lightbox] Failed to load PDF:', err);
+      pdfError = err instanceof Error ? err.message : 'Failed to load PDF';
+    } finally {
+      isPdfLoading = false;
+    }
+  }
+  
+  function pdfNextPage() {
+    if (pdfRenderer && pdfCurrentPage < pdfTotalPages) {
+      pdfCurrentPage++;
+      pdfRenderer.nextPage();
+    }
+  }
+  
+  function pdfPreviousPage() {
+    if (pdfRenderer && pdfCurrentPage > 1) {
+      pdfCurrentPage--;
+      pdfRenderer.prevPage();
+    }
+  }
+  
+  function pdfZoomIn() {
+    if (pdfRenderer) {
+      pdfScale = Math.min(pdfScale * 1.2, 3);
+      pdfRenderer.zoomIn();
+    }
+  }
+  
+  function pdfZoomOut() {
+    if (pdfRenderer) {
+      pdfScale = Math.max(pdfScale * 0.8, 0.5);
+      pdfRenderer.zoomOut();
+    }
+  }
+  
+  function pdfResetZoom() {
+    if (pdfRenderer) {
+      pdfScale = 1.0;
+      pdfRenderer.resetZoom();
+    }
+  }
+  
+  function updatePdfTotalPages(event: CustomEvent) {
+    pdfTotalPages = event.detail;
+  }
 
   onMount(async () => {
-    document.addEventListener('keydown', handleKeydown);
+    // Use capture phase to intercept keyboard events before they reach message list
+    document.addEventListener('keydown', handleKeydown, true);
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
     document.body.style.overflow = 'hidden';
@@ -325,10 +462,14 @@
     if (isImage) {
       await loadFullImage();
     }
+    // Load PDF if it's a PDF file
+    if (isPdf) {
+      await loadPdf();
+    }
   });
 
   onDestroy(() => {
-    document.removeEventListener('keydown', handleKeydown);
+    document.removeEventListener('keydown', handleKeydown, true);
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
     document.body.style.overflow = '';
@@ -359,7 +500,49 @@
       </div>
       
       <div class="lightbox-actions">
-        {#if isImage}
+        {#if isPdf && pdfTotalPages > 0}
+          <div class="page-info">
+            Page {pdfCurrentPage} of {pdfTotalPages}
+          </div>
+          
+          <div class="separator-vertical"></div>
+          
+          <button 
+            class="action-btn"
+            on:click={pdfZoomOut}
+            title="Zoom out (Ctrl/-)">
+            <svg width="20" height="20" viewBox="0 0 20 20">
+              <circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.5" fill="none"/>
+              <line x1="5" y1="9" x2="13" y2="9" stroke="currentColor" stroke-width="1.5"/>
+              <line x1="14" y1="14" x2="17" y2="17" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </button>
+          
+          <span class="zoom-level">{Math.round(pdfScale * 100)}%</span>
+          
+          <button 
+            class="action-btn"
+            on:click={pdfZoomIn}
+            title="Zoom in (Ctrl/+)">
+            <svg width="20" height="20" viewBox="0 0 20 20">
+              <circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.5" fill="none"/>
+              <line x1="5" y1="9" x2="13" y2="9" stroke="currentColor" stroke-width="1.5"/>
+              <line x1="9" y1="5" x2="9" y2="13" stroke="currentColor" stroke-width="1.5"/>
+              <line x1="14" y1="14" x2="17" y2="17" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </button>
+          
+          <button 
+            class="action-btn"
+            on:click={pdfResetZoom}
+            title="Reset zoom (Ctrl+0)">
+            <svg width="20" height="20" viewBox="0 0 20 20">
+              <text x="10" y="14" text-anchor="middle" font-size="12" fill="currentColor">100%</text>
+            </svg>
+          </button>
+          
+          <div class="separator-vertical"></div>
+        {:else if isImage}
           <button 
             class="action-btn"
             on:click={zoomOut}
@@ -455,18 +638,33 @@
           {/if}
         </div>
       {:else if isPdf}
-        <div class="pdf-preview">
-          {#if file.file.thumb_pdf}
-            <img src={file.file.thumb_pdf} alt={file.file.name} class="pdf-thumbnail" />
+        <div class="pdf-content">
+          {#if isPdfLoading}
+            <div class="loading-indicator">
+              <div class="spinner"></div>
+              <p>Loading PDF...</p>
+            </div>
+          {:else if pdfError}
+            <div class="error-overlay">
+              <svg class="error-icon" width="48" height="48" viewBox="0 0 48 48">
+                <path fill="currentColor" d="M24 4C12.95 4 4 12.95 4 24s8.95 20 20 20 20-8.95 20-20S35.05 4 24 4zm2 30h-4v-4h4v4zm0-8h-4V14h4v12z"/>
+              </svg>
+              <p>{pdfError}</p>
+            </div>
+          {:else if pdfUrl}
+            <PdfRenderer
+              bind:this={pdfRenderer}
+              url={pdfUrl}
+              bind:pageNumber={pdfCurrentPage}
+              bind:scale={pdfScale}
+              mimeType={file.file.mimetype || 'application/pdf'}
+              on:totalPages={updatePdfTotalPages}
+              renderText={true}
+              maxWidth={window.innerWidth * 0.9}
+              maxHeight={window.innerHeight * 0.8}
+              fitToViewport={true}
+            />
           {/if}
-          <div class="pdf-info">
-            <svg class="pdf-icon" width="64" height="64" viewBox="0 0 64 64">
-              <path fill="currentColor" d="M16 8h24l12 12v36c0 2.2-1.8 4-4 4H16c-2.2 0-4-1.8-4-4V12c0-2.2 1.8-4 4-4z"/>
-              <path fill="white" d="M39 9v11c0 1.1.9 2 2 2h11l-13-13z"/>
-              <text x="32" y="42" text-anchor="middle" fill="white" font-size="14" font-weight="bold">PDF</text>
-            </svg>
-            <p class="pdf-message">PDF preview not available. Click download to view the full document.</p>
-          </div>
         </div>
       {:else}
         <div class="generic-preview">
@@ -485,7 +683,71 @@
     </div>
 
     <!-- Navigation -->
-    {#if allFiles.length > 1}
+    {#if isPdf && pdfTotalPages > 1}
+      <div class="lightbox-navigation">
+        <button 
+          class="nav-btn prev"
+          on:click={pdfPreviousPage}
+          disabled={pdfCurrentPage <= 1}
+          title="Previous Page (←)">
+          <svg width="24" height="24" viewBox="0 0 24 24">
+            <path fill="currentColor" d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+          </svg>
+        </button>
+        
+        <div class="page-input-container">
+          <input
+            type="number"
+            bind:value={pdfCurrentPage}
+            min="1"
+            max={pdfTotalPages}
+            on:change={() => {
+              pdfCurrentPage = Math.max(1, Math.min(pdfCurrentPage, pdfTotalPages));
+            }}
+            class="page-input"
+          />
+          <span class="page-separator">/ {pdfTotalPages}</span>
+        </div>
+        
+        <button 
+          class="nav-btn next"
+          on:click={pdfNextPage}
+          disabled={pdfCurrentPage >= pdfTotalPages}
+          title="Next Page (→)">
+          <svg width="24" height="24" viewBox="0 0 24 24">
+            <path fill="currentColor" d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/>
+          </svg>
+        </button>
+        
+        {#if allFiles.length > 1}
+          <div class="separator-vertical"></div>
+          
+          <button 
+            class="nav-btn prev"
+            on:click={onPrevious}
+            disabled={!hasPrevious}
+            title="Previous File">
+            <svg width="20" height="20" viewBox="0 0 20 20">
+              <path fill="currentColor" d="M12.41 5.41L11 4l-5 5 5 5 1.41-1.41L7.83 9z"/>
+            </svg>
+          </button>
+          
+          <div class="nav-indicator">
+            File {currentIndex + 1} / {allFiles.length}
+          </div>
+          
+          <button 
+            class="nav-btn next"
+            on:click={onNext}
+            disabled={!hasNext}
+            title="Next File">
+            <svg width="20" height="20" viewBox="0 0 20 20">
+              <path fill="currentColor" d="M7.59 14.59L9 16l5-5-5-5-1.41 1.41L12.17 11z"/>
+            </svg>
+          </button>
+        {/if}
+      </div>
+    {:else if allFiles.length > 1}
       <div class="lightbox-navigation">
         <button 
           class="nav-btn prev"
@@ -721,34 +983,56 @@
     opacity: 0.7;
   }
 
-  .pdf-preview {
+  .pdf-content {
+    width: 100%;
+    height: 100%;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2rem;
-    padding: 2rem;
+    overflow: auto;
+    position: relative;
+    background: #525252;
   }
-
-  .pdf-thumbnail {
-    max-width: 100%;
-    max-height: 400px;
-    object-fit: contain;
+  
+  /* Ensure PdfRenderer fills the available space */
+  .pdf-content :global(.pdf-renderer) {
+    width: 100%;
+    height: 100%;
+  }
+  
+  .page-info {
+    padding: 0 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    display: flex;
+    align-items: center;
+  }
+  
+  .page-input-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .page-input {
+    width: 4rem;
+    padding: 0.25rem 0.5rem;
+    background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: 4px;
-  }
-
-  .pdf-info {
+    color: var(--color-text-primary);
     text-align: center;
-  }
-
-  .pdf-icon {
-    margin-bottom: 1rem;
-  }
-
-  .pdf-message {
-    color: var(--color-text-secondary);
     font-size: 0.875rem;
+  }
+  
+  .page-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+  }
+  
+  .page-separator {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
   }
 
   .generic-preview {
@@ -822,6 +1106,7 @@
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
     color: var(--color-text-secondary);
+    white-space: nowrap;
   }
 
   :global([data-theme="dark"]) {
