@@ -71,13 +71,10 @@
       event.stopImmediatePropagation();
     }
     
-    // Handle PDF-specific navigation
-    // For single-page PDFs, h/l should navigate files directly
-    // For multi-page PDFs, h/l navigate pages first, then files at boundaries
+    // Handle PDF-specific navigation for arrow keys only (not h/l)
     if (isPdf) {
       switch (event.key) {
         case 'ArrowLeft':
-        case 'h':
           // Multi-page PDF: navigate pages first
           if (pdfTotalPages > 1 && pdfCurrentPage > 1) {
             pdfPreviousPage();
@@ -90,7 +87,6 @@
           }
           break;
         case 'ArrowRight':
-        case 'l':
           // Multi-page PDF: navigate pages first
           if (pdfTotalPages > 1 && pdfCurrentPage < pdfTotalPages) {
             pdfNextPage();
@@ -110,14 +106,20 @@
         onClose();
         break;
       case 'ArrowLeft':
-      case 'h':
         // For non-PDF files, navigate between files
         if (hasPrevious && !isPdf) onPrevious();
         break;
       case 'ArrowRight': 
-      case 'l':
         // For non-PDF files, navigate between files
         if (hasNext && !isPdf) onNext();
+        break;
+      case 'h':
+        // Scroll left horizontally
+        scrollLeft();
+        break;
+      case 'l':
+        // Scroll right horizontally
+        scrollRight();
         break;
       case 'Tab':
         if (event.shiftKey) {
@@ -230,6 +232,44 @@
         container.scrollTop = Math.min(
           container.scrollHeight - container.clientHeight,
           container.scrollTop + scrollSpeed
+        );
+      }
+    }
+  }
+  
+  function scrollLeft() {
+    if (isPdf) {
+      // For PDF, scroll the PDF renderer container horizontally
+      const pdfContainer = containerDiv?.querySelector('.pdf-renderer');
+      if (pdfContainer) {
+        pdfContainer.scrollLeft = Math.max(0, pdfContainer.scrollLeft - scrollSpeed);
+      }
+    } else if (isImage && imageElement) {
+      // For images, scroll the image container horizontally
+      const container = imageElement.parentElement;
+      if (container) {
+        container.scrollLeft = Math.max(0, container.scrollLeft - scrollSpeed);
+      }
+    }
+  }
+  
+  function scrollRight() {
+    if (isPdf) {
+      // For PDF, scroll the PDF renderer container horizontally
+      const pdfContainer = containerDiv?.querySelector('.pdf-renderer');
+      if (pdfContainer) {
+        pdfContainer.scrollLeft = Math.min(
+          pdfContainer.scrollWidth - pdfContainer.clientWidth,
+          pdfContainer.scrollLeft + scrollSpeed
+        );
+      }
+    } else if (isImage && imageElement) {
+      // For images, scroll the image container horizontally
+      const container = imageElement.parentElement;
+      if (container) {
+        container.scrollLeft = Math.min(
+          container.scrollWidth - container.clientWidth,
+          container.scrollLeft + scrollSpeed
         );
       }
     }

@@ -6,16 +6,18 @@
   
   const shortcuts = [
     { category: 'Navigation', items: [
-      { key: '← / h', description: 'Previous file/page' },
-      { key: '→ / l', description: 'Next file/page' },
+      { key: '←', description: 'Previous file/page' },
+      { key: '→', description: 'Next file/page' },
       { key: 'Tab', description: 'Next file' },
-      { key: 'Shift+Tab', description: 'Previous file' }
+      { key: 'Shift+Tab', description: 'Previous file' },
+      { key: 'PageUp', description: 'Previous page (PDF) / Scroll page up' },
+      { key: 'PageDown', description: 'Next page (PDF) / Scroll page down' }
     ]},
     { category: 'Scrolling', items: [
       { key: '↑ / k', description: 'Scroll up' },
       { key: '↓ / j', description: 'Scroll down' },
-      { key: 'PageUp', description: 'Previous page (PDF) / Scroll page up' },
-      { key: 'PageDown', description: 'Next page (PDF) / Scroll page down' },
+      { key: 'h', description: 'Scroll left' },
+      { key: 'l', description: 'Scroll right' },
       { key: 'Home', description: 'First page (PDF) / Scroll to top' },
       { key: 'End', description: 'Last page (PDF) / Scroll to bottom' }
     ]},
