@@ -38,16 +38,28 @@ export class UserService {
   // Initialize the service after settings are ready
   public initialize(): void {
     console.log('[UserService] Initializing UserService...');
-    this.subscribeToSettings();
-    // Load initial favorites from settings
-    this.reloadFavorites();
+    try {
+      this.subscribeToSettings();
+      // Load initial favorites from settings
+      this.reloadFavorites();
+      console.log('[UserService] UserService initialized successfully');
+    } catch (error) {
+      console.error('[UserService] Error during initialization:', error);
+      // Don't throw - allow app to continue with default state
+      this.userFavorites = [];
+    }
   }
 
   // Method to explicitly reload favorites from settings
   public reloadFavorites(): void {
-    const currentSettings = get(settings);
-    this.userFavorites = currentSettings.userFavorites || [];
-    console.log('[UserService] Favorites reloaded:', this.userFavorites.length, 'favorites');
+    try {
+      const currentSettings = get(settings);
+      this.userFavorites = currentSettings.userFavorites || [];
+      console.log('[UserService] Favorites reloaded:', this.userFavorites.length, 'favorites');
+    } catch (error) {
+      console.error('[UserService] Error reloading favorites:', error);
+      this.userFavorites = [];
+    }
   }
 
   // Get all users from Slack (with caching)

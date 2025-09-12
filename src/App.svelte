@@ -82,47 +82,103 @@
   let unsubscribeSearchResults: (() => void) | null = null;
   let appInitialized = false;
   let initializationError: string | null = null;
+  let initializationStep = 'Starting...';
+  let initializationProgress = 0;
+  let initializationTimeout: NodeJS.Timeout | null = null;
   
   onMount(async () => {
+    // Set a timeout to ensure the app initializes even if something hangs
+    initializationTimeout = setTimeout(() => {
+      console.warn('[App] Initialization timeout reached, forcing app to show');
+      appInitialized = true;
+      initializationError = null;
+    }, 5000); // 5 second timeout
+    
     try {
       console.log('[App] Starting robust onMount initialization...');
+      console.log('[App] Current window location:', window.location.href);
+      console.log('[App] Document ready state:', document.readyState);
+      
+      // Quick initialization - don't wait too long
+      initializationStep = 'Starting up...';
+      initializationProgress = 10;
       
       // Initialize core stores with better error handling
+      initializationStep = 'Initializing core stores...';
+      initializationProgress = 20;
       await initializeCoreStores();
       
       // Initialize settings from persistent store
+      initializationStep = 'Loading settings...';
+      initializationProgress = 40;
       const currentSettings = await safeInitializeSettings();
       console.log('[App] Settings initialized successfully');
       
-      // Initialize UserService after settings are ready
-      if (userService && typeof userService.initialize === 'function') {
-        userService.initialize();
-        console.log('[App] UserService initialized successfully');
-      }
+      // Initialize UserService after settings are ready - but don't block on it
+      initializationStep = 'Initializing user service...';
+      initializationProgress = 50;
+      // Run UserService initialization in background
+      Promise.resolve().then(() => {
+        if (userService && typeof userService.initialize === 'function') {
+          try {
+            userService.initialize();
+            console.log('[App] UserService initialized successfully');
+          } catch (userError) {
+            console.error('[App] UserService initialization failed:', userError);
+            // Don't fail the entire app for this
+          }
+        } else {
+          console.warn('[App] UserService not available or missing initialize method');
+        }
+      });
       
       // Initialize additional stores
+      initializationStep = 'Setting up additional services...';
+      initializationProgress = 60;
       await initializeAdditionalStores();
       
-      // Mark app as successfully initialized
+      // Mark app as successfully initialized EARLY to show UI
+      initializationStep = 'Ready!';
+      initializationProgress = 80;
       appInitialized = true;
       initializationError = null;
       console.log('[App] Core initialization completed successfully');
       
-      // Continue with workspace and UI initialization
-      await initializeWorkspaceAndUI(currentSettings);
+      // Clear the timeout since we initialized successfully
+      if (initializationTimeout) {
+        clearTimeout(initializationTimeout);
+        initializationTimeout = null;
+      }
       
-      console.log('[App] Full initialization completed successfully');
+      // Continue with workspace and UI initialization in background
+      initializationProgress = 90;
+      // Don't await - let this run in background
+      initializeWorkspaceAndUI(currentSettings).then(() => {
+        initializationProgress = 100;
+        console.log('[App] Full initialization completed successfully');
+      }).catch(error => {
+        console.error('[App] Workspace/UI initialization failed:', error);
+        showToast('Some features may not be available', 'warning');
+      });
       
     } catch (error) {
-      console.error('[App] Critical error during onMount initialization:', error);
-      appInitialized = false;
-      initializationError = error instanceof Error ? error.message : 'Unknown initialization error';
+      console.error('[App] Error during onMount initialization:', error);
+      console.error('[App] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      
+      // Clear the timeout
+      if (initializationTimeout) {
+        clearTimeout(initializationTimeout);
+        initializationTimeout = null;
+      }
+      
+      // Still show the app, but with reduced functionality
+      appInitialized = true;
       
       // Try to show a toast notification if possible
       try {
-        showToast('App initialization failed - some features may not work properly', 'error');
+        showToast('App initialization partially failed - some features may not work properly', 'warning');
       } catch (toastError) {
-        console.error('[App] Even toast notification failed:', toastError);
+        console.error('[App] Toast notification failed:', toastError);
       }
     }
   });
@@ -139,7 +195,7 @@
         new Promise(resolve => setTimeout(() => {
           console.warn('[App] Saved searches initialization timed out');
           resolve(null);
-        }, 5000))
+        }, 2000)) // Reduced timeout
       ]),
       
       // Initialize zoom store with timeout
@@ -151,7 +207,7 @@
         new Promise(resolve => setTimeout(() => {
           console.warn('[App] Zoom store initialization timed out');
           resolve(null);
-        }, 3000))
+        }, 1000)) // Reduced timeout
       ]),
       
       // Initialize performance settings with timeout
@@ -163,7 +219,7 @@
         new Promise(resolve => setTimeout(() => {
           console.warn('[App] Performance settings initialization timed out');
           resolve(null);
-        }, 3000))
+        }, 1000)) // Reduced timeout
       ])
     ];
     
@@ -432,6 +488,11 @@
   }
   
   onDestroy(() => {
+    // Clean up initialization timeout
+    if (initializationTimeout) {
+      clearTimeout(initializationTimeout);
+      initializationTimeout = null;
+    }
     // Clean up event listeners
     if (typeof document !== 'undefined') {
       document.removeEventListener('keydown', handleGlobalKeydown);
@@ -1233,16 +1294,37 @@
         <div class="spinner"></div>
       </div>
       <h2>Initializing Personal Slack Client...</h2>
-      <p>Please wait while we set up your workspace.</p>
+      <p class="init-step">{initializationStep}</p>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: {initializationProgress}%"></div>
+      </div>
+      <p class="init-hint">Please wait while we set up your workspace.</p>
     </div>
   {:else if initializationError}
     <div class="initialization-error" role="alert">
       <div class="error-icon">⚠️</div>
       <h2>Initialization Failed</h2>
-      <p class="error-message">{initializationError}</p>
+      <pre class="error-message">{initializationError}</pre>
+      <details class="debug-info">
+        <summary>Debug Information</summary>
+        <div class="debug-content">
+          <p><strong>Browser:</strong> {navigator.userAgent}</p>
+          <p><strong>URL:</strong> {window.location.href}</p>
+          <p><strong>Ready State:</strong> {document.readyState}</p>
+          <p><strong>Local Storage Available:</strong> {typeof Storage !== 'undefined' ? 'Yes' : 'No'}</p>
+          <p><strong>Tauri Environment:</strong> {typeof window !== 'undefined' && '__TAURI__' in window ? 'Yes' : 'No'}</p>
+          <p><strong>App Element Found:</strong> {document.getElementById('app') ? 'Yes' : 'No'}</p>
+        </div>
+      </details>
       <div class="error-actions">
         <button on:click={() => window.location.reload()} class="btn-primary">
           Reload Page
+        </button>
+        <button on:click={() => {
+          appInitialized = true;
+          initializationError = null;
+        }} class="btn-secondary">
+          Continue Anyway
         </button>
         <button on:click={() => showSettings = true} class="btn-secondary">
           Open Settings
@@ -1938,6 +2020,33 @@
     font-size: 1.1rem;
   }
   
+  .initialization-loading .init-step {
+    margin: 0 0 1rem 0;
+    color: var(--primary);
+    font-weight: 500;
+    min-height: 1.5rem;
+  }
+  
+  .initialization-loading .init-hint {
+    margin: 1rem 0 0 0;
+    font-size: 0.9rem;
+  }
+  
+  .progress-bar {
+    width: 300px;
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 0 auto;
+  }
+  
+  .progress-fill {
+    height: 100%;
+    background: var(--primary);
+    transition: width 0.3s ease;
+  }
+  
   .initialization-error {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
@@ -1955,6 +2064,48 @@
   .initialization-error .error-message {
     color: var(--error);
     font-weight: 500;
+    background: var(--bg-primary);
+    padding: 1rem;
+    border-radius: 4px;
+    border: 1px solid var(--error);
+    max-width: 800px;
+    overflow-x: auto;
+    text-align: left;
+    font-family: monospace;
+    font-size: 0.875rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  
+  .initialization-error .debug-info {
+    margin-top: 1rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1rem;
+    max-width: 800px;
+    text-align: left;
+  }
+  
+  .initialization-error .debug-info summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--text-secondary);
+    user-select: none;
+  }
+  
+  .initialization-error .debug-info .debug-content {
+    margin-top: 1rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+  }
+  
+  .initialization-error .debug-info .debug-content p {
+    margin: 0.5rem 0;
+  }
+  
+  .initialization-error .debug-info .debug-content strong {
+    color: var(--text-primary);
   }
   
   .initialization-error .error-actions {

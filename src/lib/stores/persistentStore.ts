@@ -9,10 +9,22 @@ async function getStore(): Promise<any> {
     try {
       // Only try to import if we're in Tauri environment
       if (typeof window !== 'undefined' && '__TAURI__' in window) {
-        const module = await import('@tauri-apps/plugin-store');
-        Store = module.Store;
-        store = new Store('settings.json');
-        console.log('[PersistentStore] Successfully initialized Tauri store');
+        // Add a timeout for Tauri store initialization
+        const storePromise = import('@tauri-apps/plugin-store').then(module => {
+          Store = module.Store;
+          store = new Store('settings.json');
+          console.log('[PersistentStore] Successfully initialized Tauri store');
+          return store;
+        });
+        
+        // Race with timeout to prevent hanging
+        store = await Promise.race([
+          storePromise,
+          new Promise(resolve => setTimeout(() => {
+            console.warn('[PersistentStore] Tauri store initialization timed out, using localStorage');
+            resolve(null);
+          }, 1000)) // 1 second timeout
+        ]);
       } else {
         console.log('[PersistentStore] Not in Tauri environment, will use localStorage');
       }
@@ -128,11 +140,14 @@ function loadFromLocalStorage<T>(key: string, defaultValue: T): T {
  * Check if we're in a Tauri environment
  */
 export function isTauri(): boolean {
-  // Temporarily disable Tauri detection to use localStorage in development
-  // This helps debug if the issue is specific to Tauri store
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-    console.log('[PersistentStore] Development mode detected, using localStorage');
-    return false;
-  }
-  return typeof window !== 'undefined' && '__TAURI__' in window;
+  // Always use localStorage for more reliable operation
+  // This avoids issues with Tauri store initialization on cold start
+  return false;
+  
+  // Original code kept for reference:
+  // if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+  //   console.log('[PersistentStore] Development mode detected, using localStorage');
+  //   return false;
+  // }
+  // return typeof window !== 'undefined' && '__TAURI__' in window;
 }
