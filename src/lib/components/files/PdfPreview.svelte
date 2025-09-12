@@ -3,6 +3,7 @@
   import type { SlackFile } from '$lib/types/slack';
   import { formatFileSize, createFileDataUrl } from '$lib/api/files';
   import { downloadFile } from '$lib/api/files';
+  import { showSuccess, showError, showInfo } from '$lib/stores/toast';
 
   export let file: SlackFile;
   export let workspaceId: string;
@@ -73,6 +74,9 @@
     isDownloading = true;
     downloadError = null;
     downloadProgress = 0;
+    
+    // Show download started notification
+    showInfo('Download started', `Downloading ${file.name}...`);
 
     try {
       const localPath = await downloadFile(
@@ -83,12 +87,28 @@
       );
       
       if (localPath.success && localPath.localPath) {
+        // Show success with file location
+        showSuccess(
+          'PDF downloaded',
+          `${file.name} saved to ${localPath.localPath}`,
+          7000
+        );
         console.log('PDF downloaded to:', localPath.localPath);
       } else {
         downloadError = localPath.error || 'Failed to download PDF';
+        showError(
+          'Download failed',
+          `Failed to download ${file.name}: ${downloadError}`,
+          10000
+        );
       }
     } catch (error) {
       downloadError = error instanceof Error ? error.message : 'Download failed';
+      showError(
+        'Download failed',
+        `Failed to download ${file.name}: ${downloadError}`,
+        10000
+      );
     } finally {
       isDownloading = false;
       downloadProgress = 0;

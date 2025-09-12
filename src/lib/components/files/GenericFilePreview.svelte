@@ -3,6 +3,7 @@
   import { formatFileSize, getFileIcon } from '$lib/api/files';
   import { getFileType } from '$lib/services/fileService';
   import { downloadFile } from '$lib/api/files';
+  import { showSuccess, showError, showInfo } from '$lib/stores/toast';
 
   export let file: SlackFile;
   export let workspaceId: string;
@@ -21,18 +22,36 @@
 
     isDownloading = true;
     downloadError = null;
+    
+    // Show download started notification
+    showInfo('Download started', `Downloading ${file.name || file.title}...`);
 
     try {
       const localPath = await downloadFile(workspaceId, file);
       
       if (localPath) {
-        // For now, just log success - we can add open functionality later
+        // Show success with file location
+        showSuccess(
+          'Download complete',
+          `${file.name || file.title} saved successfully`,
+          7000
+        );
         console.log('File downloaded to:', localPath);
       } else {
         downloadError = 'Failed to download file';
+        showError(
+          'Download failed',
+          `Failed to download ${file.name || file.title}`,
+          10000
+        );
       }
     } catch (error) {
       downloadError = error instanceof Error ? error.message : 'Download failed';
+      showError(
+        'Download failed',
+        `Failed to download ${file.name || file.title}: ${downloadError}`,
+        10000
+      );
     } finally {
       isDownloading = false;
     }

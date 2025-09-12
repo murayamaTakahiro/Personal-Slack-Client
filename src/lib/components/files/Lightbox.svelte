@@ -6,7 +6,7 @@
   import { formatFileSize } from '$lib/api/files';
   import { activeWorkspace } from '$lib/stores/workspaces';
   import { settings, getDownloadFolder } from '$lib/stores/settings';
-  import { showToast } from '$lib/stores/toast';
+  import { showSuccess, showError, showInfo } from '$lib/stores/toast';
   import LightboxHelp from './LightboxHelp.svelte';
   import PdfRenderer from './PdfRenderer.svelte';
 
@@ -446,6 +446,9 @@
     isDownloading = true;
     downloadError = null;
     
+    // Show download started notification
+    showInfo('Download started', `Downloading ${file.file.name}...`);
+    
     try {
       const downloadFolder = getDownloadFolder();
       const result = await downloadFileWithOptions(
@@ -458,14 +461,28 @@
       );
       
       if (result.success) {
-        showToast(`Downloaded: ${file.file.name}`, 'success');
+        // Show success with file location
+        const location = result.localPath || downloadFolder || 'Downloads folder';
+        showSuccess(
+          'Download complete',
+          `${file.file.name} saved to ${location}`,
+          7000
+        );
       } else if (result.error && !result.error.includes('cancelled')) {
         downloadError = result.error;
-        showToast(`Download failed: ${result.error}`, 'error');
+        showError(
+          'Download failed',
+          `Failed to download ${file.file.name}: ${result.error}`,
+          10000
+        );
       }
     } catch (error) {
       downloadError = error instanceof Error ? error.message : 'Download failed';
-      showToast(`Download failed: ${downloadError}`, 'error');
+      showError(
+        'Download failed',
+        `Failed to download ${file.file.name}: ${downloadError}`,
+        10000
+      );
     } finally {
       isDownloading = false;
     }
@@ -476,6 +493,15 @@
     
     isDownloading = true;
     downloadError = null;
+    
+    const totalFiles = allFiles.length;
+    
+    // Show batch download started notification
+    showInfo(
+      'Batch download started',
+      `Downloading ${totalFiles} file${totalFiles !== 1 ? 's' : ''}...`,
+      0 // Persistent until we update it
+    );
     
     try {
       const downloadFolder = getDownloadFolder();
@@ -490,14 +516,36 @@
       });
       
       if (result.success) {
-        showToast(`Downloaded ${result.paths?.length || 0} files`, 'success');
+        const downloadedCount = result.paths?.length || 0;
+        const location = downloadFolder || 'Downloads folder';
+        
+        // Show success with details
+        showSuccess(
+          'Batch download complete',
+          `${downloadedCount} of ${totalFiles} files saved to ${location}`,
+          10000
+        );
+        
+        // List file names if reasonable number
+        if (downloadedCount > 0 && downloadedCount <= 5) {
+          const fileNames = allFiles.slice(0, downloadedCount).map(f => f.file.name).join(', ');
+          showInfo('Downloaded files', fileNames, 8000);
+        }
       } else if (result.error && !result.error.includes('cancelled')) {
         downloadError = result.error;
-        showToast(`Batch download failed: ${result.error}`, 'error');
+        showError(
+          'Batch download failed',
+          `Failed to download files: ${result.error}`,
+          10000
+        );
       }
     } catch (error) {
       downloadError = error instanceof Error ? error.message : 'Batch download failed';
-      showToast(`Batch download failed: ${downloadError}`, 'error');
+      showError(
+        'Batch download failed',
+        `Failed to download files: ${downloadError}`,
+        10000
+      );
     } finally {
       isDownloading = false;
     }

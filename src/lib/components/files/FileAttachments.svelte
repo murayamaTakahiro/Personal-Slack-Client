@@ -9,7 +9,7 @@
   } from '$lib/services/fileService';
   import { downloadFilesInBatch } from '$lib/api/files';
   import { getDownloadFolder } from '$lib/stores/settings';
-  import { showToast } from '$lib/stores/toast';
+  import { showSuccess, showError, showInfo } from '$lib/stores/toast';
   import ImagePreview from './ImagePreview.svelte';
   import PdfPreview from './PdfPreview.svelte';
   import GenericFilePreview from './GenericFilePreview.svelte';
@@ -102,6 +102,15 @@
     
     isDownloading = true;
     
+    const totalFiles = files.length;
+    
+    // Show batch download started notification
+    showInfo(
+      'Batch download started',
+      `Downloading ${totalFiles} file${totalFiles !== 1 ? 's' : ''}...`,
+      0 // Persistent until we update it
+    );
+    
     try {
       const downloadFolder = getDownloadFolder();
       const filesToDownload = files.map(f => ({
@@ -115,13 +124,35 @@
       });
       
       if (result.success) {
-        showToast(`Downloaded ${result.paths?.length || 0} files`, 'success');
+        const downloadedCount = result.paths?.length || 0;
+        const location = downloadFolder || 'Downloads folder';
+        
+        // Show success with details
+        showSuccess(
+          'Batch download complete',
+          `${downloadedCount} of ${totalFiles} files saved to ${location}`,
+          10000
+        );
+        
+        // List file names if reasonable number
+        if (downloadedCount > 0 && downloadedCount <= 5) {
+          const fileNames = files.slice(0, downloadedCount).map(f => f.name).join(', ');
+          showInfo('Downloaded files', fileNames, 8000);
+        }
       } else if (result.error && !result.error.includes('cancelled')) {
-        showToast(`Download failed: ${result.error}`, 'error');
+        showError(
+          'Batch download failed',
+          `Failed to download files: ${result.error}`,
+          10000
+        );
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Download failed';
-      showToast(`Download failed: ${errorMessage}`, 'error');
+      showError(
+        'Batch download failed',
+        `Failed to download files: ${errorMessage}`,
+        10000
+      );
     } finally {
       isDownloading = false;
     }
