@@ -1,17 +1,37 @@
 <script lang="ts">
   import { settings, updateDownloadFolder } from '../stores/settings';
-  import { invoke } from '@tauri-apps/api/core';
   import { showToast } from '../stores/toast';
   
   let downloadFolder = '';
   let isSelecting = false;
+  let isTauriAvailable = false;
+  
+  // Check if Tauri is available
+  import { onMount } from 'svelte';
+  onMount(async () => {
+    try {
+      // Dynamically import Tauri API only if available
+      if (typeof window !== 'undefined' && '__TAURI__' in window) {
+        isTauriAvailable = true;
+      }
+    } catch (err) {
+      console.log('Tauri not available, folder selection disabled');
+    }
+  });
   
   // Initialize from settings
   $: downloadFolder = $settings.downloadFolder || '';
   
   async function selectFolder() {
+    if (!isTauriAvailable) {
+      showToast('Folder selection is only available in the desktop app', 'error');
+      return;
+    }
+    
     isSelecting = true;
     try {
+      // Dynamically import invoke only when needed
+      const { invoke } = await import('@tauri-apps/api/core');
       const selectedPath = await invoke<string | null>('select_download_folder');
       if (selectedPath) {
         downloadFolder = selectedPath;
@@ -115,7 +135,7 @@
   .setting-group {
     margin-bottom: 2rem;
     padding: 1rem;
-    background: var(--color-surface-secondary);
+    background: var(--bg-hover);
     border-radius: 8px;
   }
   
@@ -123,7 +143,7 @@
     margin: 0 0 1rem 0;
     font-size: 1.1rem;
     font-weight: 600;
-    color: var(--color-text-primary);
+    color: var(--text-primary);
   }
   
   .download-folder-setting {
@@ -134,13 +154,13 @@
     display: block;
     margin-bottom: 0.5rem;
     font-weight: 500;
-    color: var(--color-text-primary);
+    color: var(--text-primary);
   }
   
   .help-text {
     display: block;
     font-size: 0.85rem;
-    color: var(--color-text-secondary);
+    color: var(--text-secondary);
     font-weight: normal;
     margin-top: 0.25rem;
   }
@@ -154,23 +174,23 @@
   .folder-input {
     flex: 1;
     padding: 0.5rem;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
     border-radius: 4px;
-    color: var(--color-text-primary);
+    color: var(--text-primary);
     font-size: 0.95rem;
   }
   
   .folder-input:focus {
     outline: none;
-    border-color: var(--color-primary);
+    border-color: var(--primary);
   }
   
   .btn-secondary {
     padding: 0.5rem 1rem;
-    background: var(--color-button-secondary);
-    color: var(--color-text-primary);
-    border: 1px solid var(--color-border);
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border);
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.95rem;
@@ -178,7 +198,7 @@
   }
   
   .btn-secondary:hover:not(:disabled) {
-    background: var(--color-hover);
+    background: var(--bg-hover);
   }
   
   .btn-secondary:disabled {
@@ -190,7 +210,7 @@
     padding: 0.5rem;
     background: transparent;
     border: none;
-    color: var(--color-text-secondary);
+    color: var(--text-secondary);
     cursor: pointer;
     border-radius: 4px;
     transition: all 0.2s;
@@ -200,18 +220,18 @@
   }
   
   .btn-ghost:hover {
-    background: var(--color-hover);
-    color: var(--color-text-primary);
+    background: var(--bg-hover);
+    color: var(--text-primary);
   }
   
   .current-path {
     margin-top: 0.5rem;
     font-size: 0.85rem;
-    color: var(--color-text-secondary);
+    color: var(--text-secondary);
   }
   
   .current-path code {
-    background: var(--color-surface);
+    background: var(--bg-primary);
     padding: 0.2rem 0.4rem;
     border-radius: 3px;
     font-family: monospace;
@@ -220,16 +240,16 @@
   
   .keyboard-shortcuts-info {
     padding: 1rem;
-    background: var(--color-surface);
+    background: var(--bg-primary);
     border-radius: 4px;
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--border);
   }
   
   .keyboard-shortcuts-info h4 {
     margin: 0 0 0.75rem 0;
     font-size: 0.95rem;
     font-weight: 600;
-    color: var(--color-text-primary);
+    color: var(--text-primary);
   }
   
   .shortcuts-list {
@@ -244,45 +264,21 @@
     align-items: center;
     gap: 0.75rem;
     font-size: 0.9rem;
-    color: var(--color-text-secondary);
+    color: var(--text-secondary);
   }
   
   kbd {
     padding: 0.2rem 0.4rem;
-    background: var(--color-surface-secondary);
-    border: 1px solid var(--color-border);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
     border-radius: 3px;
     font-family: monospace;
     font-size: 0.85rem;
     font-weight: 600;
-    color: var(--color-text-primary);
+    color: var(--text-primary);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     min-width: 1.5rem;
     text-align: center;
     display: inline-block;
-  }
-  
-  /* Dark theme variables */
-  :global([data-theme="dark"]) {
-    --color-surface: #1a1d21;
-    --color-surface-secondary: #232529;
-    --color-border: #565856;
-    --color-text-primary: #d1d2d3;
-    --color-text-secondary: #ababad;
-    --color-hover: rgba(255, 255, 255, 0.08);
-    --color-button-secondary: transparent;
-    --color-primary: #1264a3;
-  }
-  
-  /* Light theme variables */
-  :global([data-theme="light"]) {
-    --color-surface: #ffffff;
-    --color-surface-secondary: #f8f8f8;
-    --color-border: #dddddd;
-    --color-text-primary: #1d1c1d;
-    --color-text-secondary: #616061;
-    --color-hover: rgba(0, 0, 0, 0.05);
-    --color-button-secondary: transparent;
-    --color-primary: #1264a3;
   }
 </style>

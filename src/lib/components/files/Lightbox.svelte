@@ -500,7 +500,7 @@
     showInfo(
       'Batch download started',
       `Downloading ${totalFiles} file${totalFiles !== 1 ? 's' : ''}...`,
-      0 // Persistent until we update it
+      5000 // Auto-dismiss after 5 seconds
     );
     
     try {
