@@ -94,6 +94,12 @@
       const currentSettings = await safeInitializeSettings();
       console.log('[App] Settings initialized successfully');
       
+      // Initialize UserService after settings are ready
+      if (userService && typeof userService.initialize === 'function') {
+        userService.initialize();
+        console.log('[App] UserService initialized successfully');
+      }
+      
       // Initialize additional stores
       await initializeAdditionalStores();
       

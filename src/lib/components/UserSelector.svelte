@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, createEventDispatcher } from 'svelte';
   import { userService } from '../services/userService';
+  import { settings } from '../stores/settings';
   import type { UserFavorite, SlackUser } from '../types/slack';
   
   export let value = '';
@@ -18,10 +19,26 @@
   let dropdownElement: HTMLDivElement;
   let editingAlias: string | null = null;
   let aliasInput = '';
+  let unsubscribeSettings: (() => void) | null = null;
   
-  // Load favorites on mount
+  // Load favorites on mount and subscribe to settings changes
   onMount(() => {
+    // Initial load
     userFavorites = userService.getUserFavorites();
+    
+    // Subscribe to settings changes to update favorites
+    unsubscribeSettings = settings.subscribe(currentSettings => {
+      if (currentSettings.userFavorites) {
+        userFavorites = currentSettings.userFavorites;
+      }
+    });
+    
+    // Clean up subscription on component destroy
+    return () => {
+      if (unsubscribeSettings) {
+        unsubscribeSettings();
+      }
+    };
   });
   
   // Update displayed value when value prop changes

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Debug App Loading</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        iframe { width: 100%; height: 500px; border: 2px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h1>App Loading Debug</h1>
+    <div id="status" class="status">Checking...</div>
+    <button onclick="location.reload()">Reload Page</button>
+    <iframe src="http://localhost:1420"></iframe>
+    <script>
+        fetch('http://localhost:1420')
+            .then(r => {
+                document.getElementById('status').className = 'status success';
+                document.getElementById('status').textContent = 'Server is running!';
+            })
+            .catch(e => {
+                document.getElementById('status').className = 'status error';
+                document.getElementById('status').textContent = 'Server error: ' + e;
+            });
+    </script>
+</body>
+</html>

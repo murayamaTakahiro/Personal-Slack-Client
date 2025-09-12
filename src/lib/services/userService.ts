@@ -8,11 +8,11 @@ export class UserService {
   private userCache: Map<string, SlackUser> = new Map();
   private userFavorites: UserFavorite[] = [];
   private searchCache: Map<string, SlackUser[]> = new Map();
+  private unsubscribe: (() => void) | null = null;
 
   private constructor() {
-    // Load favorites from settings
-    const currentSettings = get(settings);
-    this.userFavorites = currentSettings.userFavorites || [];
+    // Don't subscribe to settings immediately - wait for initialization
+    // This prevents circular dependency issues during app startup
   }
 
   static getInstance(): UserService {
@@ -20,6 +20,34 @@ export class UserService {
       UserService.instance = new UserService();
     }
     return UserService.instance;
+  }
+
+  // Subscribe to settings changes to keep favorites in sync
+  private subscribeToSettings(): void {
+    if (this.unsubscribe) {
+      this.unsubscribe();
+    }
+    
+    this.unsubscribe = settings.subscribe(currentSettings => {
+      // Update favorites from settings whenever they change
+      this.userFavorites = currentSettings.userFavorites || [];
+      console.log('[UserService] Favorites updated from settings:', this.userFavorites.length, 'favorites');
+    });
+  }
+
+  // Initialize the service after settings are ready
+  public initialize(): void {
+    console.log('[UserService] Initializing UserService...');
+    this.subscribeToSettings();
+    // Load initial favorites from settings
+    this.reloadFavorites();
+  }
+
+  // Method to explicitly reload favorites from settings
+  public reloadFavorites(): void {
+    const currentSettings = get(settings);
+    this.userFavorites = currentSettings.userFavorites || [];
+    console.log('[UserService] Favorites reloaded:', this.userFavorites.length, 'favorites');
   }
 
   // Get all users from Slack (with caching)
@@ -204,6 +232,14 @@ export class UserService {
   clearCache(): void {
     this.userCache.clear();
     this.searchCache.clear();
+  }
+
+  // Clean up subscriptions
+  dispose(): void {
+    if (this.unsubscribe) {
+      this.unsubscribe();
+      this.unsubscribe = null;
+    }
   }
 }
 
