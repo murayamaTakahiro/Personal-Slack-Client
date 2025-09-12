@@ -24,7 +24,7 @@
     downloadError = null;
     
     // Show download started notification
-    showInfo('Download started', `Downloading ${file.name || file.title}...`);
+    showInfo('Download started', `Downloading ${file.name || file.title}...`, 3000);
 
     try {
       const localPath = await downloadFile(workspaceId, file);
@@ -34,7 +34,7 @@
         showSuccess(
           'Download complete',
           `${file.name || file.title} saved successfully`,
-          7000
+          3000
         );
         console.log('File downloaded to:', localPath);
       } else {
@@ -42,7 +42,7 @@
         showError(
           'Download failed',
           `Failed to download ${file.name || file.title}`,
-          10000
+          5000
         );
       }
     } catch (error) {
@@ -50,7 +50,7 @@
       showError(
         'Download failed',
         `Failed to download ${file.name || file.title}: ${downloadError}`,
-        10000
+        5000
       );
     } finally {
       isDownloading = false;

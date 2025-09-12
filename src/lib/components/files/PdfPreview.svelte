@@ -76,7 +76,7 @@
     downloadProgress = 0;
     
     // Show download started notification
-    showInfo('Download started', `Downloading ${file.name}...`);
+    showInfo('Download started', `Downloading ${file.name}...`, 3000);
 
     try {
       const localPath = await downloadFile(
@@ -91,7 +91,7 @@
         showSuccess(
           'PDF downloaded',
           `${file.name} saved to ${localPath.localPath}`,
-          7000
+          3000
         );
         console.log('PDF downloaded to:', localPath.localPath);
       } else {
@@ -99,7 +99,7 @@
         showError(
           'Download failed',
           `Failed to download ${file.name}: ${downloadError}`,
-          10000
+          5000
         );
       }
     } catch (error) {
@@ -107,7 +107,7 @@
       showError(
         'Download failed',
         `Failed to download ${file.name}: ${downloadError}`,
-        10000
+        5000
       );
     } finally {
       isDownloading = false;

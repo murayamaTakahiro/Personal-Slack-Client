@@ -447,7 +447,7 @@
     downloadError = null;
     
     // Show download started notification
-    showInfo('Download started', `Downloading ${file.file.name}...`);
+    showInfo('Download started', `Downloading ${file.file.name}...`, 3000);
     
     try {
       const downloadFolder = getDownloadFolder();
@@ -466,14 +466,14 @@
         showSuccess(
           'Download complete',
           `${file.file.name} saved to ${location}`,
-          7000
+          3000
         );
       } else if (result.error && !result.error.includes('cancelled')) {
         downloadError = result.error;
         showError(
           'Download failed',
           `Failed to download ${file.file.name}: ${result.error}`,
-          10000
+          5000
         );
       }
     } catch (error) {
@@ -481,7 +481,7 @@
       showError(
         'Download failed',
         `Failed to download ${file.file.name}: ${downloadError}`,
-        10000
+        5000
       );
     } finally {
       isDownloading = false;
@@ -500,7 +500,7 @@
     showInfo(
       'Batch download started',
       `Downloading ${totalFiles} file${totalFiles !== 1 ? 's' : ''}...`,
-      5000 // Auto-dismiss after 5 seconds
+      3000 // Auto-dismiss after 3 seconds
     );
     
     try {
@@ -523,20 +523,20 @@
         showSuccess(
           'Batch download complete',
           `${downloadedCount} of ${totalFiles} files saved to ${location}`,
-          10000
+          3000
         );
         
         // List file names if reasonable number
         if (downloadedCount > 0 && downloadedCount <= 5) {
           const fileNames = allFiles.slice(0, downloadedCount).map(f => f.file.name).join(', ');
-          showInfo('Downloaded files', fileNames, 8000);
+          showInfo('Downloaded files', fileNames, 5000);
         }
       } else if (result.error && !result.error.includes('cancelled')) {
         downloadError = result.error;
         showError(
           'Batch download failed',
           `Failed to download files: ${result.error}`,
-          10000
+          5000
         );
       }
     } catch (error) {
@@ -544,7 +544,7 @@
       showError(
         'Batch download failed',
         `Failed to download files: ${downloadError}`,
-        10000
+        5000
       );
     } finally {
       isDownloading = false;

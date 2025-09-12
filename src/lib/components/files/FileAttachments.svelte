@@ -108,7 +108,7 @@
     showInfo(
       'Batch download started',
       `Downloading ${totalFiles} file${totalFiles !== 1 ? 's' : ''}...`,
-      5000 // Auto-dismiss after 5 seconds
+      3000 // Auto-dismiss after 3 seconds
     );
     
     try {
@@ -131,19 +131,19 @@
         showSuccess(
           'Batch download complete',
           `${downloadedCount} of ${totalFiles} files saved to ${location}`,
-          10000
+          3000
         );
         
         // List file names if reasonable number
         if (downloadedCount > 0 && downloadedCount <= 5) {
           const fileNames = files.slice(0, downloadedCount).map(f => f.name).join(', ');
-          showInfo('Downloaded files', fileNames, 8000);
+          showInfo('Downloaded files', fileNames, 5000);
         }
       } else if (result.error && !result.error.includes('cancelled')) {
         showError(
           'Batch download failed',
           `Failed to download files: ${result.error}`,
-          10000
+          5000
         );
       }
     } catch (error) {
@@ -151,7 +151,7 @@
       showError(
         'Batch download failed',
         `Failed to download files: ${errorMessage}`,
-        10000
+        5000
       );
     } finally {
       isDownloading = false;
