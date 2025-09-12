@@ -189,7 +189,10 @@
       zoomOut: 'Ctrl+-',
       zoomReset: 'Ctrl+0',
       toggleChannelFavorite: 'f',
-      togglePerformanceMonitor: 'Ctrl+Shift+P'
+      togglePerformanceMonitor: 'Ctrl+Shift+P',
+      toggleSavedSearches: 'Ctrl+S',
+      saveCurrentSearch: 'Ctrl+Shift+S',
+      quickSaveSearch: 'Ctrl+Alt+S'
     });
     
     // The reaction service already loads mappings from localStorage
@@ -1240,6 +1243,8 @@
     --primary-bg: #e7f1fb;
     --error: #dc3545;
     --warning: #ff9800;
+    --danger: #dc3545;
+    --danger-bg: #f8d7da;
   }
   
   :global(:root.dark) {
@@ -1254,6 +1259,8 @@
     --primary-bg: #1e3a5c;
     --error: #f56565;
     --warning: #ffa726;
+    --danger: #f56565;
+    --danger-bg: #4a2525;
   }
   
   :global(*) {

@@ -3,6 +3,9 @@
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import ChannelSelector from './ChannelSelector.svelte';
   import UserSelector from './UserSelector.svelte';
+  import SavedSearchManager from './SavedSearchManager.svelte';
+  import { savedSearchesStore } from '../stores/savedSearches';
+  import { showToast } from '../stores/toast';
   import { getKeyboardService } from '../services/keyboardService';
   import { userService } from '../services/userService';
   import { realtimeStore } from '../stores/realtime';
@@ -27,6 +30,8 @@
   let urlInput = '';
   let urlLoading = false;
   let urlInputElement: HTMLInputElement;
+  let showSavedSearches = false;
+  let savedSearchButton: HTMLButtonElement;
   
   // Keep local filter values in sync with searchParams store
   // This ensures filters persist when dialogs are opened/closed or focus changes
@@ -61,6 +66,25 @@
     const hasQuery = $searchQuery.trim();
     
     if (hasQuery || hasFilters) {
+      // Save to saved searches if not a duplicate
+      const searchToSave = {
+        query: $searchQuery.trim() || undefined,
+        channel: channel || undefined,
+        userId: userId || undefined,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
+        limit
+      };
+      
+      // Check for duplicate before auto-saving
+      const duplicate = savedSearchesStore.isDuplicate(searchToSave);
+      if (!duplicate && !isRealtimeUpdate) {
+        // Auto-save search (without prompting for name)
+        savedSearchesStore.saveSearch(searchToSave);
+      } else if (duplicate && !isRealtimeUpdate) {
+        // Increment usage count for duplicate
+        savedSearchesStore.useSearch(duplicate.id);
+      }
       // Resolve user input to user ID if needed
       let resolvedUserId = userId;
       if (user && !userId) {
@@ -389,6 +413,57 @@
     clearAllFilters();
   }
   
+  // Saved search functions
+  function toggleSavedSearches() {
+    showSavedSearches = !showSavedSearches;
+  }
+  
+  function handleSavedSearchLoad(event: CustomEvent) {
+    const search = event.detail;
+    
+    // Load search parameters
+    if (search.query !== undefined) searchQuery.set(search.query);
+    if (search.channel !== undefined) channel = search.channel;
+    if (search.userId !== undefined) {
+      userId = search.userId;
+      // Try to resolve user name
+      userService.getUserById(search.userId).then(userInfo => {
+        if (userInfo) {
+          user = userInfo.name;
+        }
+      });
+    }
+    if (search.fromDate !== undefined) fromDate = search.fromDate;
+    if (search.toDate !== undefined) toDate = search.toDate;
+    if (search.limit !== undefined) limit = search.limit;
+    
+    // Execute the search
+    handleSearch();
+  }
+  
+  function saveCurrentSearch() {
+    if (!$searchQuery.trim() && !channel && !userId && !fromDate && !toDate) {
+      showToast('No search parameters to save', 'warning');
+      return;
+    }
+    
+    const name = prompt('Enter a name for this search:');
+    if (!name) return;
+    
+    savedSearchesStore.saveSearch({
+      name,
+      query: $searchQuery.trim() || undefined,
+      channel: channel || undefined,
+      userId: userId || undefined,
+      user: user || undefined,
+      fromDate: fromDate || undefined,
+      toDate: toDate || undefined,
+      limit
+    });
+    
+    showToast(`Saved search: ${name}`, 'success');
+  }
+  
   // Setup keyboard handlers
   onMount(() => {
     const keyboardService = getKeyboardService();
@@ -414,6 +489,18 @@
       },
       allowInInput: true
     });
+    
+    // Toggle Saved Searches
+    keyboardService.registerHandler('toggleSavedSearches', {
+      action: toggleSavedSearches,
+      allowInInput: false
+    });
+    
+    // Save Current Search
+    keyboardService.registerHandler('saveCurrentSearch', {
+      action: saveCurrentSearch,
+      allowInInput: true
+    });
   });
   
   onDestroy(() => {
@@ -421,6 +508,8 @@
     if (keyboardService) {
       keyboardService.unregisterHandler('executeSearch');
       keyboardService.unregisterHandler('clearSearch');
+      keyboardService.unregisterHandler('toggleSavedSearches');
+      keyboardService.unregisterHandler('saveCurrentSearch');
     }
   });
 </script>
@@ -437,6 +526,22 @@
       </svg>
       {#if $searchQuery || urlInput || channel || user || fromDate || toDate}
         <span class="filter-indicator"></span>
+      {/if}
+    </button>
+    
+    <button
+      bind:this={savedSearchButton}
+      on:click={toggleSavedSearches}
+      class="btn-toggle {showSavedSearches ? 'active' : ''}"
+      title="Saved searches (Ctrl+S)"
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M21 8.5l-7.5 7.5L9 11.5l-6 6"/>
+        <path d="M21 8.5h-6"/>
+        <path d="M21 8.5v6"/>
+      </svg>
+      {#if $savedSearchesStore.length > 0}
+        <span class="saved-count">{$savedSearchesStore.length}</span>
       {/if}
     </button>
     
@@ -633,6 +738,19 @@
       </div>
     </div>
   {/if}
+  
+  <!-- Saved Search Manager -->
+  {#if showSavedSearches && savedSearchButton}
+    <SavedSearchManager
+      isOpen={showSavedSearches}
+      position={{ 
+        top: savedSearchButton.getBoundingClientRect().bottom + 5, 
+        left: savedSearchButton.getBoundingClientRect().left 
+      }}
+      on:load={handleSavedSearchLoad}
+      on:close={() => showSavedSearches = false}
+    />
+  {/if}
 </div>
 
 <style>
@@ -822,6 +940,20 @@
     background: var(--primary);
     border-radius: 50%;
     animation: pulse 2s infinite;
+  }
+  
+  .saved-count {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: var(--primary);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.125rem 0.375rem;
+    border-radius: 10px;
+    min-width: 20px;
+    text-align: center;
   }
   
   @keyframes pulse {

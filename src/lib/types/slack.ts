@@ -119,6 +119,10 @@ export interface KeyboardShortcuts {
   zoomReset?: string | string[];
   toggleChannelFavorite?: string | string[];
   togglePerformanceMonitor?: string | string[];
+  // Saved searches shortcuts
+  toggleSavedSearches?: string | string[];
+  saveCurrentSearch?: string | string[];
+  quickSaveSearch?: string | string[];
   // Lightbox shortcuts
   openLightbox?: string | string[];
   lightboxNext?: string | string[];
