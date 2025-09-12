@@ -441,7 +441,7 @@
     handleSearch();
   }
   
-  function saveCurrentSearch() {
+  export function saveCurrentSearch() {
     if (!$searchQuery.trim() && !channel && !userId && !fromDate && !toDate) {
       showToast('No search parameters to save', 'warning');
       return;
@@ -490,19 +490,8 @@
       allowInInput: true
     });
     
-    // Toggle Saved Searches
-    keyboardService.registerHandler('toggleSavedSearches', {
-      action: toggleSavedSearches,
-      allowInInput: true,  // Allow in input fields so Ctrl+S works everywhere
-      preventDefault: true,  // Prevent default browser save action
-      stopPropagation: true
-    });
-    
-    // Save Current Search
-    keyboardService.registerHandler('saveCurrentSearch', {
-      action: saveCurrentSearch,
-      allowInInput: true
-    });
+    // Note: toggleSavedSearches and saveCurrentSearch handlers are now registered in App.svelte
+    // to ensure proper timing and avoid conflicts
   });
   
   onDestroy(() => {
@@ -510,8 +499,7 @@
     if (keyboardService) {
       keyboardService.unregisterHandler('executeSearch');
       keyboardService.unregisterHandler('clearSearch');
-      keyboardService.unregisterHandler('toggleSavedSearches');
-      keyboardService.unregisterHandler('saveCurrentSearch');
+      // Note: toggleSavedSearches and saveCurrentSearch are handled by App.svelte
     }
   });
 </script>
