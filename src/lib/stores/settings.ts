@@ -62,7 +62,8 @@ const defaultSettings: AppSettings = {
   theme: 'auto',
   keyboardShortcuts: defaultKeyboardShortcuts,
   reactionMappings: DEFAULT_REACTION_MAPPINGS,
-  debugMode: false  // Performance monitor is hidden by default
+  debugMode: false,  // Performance monitor is hidden by default
+  downloadFolder: null  // null means use default Downloads folder
 };
 
 // Initialize settings with default values
@@ -188,6 +189,18 @@ export function updateSettings(updates: Partial<AppSettings>) {
 
 export function toggleDebugMode() {
   settings.update(s => ({ ...s, debugMode: !s.debugMode }));
+}
+
+export function updateDownloadFolder(folder: string | null) {
+  settings.update(s => ({ ...s, downloadFolder: folder }));
+}
+
+export function getDownloadFolder(): string | null {
+  let folder: string | null = null;
+  settings.subscribe(s => {
+    folder = s.downloadFolder || null;
+  })();
+  return folder;
 }
 
 // Apply theme to document

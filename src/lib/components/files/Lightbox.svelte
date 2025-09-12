@@ -2,9 +2,11 @@
   import { onMount, onDestroy } from 'svelte';
   import { fade, scale } from 'svelte/transition';
   import type { FileMetadata } from '$lib/services/fileService';
-  import { downloadFile } from '$lib/api/files';
+  import { downloadFile, downloadFileWithOptions, downloadFilesInBatch } from '$lib/api/files';
   import { formatFileSize } from '$lib/api/files';
   import { activeWorkspace } from '$lib/stores/workspaces';
+  import { settings, getDownloadFolder } from '$lib/stores/settings';
+  import { showToast } from '$lib/stores/toast';
   import LightboxHelp from './LightboxHelp.svelte';
   import PdfRenderer from './PdfRenderer.svelte';
 
@@ -64,7 +66,7 @@
 
   function handleKeydown(event: KeyboardEvent) {
     // Prevent default behavior for navigation keys and stop propagation to prevent message list from capturing them
-    const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'j', 'k', 'h', 'l', 'PageUp', 'PageDown', 'Home', 'End'];
+    const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'j', 'k', 'h', 'l', 'PageUp', 'PageDown', 'Home', 'End', 'd', 'D'];
     if (navigationKeys.includes(event.key)) {
       event.preventDefault();
       event.stopPropagation();
@@ -195,6 +197,19 @@
       case '?':
         // Show help (optional - could trigger a help overlay)
         showKeyboardHelp();
+        break;
+      case 'd':
+        if (event.shiftKey) {
+          // Shift+d - Download all files from current message
+          downloadAllFiles();
+        } else {
+          // d - Download current file
+          downloadFullFile(false);
+        }
+        break;
+      case 'D':
+        // Capital D (Shift+d) - Download all files
+        downloadAllFiles();
         break;
     }
   }
@@ -425,26 +440,64 @@
     isDragging = false;
   }
 
-  async function downloadFullFile() {
-    if (!$activeWorkspace || isDownloading) return;
+  async function downloadFullFile(showDialog = false) {
+    if (isDownloading) return;
     
     isDownloading = true;
     downloadError = null;
     
     try {
-      const localPath = await downloadFile($activeWorkspace.id, file.file);
+      const downloadFolder = getDownloadFolder();
+      const result = await downloadFileWithOptions(
+        file.file.url_private_download || file.file.url_private,
+        file.file.name,
+        {
+          savePath: showDialog ? null : downloadFolder,
+          showDialog: showDialog || (!downloadFolder && !showDialog)
+        }
+      );
       
-      if (localPath) {
-        // Create a download link
-        const link = document.createElement('a');
-        link.href = `file://${localPath}`;
-        link.download = file.file.name;
-        link.click();
-      } else {
-        downloadError = 'Failed to download file';
+      if (result.success) {
+        showToast(`Downloaded: ${file.file.name}`, 'success');
+      } else if (result.error && !result.error.includes('cancelled')) {
+        downloadError = result.error;
+        showToast(`Download failed: ${result.error}`, 'error');
       }
     } catch (error) {
       downloadError = error instanceof Error ? error.message : 'Download failed';
+      showToast(`Download failed: ${downloadError}`, 'error');
+    } finally {
+      isDownloading = false;
+    }
+  }
+  
+  async function downloadAllFiles() {
+    if (!allFiles.length || isDownloading) return;
+    
+    isDownloading = true;
+    downloadError = null;
+    
+    try {
+      const downloadFolder = getDownloadFolder();
+      const filesToDownload = allFiles.map(f => ({
+        url: f.file.url_private_download || f.file.url_private,
+        fileName: f.file.name
+      }));
+      
+      const result = await downloadFilesInBatch(filesToDownload, {
+        savePath: downloadFolder,
+        showDialog: !downloadFolder
+      });
+      
+      if (result.success) {
+        showToast(`Downloaded ${result.paths?.length || 0} files`, 'success');
+      } else if (result.error && !result.error.includes('cancelled')) {
+        downloadError = result.error;
+        showToast(`Batch download failed: ${result.error}`, 'error');
+      }
+    } catch (error) {
+      downloadError = error instanceof Error ? error.message : 'Batch download failed';
+      showToast(`Batch download failed: ${downloadError}`, 'error');
     } finally {
       isDownloading = false;
     }
@@ -697,13 +750,25 @@
         
         <button 
           class="action-btn"
-          on:click={downloadFullFile}
+          on:click={() => downloadFullFile(false)}
           disabled={isDownloading}
-          title="Download">
+          title="Download (d)">
           <svg width="20" height="20" viewBox="0 0 20 20">
             <path fill="currentColor" d="M10 14L6 10h2.5V4h3v6H14l-4 4zm-7 3v1h14v-1H3z"/>
           </svg>
         </button>
+        
+        {#if allFiles.length > 1}
+          <button 
+            class="action-btn"
+            on:click={downloadAllFiles}
+            disabled={isDownloading}
+            title="Download all files (Shift+d)">
+            <svg width="20" height="20" viewBox="0 0 20 20">
+              <path fill="currentColor" d="M7 14L3 10h2.5V4h3v6H11l-4 4zm6-4V4h3v6h2.5l-4 4-4-4H13zm-10 7v1h14v-1H3z"/>
+            </svg>
+          </button>
+        {/if}
         
         <button 
           class="action-btn close-btn"

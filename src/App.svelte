@@ -39,6 +39,7 @@
   import RealtimeSettings from './lib/components/RealtimeSettings.svelte';
   import PerformanceSettings from './lib/components/PerformanceSettings.svelte';
   import PerformanceDashboard from './lib/components/PerformanceDashboard.svelte';
+  import DownloadSettings from './lib/components/DownloadSettings.svelte';
   import Toast from './lib/components/Toast.svelte';
   import LightboxContainer from './lib/components/files/LightboxContainer.svelte';
   import { workspaceStore, activeWorkspace } from './lib/stores/workspaces';
@@ -1119,6 +1120,8 @@
         <RealtimeSettings />
         
         <PerformanceSettings />
+        
+        <DownloadSettings />
         
         <div class="setting-group">
           <label>

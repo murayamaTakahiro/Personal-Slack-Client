@@ -35,6 +35,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .manage(AppState::new())
         .setup(|app| {
             // Get the main window and maximize it on startup
@@ -84,6 +85,9 @@ pub fn run() {
             commands::files::get_slack_file,
             commands::files::get_authenticated_file_url,
             commands::files::download_slack_file,
+            commands::files::download_slack_file_with_options,
+            commands::files::download_slack_files_batch,
+            commands::files::select_download_folder,
             commands::files::create_file_data_url,
         ])
         .run(tauri::generate_context!())

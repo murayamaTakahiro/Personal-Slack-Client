@@ -147,6 +147,7 @@ export interface AppSettings {
   reactionMappings?: ReactionMapping[];
   mentionHistory?: MentionHistory[];
   debugMode?: boolean;
+  downloadFolder?: string | null;  // Custom download folder path, null means use default
 }
 
 export interface SearchHistory {

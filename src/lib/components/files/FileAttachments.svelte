@@ -7,6 +7,9 @@
     calculateTotalSize,
     type FileGroup 
   } from '$lib/services/fileService';
+  import { downloadFilesInBatch } from '$lib/api/files';
+  import { getDownloadFolder } from '$lib/stores/settings';
+  import { showToast } from '$lib/stores/toast';
   import ImagePreview from './ImagePreview.svelte';
   import PdfPreview from './PdfPreview.svelte';
   import GenericFilePreview from './GenericFilePreview.svelte';
@@ -20,6 +23,7 @@
   let totalSize: string = '';
   let isLoading = true;
   let error: string | null = null;
+  let isDownloading = false;
 
   $: if (files?.length > 0) {
     processFiles();
@@ -92,6 +96,36 @@
       return GenericFilePreview;
     }
   }
+  
+  async function downloadAllFiles() {
+    if (!files.length || isDownloading) return;
+    
+    isDownloading = true;
+    
+    try {
+      const downloadFolder = getDownloadFolder();
+      const filesToDownload = files.map(f => ({
+        url: f.url_private_download || f.url_private,
+        fileName: f.name
+      }));
+      
+      const result = await downloadFilesInBatch(filesToDownload, {
+        savePath: downloadFolder,
+        showDialog: !downloadFolder
+      });
+      
+      if (result.success) {
+        showToast(`Downloaded ${result.paths?.length || 0} files`, 'success');
+      } else if (result.error && !result.error.includes('cancelled')) {
+        showToast(`Download failed: ${result.error}`, 'error');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Download failed';
+      showToast(`Download failed: ${errorMessage}`, 'error');
+    } finally {
+      isDownloading = false;
+    }
+  }
 </script>
 
 <div class="file-attachments" class:compact>
@@ -149,11 +183,28 @@
         </div>
       {/each}
       
-      {#if !compact && files.length > 1}
+      {#if !compact}
         <div class="files-footer">
           <span class="total-info">
             Total: {files.length} file{files.length !== 1 ? 's' : ''} • {totalSize}
           </span>
+          {#if files.length > 0}
+            <button 
+              class="download-all-btn"
+              on:click={downloadAllFiles}
+              disabled={isDownloading}
+              title="Download all files (Shift+d when lightbox is open)"
+            >
+              <svg width="16" height="16" viewBox="0 0 20 20">
+                <path fill="currentColor" d="M7 14L3 10h2.5V4h3v6H11l-4 4zm6-4V4h3v6h2.5l-4 4-4-4H13zm-10 7v1h14v-1H3z"/>
+              </svg>
+              {#if isDownloading}
+                Downloading...
+              {:else}
+                Download All
+              {/if}
+            </button>
+          {/if}
         </div>
       {/if}
     </div>
@@ -298,6 +349,35 @@
     font-size: 0.75rem;
     color: var(--color-text-secondary);
   }
+  
+  .download-all-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    background: var(--color-primary-bg);
+    color: var(--color-primary);
+    border: 1px solid var(--color-primary);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .download-all-btn:hover:not(:disabled) {
+    background: var(--color-primary);
+    color: white;
+  }
+  
+  .download-all-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .download-all-btn svg {
+    flex-shrink: 0;
+  }
 
   @media (max-width: 640px) {
     .files-grid {
@@ -318,6 +398,8 @@
     --color-error-bg: rgba(224, 30, 90, 0.1);
     --color-skeleton-base: #2c2d2e;
     --color-skeleton-shine: #3a3b3c;
+    --color-primary: #1264a3;
+    --color-primary-bg: rgba(18, 100, 163, 0.1);
   }
 
   :global([data-theme="light"]) {
@@ -329,5 +411,7 @@
     --color-error-bg: rgba(224, 30, 90, 0.05);
     --color-skeleton-base: #f0f0f0;
     --color-skeleton-shine: #e0e0e0;
+    --color-primary: #1264a3;
+    --color-primary-bg: rgba(18, 100, 163, 0.05);
   }
 </style>

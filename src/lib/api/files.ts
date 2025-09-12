@@ -129,6 +129,96 @@ export async function downloadFile(
 }
 
 /**
+ * Download a file with custom save location options
+ */
+export async function downloadFileWithOptions(
+  url: string,
+  fileName: string,
+  options?: {
+    savePath?: string | null;
+    showDialog?: boolean;
+  }
+): Promise<FileDownloadResult> {
+  try {
+    const localPath = await invoke<string>('download_slack_file_with_options', {
+      url,
+      fileName,
+      savePath: options?.savePath || null,
+      showDialog: options?.showDialog || false
+    });
+
+    return {
+      success: true,
+      localPath
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    // Check if user cancelled
+    if (errorMessage.includes('cancelled')) {
+      return {
+        success: false,
+        error: 'Download cancelled'
+      };
+    }
+    return {
+      success: false,
+      error: errorMessage
+    };
+  }
+}
+
+/**
+ * Download multiple files at once
+ */
+export async function downloadFilesInBatch(
+  files: Array<{ url: string; fileName: string }>,
+  options?: {
+    savePath?: string | null;
+    showDialog?: boolean;
+  }
+): Promise<{ success: boolean; paths?: string[]; error?: string }> {
+  try {
+    const fileTuples = files.map(f => [f.url, f.fileName] as [string, string]);
+    
+    const paths = await invoke<string[]>('download_slack_files_batch', {
+      files: fileTuples,
+      savePath: options?.savePath || null,
+      showDialog: options?.showDialog || false
+    });
+
+    return {
+      success: true,
+      paths
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    if (errorMessage.includes('cancelled')) {
+      return {
+        success: false,
+        error: 'Download cancelled'
+      };
+    }
+    return {
+      success: false,
+      error: errorMessage
+    };
+  }
+}
+
+/**
+ * Show folder selection dialog
+ */
+export async function selectDownloadFolder(): Promise<string | null> {
+  try {
+    const result = await invoke<string | null>('select_download_folder');
+    return result;
+  } catch (error) {
+    console.error('Failed to select folder:', error);
+    return null;
+  }
+}
+
+/**
  * Get a file from cache or download it
  */
 export async function getOrDownloadFile(
