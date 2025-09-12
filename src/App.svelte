@@ -80,102 +80,204 @@
   let previousMessageIds = new Set<string>();
   let unsubscribeRealtime: (() => void) | null = null;
   let unsubscribeSearchResults: (() => void) | null = null;
+  let appInitialized = false;
+  let initializationError: string | null = null;
   
   onMount(async () => {
     try {
-      console.log('[App] Starting onMount initialization...');
+      console.log('[App] Starting robust onMount initialization...');
       
-      // Simple initialization - just use DEFAULT_REACTION_MAPPINGS
+      // Initialize core stores with better error handling
+      await initializeCoreStores();
       
-      // Initialize saved searches store
-      try {
-        await savedSearchesStore.initialize();
-        console.log('[App] Saved searches store initialized successfully');
-      } catch (error) {
-        console.error('[App] Failed to initialize saved searches:', error);
-        // Don't let this failure crash the entire app
-      }
-    
       // Initialize settings from persistent store
-      const currentSettings = await initializeSettings();
+      const currentSettings = await safeInitializeSettings();
       console.log('[App] Settings initialized successfully');
       
-      // Initialize zoom store
-      try {
-        await zoomStore.initialize();
-        console.log('[App] Zoom store initialized successfully');
-      } catch (error) {
-        console.error('[App] Failed to initialize zoom store:', error);
-      }
+      // Initialize additional stores
+      await initializeAdditionalStores();
       
-      // Initialize performance settings
+      // Mark app as successfully initialized
+      appInitialized = true;
+      initializationError = null;
+      console.log('[App] Core initialization completed successfully');
+      
+      // Continue with workspace and UI initialization
+      await initializeWorkspaceAndUI(currentSettings);
+      
+      console.log('[App] Full initialization completed successfully');
+      
+    } catch (error) {
+      console.error('[App] Critical error during onMount initialization:', error);
+      appInitialized = false;
+      initializationError = error instanceof Error ? error.message : 'Unknown initialization error';
+      
+      // Try to show a toast notification if possible
       try {
-        await initializePerformanceSettings();
-        console.log('[App] Performance settings initialized successfully');
-      } catch (error) {
-        console.error('[App] Failed to initialize performance settings:', error);
+        showToast('App initialization failed - some features may not work properly', 'error');
+      } catch (toastError) {
+        console.error('[App] Even toast notification failed:', toastError);
       }
-    
-    // Note: Emoji service will be initialized after token is loaded
-    
-    // Request notification permission if needed
-    if ('Notification' in window && Notification.permission === 'default') {
-      await Notification.requestPermission();
     }
-    
-    // Setup realtime updates subscription
-    let previousInterval: number | null = null;
-    unsubscribeRealtime = realtimeStore.subscribe(state => {
-      if (state.isEnabled) {
-        // Check if interval has changed and restart if needed
-        if (previousInterval !== null && previousInterval !== state.updateInterval) {
-          // Interval changed - restart timer
-          stopRealtimeUpdates();
-          startRealtimeUpdates();
-        } else if (previousInterval === null) {
-          startRealtimeUpdates();
-        }
-        previousInterval = state.updateInterval;
-      } else {
-        stopRealtimeUpdates();
-        previousInterval = null;
-      }
-    });
-    
-    // Subscribe to search results to detect new messages
-    unsubscribeSearchResults = searchResults.subscribe(results => {
-      const state = get(realtimeStore);
-      if (!results || !state.isEnabled) return;
+  });
+  
+  // Robust store initialization
+  async function initializeCoreStores() {
+    const initPromises = [
+      // Initialize saved searches store with timeout
+      Promise.race([
+        savedSearchesStore.initialize().catch(error => {
+          console.warn('[App] Saved searches initialization failed:', error);
+          return null; // Don't let this break the app
+        }),
+        new Promise(resolve => setTimeout(() => {
+          console.warn('[App] Saved searches initialization timed out');
+          resolve(null);
+        }, 5000))
+      ]),
       
-      // Calculate new messages
-      const newMessages = results.messages.filter(m => !previousMessageIds.has(m.id));
+      // Initialize zoom store with timeout
+      Promise.race([
+        zoomStore.initialize().catch(error => {
+          console.warn('[App] Zoom store initialization failed:', error);
+          return null;
+        }),
+        new Promise(resolve => setTimeout(() => {
+          console.warn('[App] Zoom store initialization timed out');
+          resolve(null);
+        }, 3000))
+      ]),
       
-      if (newMessages.length > 0) {
-        // Found new messages
-        
-        // Show notification if enabled
-        if (state.showNotifications && 'Notification' in window) {
-          if (Notification.permission === 'granted') {
-            new Notification('New Slack Messages', {
-              body: `${newMessages.length} new message${newMessages.length > 1 ? 's' : ''} in monitored channels`,
-              icon: '/slack-icon.png'
-            });
-          } else if (Notification.permission !== 'denied') {
-            Notification.requestPermission();
-          }
-        }
-        
-        // Auto-scroll if enabled
-        if (state.autoScroll && resultListElement) {
-          // Scroll to top to show new messages
-          resultListElement.scrollToTop();
+      // Initialize performance settings with timeout
+      Promise.race([
+        initializePerformanceSettings().catch(error => {
+          console.warn('[App] Performance settings initialization failed:', error);
+          return null;
+        }),
+        new Promise(resolve => setTimeout(() => {
+          console.warn('[App] Performance settings initialization timed out');
+          resolve(null);
+        }, 3000))
+      ])
+    ];
+    
+    await Promise.allSettled(initPromises);
+    console.log('[App] Core stores initialization completed (with any failures handled)');
+  }
+  
+  // Safe settings initialization
+  async function safeInitializeSettings() {
+    try {
+      return await initializeSettings();
+    } catch (error) {
+      console.error('[App] Settings initialization failed, using defaults:', error);
+      showToast('Settings could not be loaded, using defaults', 'warning');
+      // Return default settings to prevent app crash
+      return {
+        maxResults: 1000,
+        theme: 'auto',
+        keyboardShortcuts: {},
+        reactionMappings: {},
+        debugMode: false,
+        downloadFolder: null
+      };
+    }
+  }
+  
+  // Additional store initialization
+  async function initializeAdditionalStores() {
+    // Any additional store initialization can go here
+    // Currently empty but ready for expansion
+  }
+  
+  // Workspace and UI initialization
+  async function initializeWorkspaceAndUI(currentSettings: any) {
+    try {
+      // Request notification permission if needed
+      if ('Notification' in window && Notification.permission === 'default') {
+        try {
+          await Notification.requestPermission();
+        } catch (error) {
+          console.warn('[App] Failed to request notification permission:', error);
         }
       }
-    });
-    
-      // Initialize keyboard service
+      
+      // Setup realtime updates subscription with error handling
       try {
-        keyboardService = initKeyboardService(currentSettings.keyboardShortcuts);
+        let previousInterval: number | null = null;
+        unsubscribeRealtime = realtimeStore.subscribe(state => {
+          try {
+            if (state.isEnabled) {
+              // Check if interval has changed and restart if needed
+              if (previousInterval !== null && previousInterval !== state.updateInterval) {
+                // Interval changed - restart timer
+                stopRealtimeUpdates();
+                startRealtimeUpdates();
+              } else if (previousInterval === null) {
+                startRealtimeUpdates();
+              }
+              previousInterval = state.updateInterval;
+            } else {
+              stopRealtimeUpdates();
+              previousInterval = null;
+            }
+          } catch (error) {
+            console.error('[App] Error in realtime subscription:', error);
+          }
+        });
+      } catch (error) {
+        console.error('[App] Failed to setup realtime subscription:', error);
+      }
+      
+      // Subscribe to search results to detect new messages with error handling
+      try {
+        unsubscribeSearchResults = searchResults.subscribe(results => {
+          try {
+            const state = get(realtimeStore);
+            if (!results || !state.isEnabled) return;
+            
+            // Calculate new messages
+            const newMessages = results.messages.filter(m => !previousMessageIds.has(m.id));
+            
+            if (newMessages.length > 0) {
+              // Found new messages
+              
+              // Show notification if enabled
+              if (state.showNotifications && 'Notification' in window) {
+                try {
+                  if (Notification.permission === 'granted') {
+                    new Notification('New Slack Messages', {
+                      body: `${newMessages.length} new message${newMessages.length > 1 ? 's' : ''} in monitored channels`,
+                      icon: '/slack-icon.png'
+                    });
+                  } else if (Notification.permission !== 'denied') {
+                    Notification.requestPermission();
+                  }
+                } catch (notifError) {
+                  console.warn('[App] Failed to show notification:', notifError);
+                }
+              }
+              
+              // Auto-scroll if enabled
+              if (state.autoScroll && resultListElement) {
+                try {
+                  resultListElement.scrollToTop();
+                } catch (scrollError) {
+                  console.warn('[App] Failed to auto-scroll:', scrollError);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('[App] Error in search results subscription:', error);
+          }
+        });
+      } catch (error) {
+        console.error('[App] Failed to setup search results subscription:', error);
+      }
+    
+      // Initialize keyboard service with error handling
+      try {
+        keyboardService = initKeyboardService(currentSettings.keyboardShortcuts || {});
         console.log('[App] Keyboard service initialized successfully');
         
         // Register keyboard handlers with a slight delay to ensure components are mounted
@@ -186,6 +288,7 @@
             console.log('[App] Keyboard handlers setup successfully');
           } catch (handlerError) {
             console.error('[App] Failed to setup keyboard handlers (delayed):', handlerError);
+            showToast('Some keyboard shortcuts may not work properly', 'warning');
           }
         }, 100);
         
@@ -199,7 +302,7 @@
       // No need to load them again here unless we want to ensure sync
       // between settings store and reaction service store
       
-      // Add global keyboard event listener
+      // Add global keyboard event listener with error handling
       try {
         document.addEventListener('keydown', handleGlobalKeydown);
         console.log('[App] Global keydown listener added successfully');
@@ -207,21 +310,56 @@
         console.error('[App] Failed to add global keydown listener:', error);
       }
       
-      // Add workspace switch event listener
+      // Add workspace switch event listener with error handling
       try {
         window.addEventListener('workspace-switched', handleWorkspaceSwitched);
         console.log('[App] Workspace switch listener added successfully');
       } catch (error) {
         console.error('[App] Failed to add workspace switch listener:', error);
       }
-    
-    // Check for multi-workspace mode preference
-    const multiWorkspaceEnabled = localStorage.getItem('multiWorkspaceEnabled');
-    if (multiWorkspaceEnabled === 'true') {
-      useMultiWorkspace = true;
+      
+      // Initialize workspace mode with robust error handling
+      await initializeWorkspaceMode();
+      
+    } catch (error) {
+      console.error('[App] Error during workspace and UI initialization:', error);
+      // Don't let this crash the app, but warn the user
+      showToast('Some features may not be available due to initialization errors', 'warning');
+    }
+  }
+  
+  // Robust workspace initialization
+  async function initializeWorkspaceMode() {
+    try {
+      // Check for multi-workspace mode preference
+      const multiWorkspaceEnabled = localStorage.getItem('multiWorkspaceEnabled');
+      if (multiWorkspaceEnabled === 'true') {
+        useMultiWorkspace = true;
+        await safeInitializeMultiWorkspace();
+      } else {
+        // Legacy single workspace mode
+        await safeInitializeLegacyWorkspace();
+      }
+    } catch (error) {
+      console.error('[App] Failed to initialize workspace mode:', error);
+      searchError.set('Failed to initialize workspace. Please check your configuration and try again.');
+    }
+  }
+  
+  // Safe multi-workspace initialization
+  async function safeInitializeMultiWorkspace() {
+    try {
       await initializeMultiWorkspace();
-    } else {
-      // Legacy single workspace mode
+    } catch (error) {
+      console.error('[App] Multi-workspace initialization failed:', error);
+      // Fall back to showing an error message instead of crashing
+      searchError.set('Multi-workspace initialization failed. Please check your workspace configuration.');
+    }
+  }
+  
+  // Safe legacy workspace initialization
+  async function safeInitializeLegacyWorkspace() {
+    try {
       const { token: savedToken, workspace: savedWorkspace } = await loadSecureSettings();
       if (savedToken) {
         // Check if we should migrate to multi-workspace
@@ -232,64 +370,60 @@
             useMultiWorkspace = true;
             localStorage.setItem('multiWorkspaceEnabled', 'true');
             await workspaceStore.migrateFromLegacy(savedToken, savedWorkspace || 'workspace');
-            await initializeMultiWorkspace();
-          } else {
-            // Continue with legacy mode
-            token = savedToken;
-            maskedToken = maskTokenClient(savedToken);
-            workspace = savedWorkspace || '';
-            
-            // Initialize token in backend
-            try {
-              const initialized = await initTokenFromStorage();
-              if (initialized) {
-                // Initialize current user ID
-                logger.debug('[App] Initializing current user ID...');
-                await initializeCurrentUser();
-                logger.debug('[App] Current user ID initialized');
-                
-                // Initialize emoji service after token is loaded
-                logger.debug('[App] Initializing emoji service after token load...');
-                await emojiService.initialize();
-                logger.debug('[App] Emoji service initialized');
-                
-                await loadChannels();
-              } else {
-                // Token found in frontend but not initialized in backend
-                logger.warn('[App] Token not initialized in backend, skipping emoji service initialization');
-              }
-            } catch (err) {
-              // Failed to initialize token
-              logger.error('[App] Failed to initialize token:', err);
-            }
+            await safeInitializeMultiWorkspace();
+            return;
           }
         } else {
           // Already has workspaces, use multi-workspace mode
           useMultiWorkspace = true;
           localStorage.setItem('multiWorkspaceEnabled', 'true');
-          await initializeMultiWorkspace();
+          await safeInitializeMultiWorkspace();
+          return;
         }
+        
+        // Continue with legacy mode
+        await initializeLegacyToken(savedToken, savedWorkspace);
       } else {
         // No token saved, show a helpful message
         searchError.set('Welcome! Please configure your Slack token in Settings to start searching.');
       }
-    }
-    
-    console.log('[App] onMount initialization completed successfully');
-    
-  } catch (error) {
-    console.error('[App] Critical error during onMount initialization:', error);
-    // Don't let initialization errors cause a white screen
-    searchError.set('App initialization failed. Please refresh the page. If the problem persists, check the console for details.');
-    
-    // Try to show a toast notification if possible
-    try {
-      showToast('App initialization failed - please refresh', 'error');
-    } catch (toastError) {
-      console.error('[App] Even toast notification failed:', toastError);
+    } catch (error) {
+      console.error('[App] Legacy workspace initialization failed:', error);
+      searchError.set('Failed to load workspace configuration. Please check your settings.');
     }
   }
-  });
+  
+  // Safe legacy token initialization
+  async function initializeLegacyToken(savedToken: string, savedWorkspace: string) {
+    try {
+      token = savedToken;
+      maskedToken = maskTokenClient(savedToken);
+      workspace = savedWorkspace || '';
+      
+      // Initialize token in backend
+      const initialized = await initTokenFromStorage();
+      if (initialized) {
+        // Initialize current user ID
+        logger.debug('[App] Initializing current user ID...');
+        await initializeCurrentUser();
+        logger.debug('[App] Current user ID initialized');
+        
+        // Initialize emoji service after token is loaded
+        logger.debug('[App] Initializing emoji service after token load...');
+        await emojiService.initialize();
+        logger.debug('[App] Emoji service initialized');
+        
+        await loadChannels();
+      } else {
+        // Token found in frontend but not initialized in backend
+        logger.warn('[App] Token not initialized in backend, skipping emoji service initialization');
+        searchError.set('Failed to initialize Slack connection. Please check your token.');
+      }
+    } catch (err) {
+      console.error('[App] Failed to initialize legacy token:', err);
+      searchError.set('Failed to initialize Slack connection. Please check your token and try again.');
+    }
+  }
   
   onDestroy(() => {
     // Clean up event listeners
@@ -1086,38 +1220,68 @@
 </script>
 
 <div class="app">
-  <header class="app-header">
-    <h1>Personal Slack Client</h1>
-    
-    {#if $realtimeStore.isEnabled}
-      <div class="realtime-indicator">
-        <span class="live-badge">LIVE</span>
-        {#if $formattedLastUpdate}
-          <span class="last-update">Updated: {$formattedLastUpdate}</span>
-        {/if}
+  <!-- App Initialization Status -->
+  {#if !appInitialized && !initializationError}
+    <div class="initialization-loading">
+      <div class="loading-spinner">
+        <div class="spinner"></div>
       </div>
-    {/if}
+      <h2>Initializing Personal Slack Client...</h2>
+      <p>Please wait while we set up your workspace.</p>
+    </div>
+  {:else if initializationError}
+    <div class="initialization-error" role="alert">
+      <div class="error-icon">⚠️</div>
+      <h2>Initialization Failed</h2>
+      <p class="error-message">{initializationError}</p>
+      <div class="error-actions">
+        <button on:click={() => window.location.reload()} class="btn-primary">
+          Reload Page
+        </button>
+        <button on:click={() => showSettings = true} class="btn-secondary">
+          Open Settings
+        </button>
+      </div>
+    </div>
+  {:else}
+    <!-- Main App UI -->
+    <ErrorBoundary fallback="Header functionality is temporarily unavailable">
+      <header class="app-header">
+        <h1>Personal Slack Client</h1>
+        
+        {#if $realtimeStore.isEnabled}
+          <div class="realtime-indicator">
+            <span class="live-badge">LIVE</span>
+            {#if $formattedLastUpdate}
+              <span class="last-update">Updated: {$formattedLastUpdate}</span>
+            {/if}
+          </div>
+        {/if}
+        
+        {#if useMultiWorkspace}
+          <ErrorBoundary fallback="Workspace switcher unavailable">
+            <WorkspaceSwitcher 
+              on:workspaceSwitched={handleWorkspaceSwitched}
+              on:workspaceAdded={handleWorkspaceSwitched}
+            />
+          </ErrorBoundary>
+        {/if}
+        
+        <button
+          class="btn-settings"
+          on:click={() => showSettings = !showSettings}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 1v6m0 6v6m4.22-13.22 4.24 4.24M1.54 1.54l4.24 4.24M20.46 20.46l-4.24-4.24M1.54 20.46l4.24-4.24"/>
+          </svg>
+          Settings
+        </button>
+      </header>
+    </ErrorBoundary>
     
-    {#if useMultiWorkspace}
-      <WorkspaceSwitcher 
-        on:workspaceSwitched={handleWorkspaceSwitched}
-        on:workspaceAdded={handleWorkspaceSwitched}
-      />
-    {/if}
-    
-    <button
-      class="btn-settings"
-      on:click={() => showSettings = !showSettings}
-    >
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M12 1v6m0 6v6m4.22-13.22 4.24 4.24M1.54 1.54l4.24 4.24M20.46 20.46l-4.24-4.24M1.54 20.46l4.24-4.24"/>
-      </svg>
-      Settings
-    </button>
-  </header>
-  
-  {#if showSettings}
+    <!-- Settings Panel -->
+    {#if showSettings}
     <div class="settings-panel">
       <div class="settings-header">
         <h2>Settings</h2>
@@ -1253,23 +1417,26 @@
         </button>
       </div>
     </div>
-  {:else}
-    {#if $searchError}
-      <div class="error-banner">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="8" x2="12" y2="12"/>
-          <line x1="12" y1="16" x2="12.01" y2="16"/>
-        </svg>
-        <span>{$searchError}</span>
-        <button class="btn-close" on:click={() => searchError.set(null)}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-    {/if}
+    {:else}
+      <!-- Main App Content with Error Boundaries -->
+      <ErrorBoundary fallback="Error banner unavailable">
+        {#if $searchError}
+          <div class="error-banner">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span>{$searchError}</span>
+            <button class="btn-close" on:click={() => searchError.set(null)}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        {/if}
+      </ErrorBoundary>
     
     <ErrorBoundary fallback="Search functionality temporarily unavailable">
       <SearchBar
@@ -1309,26 +1476,45 @@
           </ErrorBoundary>
         </div>
       </div>
+      {/if}
     {/if}
-  {/if}
-  
-  <KeyboardHelp bind:show={showKeyboardHelp} />
-  <EmojiSearchDialog 
-    bind:isOpen={showEmojiSearch}
-    on:select={(event) => {
-      logger.debug('Selected emoji:', event.detail);
-      // You can handle the selected emoji here if needed
-    }}
-  />
-  <Toast />
-  <LightboxContainer />
-  {#if $performanceSettings.performanceMetrics}
-    <PerformanceDashboard />
-  {/if}
-  <!-- Performance Monitor for real-time metrics (only visible in debug mode) -->
-  {#if $settings.debugMode}
-    <PerformanceMonitor />
-  {/if}
+    
+    <!-- Global UI Components with Error Boundaries -->
+    <ErrorBoundary fallback="Keyboard help unavailable">
+      <KeyboardHelp bind:show={showKeyboardHelp} />
+    </ErrorBoundary>
+    
+    <ErrorBoundary fallback="Emoji search unavailable">
+      <EmojiSearchDialog 
+        bind:isOpen={showEmojiSearch}
+        on:select={(event) => {
+          logger.debug('Selected emoji:', event.detail);
+          // You can handle the selected emoji here if needed
+        }}
+      />
+    </ErrorBoundary>
+    
+    <ErrorBoundary fallback="Toast notifications unavailable">
+      <Toast />
+    </ErrorBoundary>
+    
+    <ErrorBoundary fallback="Lightbox unavailable">
+      <LightboxContainer />
+    </ErrorBoundary>
+    
+    <ErrorBoundary fallback="Performance dashboard unavailable">
+      {#if $performanceSettings.performanceMetrics}
+        <PerformanceDashboard />
+      {/if}
+    </ErrorBoundary>
+    
+    <ErrorBoundary fallback="Performance monitor unavailable">
+      <!-- Performance Monitor for real-time metrics (only visible in debug mode) -->
+      {#if $settings.debugMode}
+        <PerformanceMonitor />
+      {/if}
+    </ErrorBoundary>
+  {/if} <!-- End main app initialized check -->
 </div>
 
 <style>
@@ -1699,5 +1885,76 @@
     margin-bottom: 2rem;
     color: var(--text-secondary);
     font-size: 1.1rem;
+  }
+  
+  /* Initialization loading state */
+  .initialization-loading,
+  .initialization-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+    text-align: center;
+    background: var(--bg-primary);
+  }
+  
+  .loading-spinner {
+    margin-bottom: 2rem;
+  }
+  
+  .spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid var(--border);
+    border-top: 4px solid var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  .initialization-loading h2,
+  .initialization-error h2 {
+    margin: 0 0 1rem 0;
+    color: var(--text-primary);
+    font-size: 1.75rem;
+  }
+  
+  .initialization-loading p,
+  .initialization-error p {
+    margin: 0 0 2rem 0;
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+  }
+  
+  .initialization-error {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 2rem auto;
+    max-width: 600px;
+    min-height: auto;
+  }
+  
+  .initialization-error .error-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
+  
+  .initialization-error .error-message {
+    color: var(--error);
+    font-weight: 500;
+  }
+  
+  .initialization-error .error-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
   }
 </style>

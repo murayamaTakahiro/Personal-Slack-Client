@@ -30,25 +30,38 @@ async function getStore(): Promise<any> {
 export async function saveToStore(key: string, value: any): Promise<void> {
   console.log('[PersistentStore] Saving to store:', key, value);
   
-  // Try to get Tauri store
-  const s = await getStore();
-  
-  if (!s) {
-    // No Tauri store available, use localStorage
-    console.log('[PersistentStore] Using localStorage');
-    localStorage.setItem(key, JSON.stringify(value));
-    return;
+  // Validate inputs
+  if (!key || typeof key !== 'string') {
+    throw new Error('Invalid key provided to saveToStore');
   }
   
   try {
+    // Try to get Tauri store
+    const s = await getStore();
+    
+    if (!s) {
+      // No Tauri store available, use localStorage
+      console.log('[PersistentStore] Using localStorage');
+      const serializedValue = JSON.stringify(value);
+      localStorage.setItem(key, serializedValue);
+      return;
+    }
+    
+    // Use Tauri store
     await s.set(key, value);
     await s.save();
     console.log('[PersistentStore] Successfully saved to Tauri store');
   } catch (error) {
     console.error('[PersistentStore] Failed to save to Tauri store:', error);
     // Fallback to localStorage if Tauri store fails
-    localStorage.setItem(key, JSON.stringify(value));
-    console.log('[PersistentStore] Fallback: saved to localStorage');
+    try {
+      const serializedValue = JSON.stringify(value);
+      localStorage.setItem(key, serializedValue);
+      console.log('[PersistentStore] Fallback: saved to localStorage');
+    } catch (fallbackError) {
+      console.error('[PersistentStore] Even localStorage fallback failed:', fallbackError);
+      throw new Error(`Failed to save data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 }
 
@@ -58,45 +71,55 @@ export async function saveToStore(key: string, value: any): Promise<void> {
 export async function loadFromStore<T>(key: string, defaultValue: T): Promise<T> {
   console.log('[PersistentStore] Loading from store:', key);
   
-  // Try to get Tauri store
-  const s = await getStore();
-  
-  if (!s) {
-    // No Tauri store available, use localStorage
-    console.log('[PersistentStore] Using localStorage');
-    const stored = localStorage.getItem(key);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        console.log('[PersistentStore] Loaded from localStorage:', parsed);
-        return parsed;
-      } catch {
-        console.error('[PersistentStore] Failed to parse localStorage data');
-        return defaultValue;
-      }
-    }
-    console.log('[PersistentStore] No data in localStorage, returning default');
+  // Validate inputs
+  if (!key || typeof key !== 'string') {
+    console.warn('[PersistentStore] Invalid key provided to loadFromStore, returning default');
     return defaultValue;
   }
   
   try {
+    // Try to get Tauri store
+    const s = await getStore();
+    
+    if (!s) {
+      // No Tauri store available, use localStorage
+      console.log('[PersistentStore] Using localStorage');
+      return loadFromLocalStorage(key, defaultValue);
+    }
+    
+    // Use Tauri store
     const value = await s.get<T>(key);
     console.log('[PersistentStore] Loaded from Tauri store:', value);
     return value !== null && value !== undefined ? value : defaultValue;
   } catch (error) {
     console.error('[PersistentStore] Failed to load from Tauri store:', error);
     // Fallback to localStorage if Tauri store fails
+    return loadFromLocalStorage(key, defaultValue);
+  }
+}
+
+/**
+ * Helper function to load from localStorage with error handling
+ */
+function loadFromLocalStorage<T>(key: string, defaultValue: T): T {
+  try {
     const stored = localStorage.getItem(key);
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        console.log('[PersistentStore] Fallback: loaded from localStorage:', parsed);
+        console.log('[PersistentStore] Loaded from localStorage:', parsed);
         return parsed;
-      } catch {
+      } catch (parseError) {
+        console.error('[PersistentStore] Failed to parse localStorage data:', parseError);
+        // Clean up corrupted data
+        localStorage.removeItem(key);
         return defaultValue;
       }
     }
-    console.log('[PersistentStore] No fallback data, returning default');
+    console.log('[PersistentStore] No data in localStorage, returning default');
+    return defaultValue;
+  } catch (error) {
+    console.error('[PersistentStore] localStorage access failed:', error);
     return defaultValue;
   }
 }

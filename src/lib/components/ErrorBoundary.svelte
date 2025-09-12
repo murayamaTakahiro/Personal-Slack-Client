@@ -9,13 +9,19 @@
   let errorStack = '';
   
   function handleError(event: ErrorEvent) {
+    // Prevent cascading errors
+    if (hasError) return;
+    
     hasError = true;
     errorMessage = event.error?.message || 'Unknown error';
     errorStack = event.error?.stack || '';
     
-    // Only log errors in development
+    // Log errors appropriately
+    const logMessage = `[ErrorBoundary] Caught error in "${fallback}":`;
     if (import.meta.env.DEV) {
-      console.error('Error boundary caught:', event.error);
+      console.error(logMessage, event.error);
+    } else {
+      console.warn(logMessage, errorMessage);
     }
     
     // Prevent the error from bubbling up
@@ -23,17 +29,39 @@
   }
   
   function handleRejection(event: PromiseRejectionEvent) {
+    // Prevent cascading errors
+    if (hasError) return;
+    
     hasError = true;
     errorMessage = event.reason?.message || event.reason || 'Promise rejected';
     errorStack = event.reason?.stack || '';
     
-    // Only log errors in development
+    // Log promise rejections appropriately
+    const logMessage = `[ErrorBoundary] Unhandled promise rejection in "${fallback}":`;
     if (import.meta.env.DEV) {
-      console.error('Unhandled promise rejection:', event.reason);
+      console.error(logMessage, event.reason);
+    } else {
+      console.warn(logMessage, errorMessage);
     }
     
     // Prevent the error from bubbling up
     event.preventDefault();
+  }
+  
+  // Handle Svelte component errors
+  function handleSvelteError(error: Error, info?: any) {
+    if (hasError) return;
+    
+    hasError = true;
+    errorMessage = error?.message || 'Svelte component error';
+    errorStack = error?.stack || '';
+    
+    const logMessage = `[ErrorBoundary] Svelte error in "${fallback}":`;
+    if (import.meta.env.DEV) {
+      console.error(logMessage, error, info);
+    } else {
+      console.warn(logMessage, errorMessage);
+    }
   }
   
   function retry() {
@@ -66,12 +94,12 @@
     <div class="error-icon">
       ⚠️
     </div>
-    <h2>Oops! Something went wrong</h2>
+    <h3>Component Error</h3>
     <p class="error-message">{fallback}</p>
     
     {#if showDetails && errorMessage}
       <details class="error-details">
-        <summary>Error details</summary>
+        <summary>Technical details (click to expand)</summary>
         <p class="error-text">{errorMessage}</p>
         {#if import.meta.env.DEV && errorStack}
           <pre class="error-stack">{errorStack}</pre>
@@ -80,16 +108,21 @@
     {/if}
     
     <div class="error-actions">
-      <button on:click={retry} class="retry-button">
-        Reload Page
-      </button>
       <button on:click={reset} class="reset-button">
-        Try Again
+        Retry Component
       </button>
+      {#if showDetails}
+        <button on:click={retry} class="retry-button">
+          Reload Page
+        </button>
+      {/if}
     </div>
   </div>
 {:else}
-  <slot />
+  <!-- Wrap slot in try-catch equivalent -->
+  <div class="error-boundary-wrapper">
+    <slot />
+  </div>
 {/if}
 
 <style>
@@ -98,24 +131,29 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 2rem;
+    padding: 1rem;
     text-align: center;
-    min-height: 200px;
+    min-height: 120px;
     background: var(--bg-secondary, #f6f6f6);
     border: 1px solid var(--border-color, #e1e4e8);
-    border-radius: 8px;
-    margin: 1rem;
+    border-radius: 6px;
+    margin: 0.5rem 0;
   }
   
   .error-icon {
-    font-size: 3rem;
-    margin-bottom: 1rem;
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
   }
   
-  h2 {
+  h3 {
     color: var(--text-primary, #1d1c1d);
     margin: 0 0 0.5rem 0;
-    font-size: 1.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+  
+  .error-boundary-wrapper {
+    /* No special styling - just a wrapper for error handling */
   }
   
   .error-message {
