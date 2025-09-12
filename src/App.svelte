@@ -82,23 +82,39 @@
   let unsubscribeSearchResults: (() => void) | null = null;
   
   onMount(async () => {
-    // Simple initialization - just use DEFAULT_REACTION_MAPPINGS
-    
-    // Initialize saved searches store
     try {
-      await savedSearchesStore.initialize();
-    } catch (error) {
-      console.error('[App] Failed to initialize saved searches:', error);
-    }
+      console.log('[App] Starting onMount initialization...');
+      
+      // Simple initialization - just use DEFAULT_REACTION_MAPPINGS
+      
+      // Initialize saved searches store
+      try {
+        await savedSearchesStore.initialize();
+        console.log('[App] Saved searches store initialized successfully');
+      } catch (error) {
+        console.error('[App] Failed to initialize saved searches:', error);
+        // Don't let this failure crash the entire app
+      }
     
-    // Initialize settings from persistent store
-    const currentSettings = await initializeSettings();
-    
-    // Initialize zoom store
-    await zoomStore.initialize();
-    
-    // Initialize performance settings
-    await initializePerformanceSettings();
+      // Initialize settings from persistent store
+      const currentSettings = await initializeSettings();
+      console.log('[App] Settings initialized successfully');
+      
+      // Initialize zoom store
+      try {
+        await zoomStore.initialize();
+        console.log('[App] Zoom store initialized successfully');
+      } catch (error) {
+        console.error('[App] Failed to initialize zoom store:', error);
+      }
+      
+      // Initialize performance settings
+      try {
+        await initializePerformanceSettings();
+        console.log('[App] Performance settings initialized successfully');
+      } catch (error) {
+        console.error('[App] Failed to initialize performance settings:', error);
+      }
     
     // Note: Emoji service will be initialized after token is loaded
     
@@ -157,64 +173,47 @@
       }
     });
     
-    // Initialize keyboard service
-    keyboardService = initKeyboardService(currentSettings.keyboardShortcuts || {
-      executeSearch: 'Enter',
-      toggleAdvancedSearch: 'Ctrl+Shift+F',
-      focusSearchBar: 'Ctrl+K',
-      focusResults: 'Ctrl+1',
-      focusThread: 'Ctrl+2',
-      focusUrlInput: 'Ctrl+U',
-      toggleSettings: 'Ctrl+,',
-      newSearch: 'Ctrl+N',
-      nextResult: ['j', 'ArrowDown'],
-      prevResult: ['k', 'ArrowUp'],
-      openResult: 'Enter',
-      clearSearch: 'Escape',
-      toggleChannelSelector: 'Ctrl+L',
-      toggleMultiSelectMode: 'Ctrl+M',
-      selectRecentChannels: 'Ctrl+R',
-      selectAllFavorites: 'Ctrl+F',
-      applySelectedChannels: 'Ctrl+Shift+A',
-      jumpToFirst: 'h',
-      jumpToLast: 'e',
-      postMessage: 'p',
-      replyInThread: 't',
-      openReactionPicker: 'r',
-      openUrls: 'Alt+Enter',
-      reaction1: '1',
-      reaction2: '2',
-      reaction3: '3',
-      reaction4: '4',
-      reaction5: '5',
-      reaction6: '6',
-      reaction7: '7',
-      reaction8: '8',
-      reaction9: '9',
-      toggleKeyboardHelp: '?',
-      toggleEmojiSearch: 'Ctrl+e',
-      zoomIn: 'Ctrl+=',
-      zoomOut: 'Ctrl+-',
-      zoomReset: 'Ctrl+0',
-      toggleChannelFavorite: 'f',
-      togglePerformanceMonitor: 'Ctrl+Shift+P',
-      toggleSavedSearches: 'Ctrl+/',
-      saveCurrentSearch: 'Ctrl+Shift+S',
-      quickSaveSearch: 'Alt+S'
-    });
-    
-    // The reaction service already loads mappings from localStorage
-    // No need to load them again here unless we want to ensure sync
-    // between settings store and reaction service store
-    
-    // Register keyboard handlers
-    setupKeyboardHandlers();
-    
-    // Add global keyboard event listener
-    document.addEventListener('keydown', handleGlobalKeydown);
-    
-    // Add workspace switch event listener
-    window.addEventListener('workspace-switched', handleWorkspaceSwitched);
+      // Initialize keyboard service
+      try {
+        keyboardService = initKeyboardService(currentSettings.keyboardShortcuts);
+        console.log('[App] Keyboard service initialized successfully');
+        
+        // Register keyboard handlers with a slight delay to ensure components are mounted
+        // This prevents race conditions with component binding
+        setTimeout(() => {
+          try {
+            setupKeyboardHandlers();
+            console.log('[App] Keyboard handlers setup successfully');
+          } catch (handlerError) {
+            console.error('[App] Failed to setup keyboard handlers (delayed):', handlerError);
+          }
+        }, 100);
+        
+      } catch (error) {
+        console.error('[App] Failed to initialize keyboard service:', error);
+        // Don't let keyboard initialization failure crash the app
+        showToast('Keyboard shortcuts are not available', 'warning');
+      }
+      
+      // The reaction service already loads mappings from localStorage
+      // No need to load them again here unless we want to ensure sync
+      // between settings store and reaction service store
+      
+      // Add global keyboard event listener
+      try {
+        document.addEventListener('keydown', handleGlobalKeydown);
+        console.log('[App] Global keydown listener added successfully');
+      } catch (error) {
+        console.error('[App] Failed to add global keydown listener:', error);
+      }
+      
+      // Add workspace switch event listener
+      try {
+        window.addEventListener('workspace-switched', handleWorkspaceSwitched);
+        console.log('[App] Workspace switch listener added successfully');
+      } catch (error) {
+        console.error('[App] Failed to add workspace switch listener:', error);
+      }
     
     // Check for multi-workspace mode preference
     const multiWorkspaceEnabled = localStorage.getItem('multiWorkspaceEnabled');
@@ -275,6 +274,21 @@
         searchError.set('Welcome! Please configure your Slack token in Settings to start searching.');
       }
     }
+    
+    console.log('[App] onMount initialization completed successfully');
+    
+  } catch (error) {
+    console.error('[App] Critical error during onMount initialization:', error);
+    // Don't let initialization errors cause a white screen
+    searchError.set('App initialization failed. Please refresh the page. If the problem persists, check the console for details.');
+    
+    // Try to show a toast notification if possible
+    try {
+      showToast('App initialization failed - please refresh', 'error');
+    } catch (toastError) {
+      console.error('[App] Even toast notification failed:', toastError);
+    }
+  }
   });
   
   onDestroy(() => {
@@ -297,56 +311,69 @@
   });
   
   function handleGlobalKeydown(event: KeyboardEvent) {
-    // If keyboard help is shown, let it handle its own keyboard events
-    if (showKeyboardHelp && (event.key === 'Escape' || 
-        ['ArrowUp', 'ArrowDown', 'j', 'k', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key))) {
-      // The KeyboardHelp component will handle these
-      return;
-    }
-    
-    // Check for help shortcut - works globally, not just when settings is closed
-    if (event.key === '?') {
-      // Check if we're in an input field where '?' should type normally
-      const target = event.target as HTMLElement;
-      const isInInput = target.tagName === 'INPUT' || 
-                       target.tagName === 'TEXTAREA' || 
-                       target.contentEditable === 'true';
-      
-      if (!isInInput) {
-        event.preventDefault();
-        showKeyboardHelp = !showKeyboardHelp;
+    try {
+      // If keyboard help is shown, let it handle its own keyboard events
+      if (showKeyboardHelp && (event.key === 'Escape' || 
+          ['ArrowUp', 'ArrowDown', 'j', 'k', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key))) {
+        // The KeyboardHelp component will handle these
         return;
       }
-    }
-    
-    if (keyboardService) {
-      keyboardService.handleKeyboardEvent(event);
+      
+      // Check for help shortcut - works globally, not just when settings is closed
+      if (event.key === '?') {
+        // Check if we're in an input field where '?' should type normally
+        const target = event.target as HTMLElement;
+        const isInInput = target && (
+          target.tagName === 'INPUT' || 
+          target.tagName === 'TEXTAREA' || 
+          target.contentEditable === 'true'
+        );
+        
+        if (!isInInput) {
+          event.preventDefault();
+          showKeyboardHelp = !showKeyboardHelp;
+          return;
+        }
+      }
+      
+      if (keyboardService && typeof keyboardService.handleKeyboardEvent === 'function') {
+        keyboardService.handleKeyboardEvent(event);
+      }
+    } catch (error) {
+      console.error('[App] Error handling global keydown:', error);
+      // Don't let keyboard errors crash the app
     }
   }
   
   function setupKeyboardHandlers() {
-    console.log('🔍 DEBUG: Setting up keyboard handlers', {
-      keyboardService: !!keyboardService,
-      shortcuts: $settings.keyboardShortcuts
-    });
+    try {
+      console.log('🔍 DEBUG: Setting up keyboard handlers', {
+        keyboardService: !!keyboardService,
+        shortcuts: $settings.keyboardShortcuts
+      });
+      
+      if (!keyboardService) {
+        console.error('[App] Cannot setup keyboard handlers: keyboardService is null');
+        return;
+      }
+      
+      // Toggle Settings
+      keyboardService.registerHandler('toggleSettings', {
+        action: () => {
+          showSettings = !showSettings;
+        },
+        allowInInput: true
+      });
     
-    // Toggle Settings
-    keyboardService.registerHandler('toggleSettings', {
-      action: () => {
-        showSettings = !showSettings;
-      },
-      allowInInput: true
-    });
-    
-    // Focus Search Bar
-    keyboardService.registerHandler('focusSearchBar', {
-      action: () => {
-        if (!showSettings && searchBarElement) {
-          searchBarElement.focusSearchInput();
-        }
-      },
-      allowInInput: true  // Allow from anywhere to provide quick navigation
-    });
+      // Focus Search Bar
+      keyboardService.registerHandler('focusSearchBar', {
+        action: () => {
+          if (!showSettings && searchBarElement && typeof searchBarElement.focusSearchInput === 'function') {
+            searchBarElement.focusSearchInput();
+          }
+        },
+        allowInInput: true  // Allow from anywhere to provide quick navigation
+      });
     
     // New Search - refreshes like workspace switching
     keyboardService.registerHandler('newSearch', {
@@ -407,7 +434,7 @@
                     channels = [...channels];
                     
                     // Clear the search bar if it exists
-                    if (searchBarElement) {
+                    if (searchBarElement && typeof searchBarElement.clearChannelSelection === 'function' && typeof searchBarElement.focusSearchInput === 'function') {
                       searchBarElement.clearChannelSelection();
                       searchBarElement.focusSearchInput();
                     }
@@ -434,7 +461,7 @@
                   await loadChannels();
                   channels = [...channels];
                   
-                  if (searchBarElement) {
+                  if (searchBarElement && typeof searchBarElement.clearChannelSelection === 'function' && typeof searchBarElement.focusSearchInput === 'function') {
                     searchBarElement.clearChannelSelection();
                     searchBarElement.focusSearchInput();
                   }
@@ -454,25 +481,25 @@
       allowInInput: true  // Allow from anywhere to start fresh search
     });
     
-    // Toggle Advanced Search
-    keyboardService.registerHandler('toggleAdvancedSearch', {
-      action: () => {
-        if (!showSettings && searchBarElement) {
-          searchBarElement.toggleAdvancedSearch();
-        }
-      },
-      allowInInput: true
-    });
+      // Toggle Advanced Search
+      keyboardService.registerHandler('toggleAdvancedSearch', {
+        action: () => {
+          if (!showSettings && searchBarElement && typeof searchBarElement.toggleAdvancedSearch === 'function') {
+            searchBarElement.toggleAdvancedSearch();
+          }
+        },
+        allowInInput: true
+      });
     
-    // Focus Results
-    keyboardService.registerHandler('focusResults', {
-      action: () => {
-        if (!showSettings && resultListElement) {
-          resultListElement.focusList();
-        }
-      },
-      allowInInput: true  // Allow even when in input fields for better navigation
-    });
+      // Focus Results
+      keyboardService.registerHandler('focusResults', {
+        action: () => {
+          if (!showSettings && resultListElement && typeof resultListElement.focusList === 'function') {
+            resultListElement.focusList();
+          }
+        },
+        allowInInput: true  // Allow even when in input fields for better navigation
+      });
     
     // Focus Thread
     keyboardService.registerHandler('focusThread', {
@@ -508,30 +535,33 @@
     
     console.log('🔍 DEBUG: focusThread handler registered');
     
-    // Focus URL Input
-    keyboardService.registerHandler('focusUrlInput', {
-      action: () => {
-        if (!showSettings && searchBarElement) {
-          // Make sure advanced search is open first
-          if (!searchBarElement.isAdvancedOpen()) {
-            searchBarElement.toggleAdvancedSearch();
+      // Focus URL Input
+      keyboardService.registerHandler('focusUrlInput', {
+        action: () => {
+          if (!showSettings && searchBarElement && 
+              typeof searchBarElement.isAdvancedOpen === 'function' && 
+              typeof searchBarElement.toggleAdvancedSearch === 'function' && 
+              typeof searchBarElement.focusUrlInput === 'function') {
+            // Make sure advanced search is open first
+            if (!searchBarElement.isAdvancedOpen()) {
+              searchBarElement.toggleAdvancedSearch();
+            }
+            // Then focus the URL input
+            searchBarElement.focusUrlInput();
           }
-          // Then focus the URL input
-          searchBarElement.focusUrlInput();
-        }
-      },
-      allowInInput: true  // Allow even when in input fields for better navigation
-    });
+        },
+        allowInInput: true  // Allow even when in input fields for better navigation
+      });
     
-    // Toggle Channel Selector
-    keyboardService.registerHandler('toggleChannelSelector', {
-      action: () => {
-        if (!showSettings && searchBarElement) {
-          searchBarElement.toggleChannelSelector();
-        }
-      },
-      allowInInput: true  // Allow from anywhere for better UX
-    });
+      // Toggle Channel Selector
+      keyboardService.registerHandler('toggleChannelSelector', {
+        action: () => {
+          if (!showSettings && searchBarElement && typeof searchBarElement.toggleChannelSelector === 'function') {
+            searchBarElement.toggleChannelSelector();
+          }
+        },
+        allowInInput: true  // Allow from anywhere for better UX
+      });
     
     // Zoom controls
     keyboardService.registerHandler('zoomIn', {
@@ -613,6 +643,58 @@
       },
       allowInInput: true  // Allow from anywhere for debugging
     });
+
+      // Toggle Saved Searches - delegate to SearchBar
+      console.log('[App] About to register toggleSavedSearches handler', {
+        searchBarElement: !!searchBarElement,
+        hasToggleMethod: searchBarElement && typeof searchBarElement.toggleSavedSearches === 'function'
+      });
+      
+      keyboardService.registerHandler('toggleSavedSearches', {
+        action: () => {
+          console.log('[App] toggleSavedSearches triggered', {
+            showSettings,
+            searchBarElement: !!searchBarElement,
+            hasToggleMethod: searchBarElement && typeof searchBarElement.toggleSavedSearches === 'function'
+          });
+          if (!showSettings && searchBarElement && typeof searchBarElement.toggleSavedSearches === 'function') {
+            searchBarElement.toggleSavedSearches();
+          }
+        },
+        allowInInput: true,  // Allow in input fields so Ctrl+/ works everywhere
+        preventDefault: true,  // Prevent default browser save action
+        stopPropagation: true
+      });
+      
+      console.log('[App] toggleSavedSearches handler registered successfully');
+
+      // Save Current Search - delegate to SearchBar
+      console.log('[App] About to register saveCurrentSearch handler', {
+        searchBarElement: !!searchBarElement,
+        hasSaveMethod: searchBarElement && typeof searchBarElement.saveCurrentSearch === 'function'
+      });
+      
+      keyboardService.registerHandler('saveCurrentSearch', {
+        action: () => {
+          console.log('[App] saveCurrentSearch triggered', {
+            showSettings,
+            searchBarElement: !!searchBarElement,
+            hasSaveMethod: searchBarElement && typeof searchBarElement.saveCurrentSearch === 'function'
+          });
+          if (!showSettings && searchBarElement && typeof searchBarElement.saveCurrentSearch === 'function') {
+            searchBarElement.saveCurrentSearch();
+          }
+        },
+        allowInInput: true,
+        preventDefault: true
+      });
+      
+      console.log('[App] saveCurrentSearch handler registered successfully');
+    } catch (error) {
+      console.error('[App] Failed to setup keyboard handlers:', error);
+      // Don't let keyboard handler setup failure crash the app
+      showToast('Keyboard shortcuts may not work properly', 'warning');
+    }
   }
   
   async function initializeMultiWorkspace() {
@@ -665,7 +747,9 @@
   }
   
   async function handleWorkspaceSwitched(event: CustomEvent) {
-    const switchEvent = event.detail;
+    try {
+      console.log('[App] Handling workspace switch...');
+      const switchEvent = event.detail;
     
     // Clear current state including channels and search results
     searchResults.set(null);
@@ -739,7 +823,7 @@
           channels = [...channels];
           
           // Clear the search bar if it exists
-          if (searchBarElement) {
+          if (searchBarElement && typeof searchBarElement.clearChannelSelection === 'function') {
             searchBarElement.clearChannelSelection();
           }
           
@@ -758,13 +842,19 @@
       searchError.set('No token found for the selected workspace.');
       searchLoading.set(false);
     }
+    
+    } catch (error) {
+      console.error('[App] Error during workspace switch:', error);
+      searchError.set('Failed to switch workspace: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      searchLoading.set(false);
+    }
   }
   
   async function handleSearch(event?: CustomEvent) {
-    searchLoading.set(true);
-    searchError.set(null);
-    
     try {
+      searchLoading.set(true);
+      searchError.set(null);
+      console.log('[App] Starting search...');
       // First ensure the token is initialized in the backend
       const tokenInitialized = await initTokenFromStorage();
       if (!tokenInitialized) {
@@ -963,7 +1053,10 @@
   }
   
   async function performRealtimeUpdate() {
-    if (!searchBarElement) return;
+    if (!searchBarElement || typeof searchBarElement.triggerRealtimeSearch !== 'function') {
+      console.warn('[App] Cannot perform realtime update: searchBarElement not ready');
+      return;
+    }
     
     // Performing realtime update
     

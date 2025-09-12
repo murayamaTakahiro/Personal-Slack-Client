@@ -44,6 +44,10 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   zoomReset: 'Ctrl+0',
   toggleChannelFavorite: 'f',
   togglePerformanceMonitor: 'Ctrl+Shift+P',
+  // Saved searches shortcuts
+  toggleSavedSearches: 'Ctrl+/',
+  saveCurrentSearch: 'Ctrl+Shift+S',
+  quickSaveSearch: 'Alt+S',
   // Lightbox shortcuts
   openLightbox: 'i',
   lightboxNext: ['ArrowRight', 'l', 'Tab'],

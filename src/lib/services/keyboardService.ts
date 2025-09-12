@@ -95,20 +95,10 @@ export class KeyboardService {
    */
   registerHandler(shortcutKey: keyof KeyboardShortcuts, handler: KeyboardHandler): void {
     const shortcut = this.shortcuts[shortcutKey];
-    console.log('🔍 DEBUG: KeyboardService registerHandler', {
-      shortcutKey,
-      shortcut,
-      handlerCount: this.handlers.size
-    });
     if (shortcut) {
       this.handlers.set(shortcutKey, handler);
-      console.log('🔍 DEBUG: Handler registered', { 
-        shortcutKey, 
-        newHandlerCount: this.handlers.size,
-        registeredKeys: Array.from(this.handlers.keys())
-      });
     } else {
-      console.warn('🔍 DEBUG: No shortcut found for key:', shortcutKey);
+      console.warn('No shortcut found for key:', shortcutKey);
     }
   }
 
@@ -116,13 +106,7 @@ export class KeyboardService {
    * Unregister a keyboard shortcut handler
    */
   unregisterHandler(shortcutKey: keyof KeyboardShortcuts): void {
-    const deleted = this.handlers.delete(shortcutKey);
-    console.log('🔍 DEBUG: KeyboardService unregisterHandler', {
-      shortcutKey,
-      deleted,
-      remainingHandlerCount: this.handlers.size,
-      remainingKeys: Array.from(this.handlers.keys())
-    });
+    this.handlers.delete(shortcutKey);
   }
 
   /**
