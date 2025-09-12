@@ -535,7 +535,7 @@
       bind:this={savedSearchButton}
       on:click={toggleSavedSearches}
       class="btn-toggle {showSavedSearches ? 'active' : ''}"
-      title="Saved searches (Ctrl+S)"
+      title="Saved searches (Ctrl+/)"
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
         <path d="M21 8.5l-7.5 7.5L9 11.5l-6 6"/>

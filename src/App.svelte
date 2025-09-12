@@ -36,6 +36,7 @@
   import KeyboardHelp from './lib/components/KeyboardHelp.svelte';
   import EmojiSettings from './lib/components/EmojiSettings.svelte';
   import EmojiSearchDialog from './lib/components/EmojiSearchDialog.svelte';
+  import { savedSearchesStore } from './lib/stores/savedSearches';
   import RealtimeSettings from './lib/components/RealtimeSettings.svelte';
   import PerformanceSettings from './lib/components/PerformanceSettings.svelte';
   import PerformanceDashboard from './lib/components/PerformanceDashboard.svelte';
@@ -82,6 +83,13 @@
   
   onMount(async () => {
     // Simple initialization - just use DEFAULT_REACTION_MAPPINGS
+    
+    // Initialize saved searches store
+    try {
+      await savedSearchesStore.initialize();
+    } catch (error) {
+      console.error('[App] Failed to initialize saved searches:', error);
+    }
     
     // Initialize settings from persistent store
     const currentSettings = await initializeSettings();
@@ -190,9 +198,9 @@
       zoomReset: 'Ctrl+0',
       toggleChannelFavorite: 'f',
       togglePerformanceMonitor: 'Ctrl+Shift+P',
-      toggleSavedSearches: 'Ctrl+S',
+      toggleSavedSearches: 'Ctrl+/',
       saveCurrentSearch: 'Ctrl+Shift+S',
-      quickSaveSearch: 'Ctrl+Alt+S'
+      quickSaveSearch: 'Alt+S'
     });
     
     // The reaction service already loads mappings from localStorage

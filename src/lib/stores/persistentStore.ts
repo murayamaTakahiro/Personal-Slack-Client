@@ -1,11 +1,25 @@
-import { Store } from '@tauri-apps/plugin-store';
+// Dynamically import Store to handle cases where Tauri might not be available
+let Store: any = null;
+let store: any = null;
+let storeInitialized = false;
 
-// Create a store instance for persistent storage
-let store: Store | null = null;
-
-async function getStore(): Promise<Store> {
-  if (!store) {
-    store = new Store('settings.json');
+async function getStore(): Promise<any> {
+  if (!storeInitialized) {
+    storeInitialized = true;
+    try {
+      // Only try to import if we're in Tauri environment
+      if (typeof window !== 'undefined' && '__TAURI__' in window) {
+        const module = await import('@tauri-apps/plugin-store');
+        Store = module.Store;
+        store = new Store('settings.json');
+        console.log('[PersistentStore] Successfully initialized Tauri store');
+      } else {
+        console.log('[PersistentStore] Not in Tauri environment, will use localStorage');
+      }
+    } catch (error) {
+      console.warn('[PersistentStore] Failed to import Tauri store, will use localStorage:', error);
+      store = null;
+    }
   }
   return store;
 }
@@ -16,14 +30,17 @@ async function getStore(): Promise<Store> {
 export async function saveToStore(key: string, value: any): Promise<void> {
   console.log('[PersistentStore] Saving to store:', key, value);
   
-  if (!isTauri()) {
-    console.log('[PersistentStore] Not in Tauri environment, using localStorage');
+  // Try to get Tauri store
+  const s = await getStore();
+  
+  if (!s) {
+    // No Tauri store available, use localStorage
+    console.log('[PersistentStore] Using localStorage');
     localStorage.setItem(key, JSON.stringify(value));
     return;
   }
   
   try {
-    const s = await getStore();
     await s.set(key, value);
     await s.save();
     console.log('[PersistentStore] Successfully saved to Tauri store');
@@ -41,8 +58,12 @@ export async function saveToStore(key: string, value: any): Promise<void> {
 export async function loadFromStore<T>(key: string, defaultValue: T): Promise<T> {
   console.log('[PersistentStore] Loading from store:', key);
   
-  if (!isTauri()) {
-    console.log('[PersistentStore] Not in Tauri environment, using localStorage');
+  // Try to get Tauri store
+  const s = await getStore();
+  
+  if (!s) {
+    // No Tauri store available, use localStorage
+    console.log('[PersistentStore] Using localStorage');
     const stored = localStorage.getItem(key);
     if (stored) {
       try {
@@ -59,7 +80,6 @@ export async function loadFromStore<T>(key: string, defaultValue: T): Promise<T>
   }
   
   try {
-    const s = await getStore();
     const value = await s.get<T>(key);
     console.log('[PersistentStore] Loaded from Tauri store:', value);
     return value !== null && value !== undefined ? value : defaultValue;

@@ -27,14 +27,22 @@ function createSavedSearchesStore() {
 
   // Load saved searches on initialization
   const initialize = async () => {
-    const stored = await loadFromStore<SavedSearch[]>(STORAGE_KEY, []);
-    // Convert date strings back to Date objects
-    const searches = stored.map(s => ({
-      ...s,
-      timestamp: new Date(s.timestamp),
-      lastUsed: s.lastUsed ? new Date(s.lastUsed) : undefined
-    }));
-    set(searches);
+    try {
+      console.log('[SavedSearches] Initializing...');
+      const stored = await loadFromStore<SavedSearch[]>(STORAGE_KEY, []);
+      // Convert date strings back to Date objects
+      const searches = stored.map(s => ({
+        ...s,
+        timestamp: new Date(s.timestamp),
+        lastUsed: s.lastUsed ? new Date(s.lastUsed) : undefined
+      }));
+      set(searches);
+      console.log('[SavedSearches] Initialized with', searches.length, 'searches');
+    } catch (error) {
+      console.error('[SavedSearches] Failed to initialize:', error);
+      // Set empty array on error to ensure app continues
+      set([]);
+    }
   };
 
   // Save to persistent storage
@@ -256,7 +264,5 @@ export const frequentSearches = derived(
     .slice(0, 10)
 );
 
-// Initialize on module load
-if (typeof window !== 'undefined') {
-  savedSearchesStore.initialize();
-}
+// Initialize from App.svelte instead of auto-initializing
+// This prevents initialization before the app is ready
