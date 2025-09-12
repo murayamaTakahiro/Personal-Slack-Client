@@ -139,7 +139,7 @@ export class KeyboardService {
     if (!this.enabled) return false;
 
     // Only log for specific keys to reduce noise
-    if (['r', 'p', 't', '1', '2', '3'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey)) {
+    if (['r', 'p', 't', '1', '2', '3', '/'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || (event.key === '/' && event.ctrlKey)) {
       console.log('🔍 DEBUG: KeyboardService handling key event', {
         key: event.key,
         ctrlKey: event.ctrlKey,
@@ -192,7 +192,7 @@ export class KeyboardService {
       
       if (shortcut && this.matchesShortcut(event, shortcut)) {
         // Only log for relevant keys to reduce noise
-        if (['r', 'p', 't', '1', '2', '3'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || ['openReactionPicker', 'postMessage', 'replyInThread', 'openUrls', 'focusThread', 'focusResults', 'focusSearchBar'].includes(shortcutKey)) {
+        if (['r', 'p', 't', '1', '2', '3', '/'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || (event.key === '/' && event.ctrlKey) || ['openReactionPicker', 'postMessage', 'replyInThread', 'openUrls', 'focusThread', 'focusResults', 'focusSearchBar', 'toggleSavedSearches'].includes(shortcutKey)) {
           console.log('🔍 DEBUG: Handler matched', {
             shortcutKey,
             shortcut,

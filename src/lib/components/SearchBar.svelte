@@ -414,7 +414,7 @@
   }
   
   // Saved search functions
-  function toggleSavedSearches() {
+  export function toggleSavedSearches() {
     showSavedSearches = !showSavedSearches;
   }
   
