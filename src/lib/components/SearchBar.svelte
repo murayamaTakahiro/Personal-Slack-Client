@@ -493,7 +493,9 @@
     // Toggle Saved Searches
     keyboardService.registerHandler('toggleSavedSearches', {
       action: toggleSavedSearches,
-      allowInInput: false
+      allowInInput: true,  // Allow in input fields so Ctrl+S works everywhere
+      preventDefault: true,  // Prevent default browser save action
+      stopPropagation: true
     });
     
     // Save Current Search

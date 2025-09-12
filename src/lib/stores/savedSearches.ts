@@ -50,13 +50,15 @@ function createSavedSearchesStore() {
   // Check if a search already exists (duplicate detection)
   const isDuplicate = (searchParams: Partial<SavedSearch>, existingSearches: SavedSearch[]): SavedSearch | null => {
     return existingSearches.find(saved => {
-      // Compare all relevant fields
+      // Compare all relevant fields - treat undefined, null, and empty string as equivalent
+      const normalize = (value: any) => value || undefined;
+      
       return (
-        saved.query === (searchParams.query || '') &&
-        saved.channel === (searchParams.channel || '') &&
-        saved.userId === (searchParams.userId || '') &&
-        saved.fromDate === (searchParams.fromDate || '') &&
-        saved.toDate === (searchParams.toDate || '')
+        normalize(saved.query) === normalize(searchParams.query) &&
+        normalize(saved.channel) === normalize(searchParams.channel) &&
+        normalize(saved.userId) === normalize(searchParams.userId) &&
+        normalize(saved.fromDate) === normalize(searchParams.fromDate) &&
+        normalize(saved.toDate) === normalize(searchParams.toDate)
       );
     }) || null;
   };

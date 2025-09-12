@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>保存検索機能の修正テスト</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4a90e2;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #555;
+            margin-top: 30px;
+        }
+        .test-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-step {
+            margin: 15px 0;
+            padding-left: 20px;
+            border-left: 3px solid #4a90e2;
+        }
+        .expected {
+            background: #e8f5e9;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .note {
+            background: #fff3e0;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            border-left: 4px solid #ff9800;
+        }
+        code {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .success {
+            color: #4caf50;
+            font-weight: bold;
+        }
+        .fail {
+            color: #f44336;
+            font-weight: bold;
+        }
+        .checkbox {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 保存検索機能の修正テスト</h1>
+    
+    <div class="test-section">
+        <h2>📋 修正内容</h2>
+        <ol>
+            <li><strong>Ctrl+Sショートカットの修正</strong>
+                <ul>
+                    <li>入力フィールドにフォーカスがあっても動作するように変更</li>
+                    <li>ブラウザのデフォルト保存動作を防止</li>
+                </ul>
+            </li>
+            <li><strong>重複検出ロジックの改善</strong>
+                <ul>
+                    <li>undefined、null、空文字列を同等として扱う</li>
+                    <li>正確な重複検出を実現</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>✅ テスト手順: Ctrl+Sショートカット</h2>
+        
+        <div class="test-step">
+            <p><input type="checkbox" class="checkbox">1. アプリケーションを起動する</p>
+            <div class="expected">
+                期待結果: アプリが正常に起動し、検索バーが表示される
+            </div>
+        </div>
+
+        <div class="test-step">
+            <p><input type="checkbox" class="checkbox">2. 検索キーワード入力欄にフォーカスを当てる</p>
+            <div class="expected">
+                期待結果: カーソルが検索欄に表示される
+            </div>
+        </div>
+
+        <div class="test-step">
+            <p><input type="checkbox" class="checkbox">3. <code>Ctrl+S</code>を押す（Macの場合は<code>Cmd+S</code>）</p>
+            <div class="expected success">
+                期待結果: 保存検索のドロップダウンメニューが開く
+            </div>
+            <div class="note">
+                注意: ブラウザの「ページを保存」ダイアログが開かないことを確認
+            </div>
+        </div>
+
+        <div class="test-step">
+            <p><input type="checkbox" class="checkbox">4. もう一度<code>Ctrl+S</code>を押す</p>
+            <div class="expected">
+                期待結果: ドロップダウンメニューが閉じる
+            </div>
+        </div>
+
+        <div class="test-step">
+            <p><input type="checkbox" class="checkbox">5. チャンネル選択フィールドやユーザー選択フィールドでも同様にテスト</p>
+            <div class="expected success">
+                期待結果: どのフィールドからでも<code>Ctrl+S</code>が動作する
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>✅ テスト手順: 重複検出</h2>
+        
+        <div class="test-step">
+            <p><input type="checkbox" class="checkbox">1. 検索条件を入力して検索を実行</p>
+            <ul>
+                <li>例: キーワード「test」、チャンネル「general」</li>
+            </ul>
+            <div class="expected">
+                期待結果: 検索が実行され、自動的に保存される
+            </div>
+        </div>
+
+        <div class="test-step">
+            <p><input type="checkbox" class="checkbox">2. 全く同じ条件で再度検索を実行</p>
+            <div class="expected success">
+                期待結果: 新しいエントリーが作成されず、既存のエントリーの使用回数が増加
+            </div>
+        </div>
+
+        <div class="test-step">
+            <p><input type="checkbox" class="checkbox">3. <code>Ctrl+S</code>で保存検索メニューを開いて確認</p>
+            <div class="expected success">
+                期待結果: 同じ検索条件が重複して表示されていない
+            </div>
+        </div>
+
+        <div class="test-step">
+            <p><input type="checkbox" class="checkbox">4. 空の検索条件でテスト</p>
+            <ul>
+                <li>チャンネルのみ設定して検索</li>
+                <li>同じチャンネルで再度検索</li>
+            </ul>
+            <div class="expected success">
+                期待結果: 重複が作成されない
+            </div>
+        </div>
+
+        <div class="test-step">
+            <p><input type="checkbox" class="checkbox">5. 複数の条件の組み合わせでテスト</p>
+            <ul>
+                <li>キーワード + チャンネル</li>
+                <li>チャンネル + 日付範囲</li>
+                <li>ユーザー + キーワード</li>
+            </ul>
+            <div class="expected">
+                期待結果: 各組み合わせで重複検出が正しく動作
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔄 再起動後の永続性テスト</h2>
+        
+        <div class="test-step">
+            <p><input type="checkbox" class="checkbox">1. いくつかの検索を保存する</p>
+        </div>
+
+        <div class="test-step">
+            <p><input type="checkbox" class="checkbox">2. アプリケーションを終了して再起動</p>
+        </div>
+
+        <div class="test-step">
+            <p><input type="checkbox" class="checkbox">3. <code>Ctrl+S</code>で保存検索を確認</p>
+            <div class="expected">
+                期待結果: 保存した検索が全て残っている
+            </div>
+        </div>
+
+        <div class="test-step">
+            <p><input type="checkbox" class="checkbox">4. 保存済みの検索と同じ条件で新規検索</p>
+            <div class="expected success">
+                期待結果: 重複が作成されない（再起動後も重複検出が機能）
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎯 その他のショートカットキー</h2>
+        <ul>
+            <li><code>Ctrl+Shift+S</code> - 名前を付けて保存</li>
+            <li><code>Ctrl+Alt+S</code> - クイック保存</li>
+            <li><code>Escape</code> - 保存検索メニューを閉じる</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 テスト結果記録</h2>
+        <p>日時: <input type="datetime-local" style="margin-left: 10px;"></p>
+        <p>テスト結果:</p>
+        <ul>
+            <li><input type="checkbox"> Ctrl+Sショートカット: <span class="success">✓ 修正済み</span></li>
+            <li><input type="checkbox"> 重複検出: <span class="success">✓ 修正済み</span></li>
+            <li><input type="checkbox"> データ永続性: <span class="success">✓ 確認済み</span></li>
+        </ul>
+        <p>備考:</p>
+        <textarea rows="4" style="width: 100%; margin-top: 10px;" placeholder="テスト中に発見した問題や改善点を記入..."></textarea>
+    </div>
+
+    <script>
+        // チェックボックスの状態を保存
+        document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                const allChecked = Array.from(document.querySelectorAll('.checkbox')).every(cb => cb.checked);
+                if (allChecked) {
+                    alert('🎉 全てのテストが完了しました！');
+                }
+            });
+        });
+
+        // 現在時刻を設定
+        document.querySelector('input[type="datetime-local"]').value = new Date().toISOString().slice(0, 16);
+    </script>
+</body>
+</html>
