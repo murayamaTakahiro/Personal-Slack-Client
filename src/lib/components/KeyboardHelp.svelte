@@ -182,6 +182,56 @@
         ]
       },
       {
+        name: 'User Selection',
+        shortcuts: [
+          { 
+            key: 'selectFavoriteUser1', 
+            description: 'Select Favorite User 1',
+            shortcut: 'Ctrl+Alt+1'
+          },
+          { 
+            key: 'selectFavoriteUser2', 
+            description: 'Select Favorite User 2',
+            shortcut: 'Ctrl+Alt+2'
+          },
+          { 
+            key: 'selectFavoriteUser3', 
+            description: 'Select Favorite User 3',
+            shortcut: 'Ctrl+Alt+3'
+          },
+          { 
+            key: 'selectFavoriteUser4', 
+            description: 'Select Favorite User 4',
+            shortcut: 'Ctrl+Alt+4'
+          },
+          { 
+            key: 'selectFavoriteUser5', 
+            description: 'Select Favorite User 5',
+            shortcut: 'Ctrl+Alt+5'
+          },
+          { 
+            key: 'selectFavoriteUser6', 
+            description: 'Select Favorite User 6',
+            shortcut: 'Ctrl+Alt+6'
+          },
+          { 
+            key: 'selectFavoriteUser7', 
+            description: 'Select Favorite User 7',
+            shortcut: 'Ctrl+Alt+7'
+          },
+          { 
+            key: 'selectFavoriteUser8', 
+            description: 'Select Favorite User 8',
+            shortcut: 'Ctrl+Alt+8'
+          },
+          { 
+            key: 'selectFavoriteUser9', 
+            description: 'Select Favorite User 9',
+            shortcut: 'Ctrl+Alt+9'
+          }
+        ]
+      },
+      {
         name: 'Channel Selection',
         shortcuts: [
           { 

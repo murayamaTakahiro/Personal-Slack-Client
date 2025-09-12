@@ -242,12 +242,18 @@
     <div bind:this={dropdownElement} class="dropdown">
       {#if userFavorites.length > 0}
         <div class="dropdown-section">
-          <div class="section-header">Favorite Users</div>
+          <div class="section-header">
+            Favorite Users
+            <span class="shortcut-hint">Ctrl+Alt+1-9 to select</span>
+          </div>
           {#each userFavorites as favorite, i}
             <div 
               class="dropdown-item {selectedIndex === i ? 'selected' : ''}"
               on:click={() => selectUser(favorite)}
             >
+              {#if i < 9}
+                <span class="favorite-number" title="Ctrl+Alt+{i + 1}">{i + 1}</span>
+              {/if}
               <div class="user-info">
                 <span class="user-name">
                   {#if favorite.alias}
@@ -436,6 +442,18 @@
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .shortcut-hint {
+    font-size: 0.65rem;
+    font-weight: normal;
+    color: var(--text-secondary);
+    opacity: 0.7;
+    text-transform: none;
+    font-style: italic;
   }
   
   .dropdown-item {
@@ -445,6 +463,22 @@
     align-items: center;
     justify-content: space-between;
     transition: background-color 0.2s;
+    position: relative;
+  }
+  
+  .favorite-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: var(--primary-bg, rgba(66, 184, 221, 0.1));
+    color: var(--primary, #42b8dd);
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 0.5rem;
+    flex-shrink: 0;
   }
   
   .dropdown-item:hover,

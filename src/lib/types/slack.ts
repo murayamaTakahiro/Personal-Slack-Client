@@ -148,6 +148,7 @@ export interface AppSettings {
   theme: 'light' | 'dark' | 'auto';
   keyboardShortcuts?: KeyboardShortcuts;
   userFavorites?: UserFavorite[];
+  userFavoriteOrder?: string[];  // Track order of favorite user IDs
   reactionMappings?: ReactionMapping[];
   mentionHistory?: MentionHistory[];
   debugMode?: boolean;

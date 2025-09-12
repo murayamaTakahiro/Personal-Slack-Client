@@ -9,6 +9,7 @@ export class UserService {
   private userFavorites: UserFavorite[] = [];
   private searchCache: Map<string, SlackUser[]> = new Map();
   private unsubscribe: (() => void) | null = null;
+  private favoriteOrder: string[] = []; // Track order of favorite user IDs
 
   private constructor() {
     // Don't subscribe to settings immediately - wait for initialization
@@ -31,6 +32,7 @@ export class UserService {
     this.unsubscribe = settings.subscribe(currentSettings => {
       // Update favorites from settings whenever they change
       this.userFavorites = currentSettings.userFavorites || [];
+      this.favoriteOrder = currentSettings.userFavoriteOrder || this.userFavorites.map(f => f.id);
       console.log('[UserService] Favorites updated from settings:', this.userFavorites.length, 'favorites');
     });
   }
@@ -47,6 +49,7 @@ export class UserService {
       console.error('[UserService] Error during initialization:', error);
       // Don't throw - allow app to continue with default state
       this.userFavorites = [];
+      this.favoriteOrder = [];
     }
   }
 
@@ -55,10 +58,12 @@ export class UserService {
     try {
       const currentSettings = get(settings);
       this.userFavorites = currentSettings.userFavorites || [];
+      this.favoriteOrder = currentSettings.userFavoriteOrder || this.userFavorites.map(f => f.id);
       console.log('[UserService] Favorites reloaded:', this.userFavorites.length, 'favorites');
     } catch (error) {
       console.error('[UserService] Error reloading favorites:', error);
       this.userFavorites = [];
+      this.favoriteOrder = [];
     }
   }
 
@@ -164,9 +169,27 @@ export class UserService {
     return null;
   }
 
-  // Get user favorites
+  // Get user favorites (ordered)
   getUserFavorites(): UserFavorite[] {
-    return this.userFavorites;
+    // Return favorites in the specified order
+    const ordered: UserFavorite[] = [];
+    for (const id of this.favoriteOrder) {
+      const favorite = this.userFavorites.find(f => f.id === id);
+      if (favorite) ordered.push(favorite);
+    }
+    // Add any favorites not in the order list (shouldn't happen but safety check)
+    for (const favorite of this.userFavorites) {
+      if (!this.favoriteOrder.includes(favorite.id)) {
+        ordered.push(favorite);
+      }
+    }
+    return ordered;
+  }
+
+  // Get favorite user by index (for keyboard shortcuts)
+  getUserFavoriteByIndex(index: number): UserFavorite | null {
+    const favorites = this.getUserFavorites();
+    return favorites[index] || null;
   }
 
   // Add user to favorites
@@ -198,6 +221,7 @@ export class UserService {
     };
 
     this.userFavorites.push(favorite);
+    this.favoriteOrder.push(favorite.id);
     this.saveFavorites();
     
     return favorite;
@@ -208,8 +232,15 @@ export class UserService {
     const index = this.userFavorites.findIndex(fav => fav.id === userId);
     if (index !== -1) {
       this.userFavorites.splice(index, 1);
+      this.favoriteOrder = this.favoriteOrder.filter(id => id !== userId);
       this.saveFavorites();
     }
+  }
+
+  // Reorder favorites (for drag-and-drop or manual ordering)
+  reorderFavorites(newOrder: string[]): void {
+    this.favoriteOrder = newOrder;
+    this.saveFavorites();
   }
 
   // Update user alias
@@ -236,7 +267,8 @@ export class UserService {
   private saveFavorites(): void {
     settings.update(s => ({
       ...s,
-      userFavorites: this.userFavorites
+      userFavorites: this.userFavorites,
+      userFavoriteOrder: this.favoriteOrder
     }));
   }
 

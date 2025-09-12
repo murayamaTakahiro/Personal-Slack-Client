@@ -63,6 +63,36 @@ The system automatically detects and displays Japanese custom emojis like:
 - `sasuga` (さすが)
 - `ohayougozaimasu` (おはようございます)
 
+## User Favorites
+
+The application allows you to save up to 9 favorite users for quick access.
+
+### Features:
+- **Quick Access**: Save frequently contacted users (up to 9 users)
+- **Custom Aliases**: Assign memorable aliases to users  
+- **Search Integration**: Quickly filter messages by saved users
+- **Auto-complete**: Favorite users appear in @ mentions
+- **Keyboard Shortcuts**: Press `Ctrl+Alt+1` through `Ctrl+Alt+9` to quickly select favorite users
+- **Visual Indicators**: Numbered badges show shortcut keys for each favorite user
+
+### How to Use:
+1. Click the user selector dropdown in the search bar
+2. Search for a user by name
+3. Click the star icon to add them to favorites
+4. Optionally click the pencil icon to set an alias for easier identification
+5. Use `Ctrl+Alt+[1-9]` to quickly select favorite users in order
+
+### Keyboard Shortcuts:
+- `Ctrl+Alt+1`: Select 1st favorite user
+- `Ctrl+Alt+2`: Select 2nd favorite user
+- `Ctrl+Alt+3`: Select 3rd favorite user
+- ... (up to `Ctrl+Alt+9`)
+
+When you select a favorite user using these shortcuts:
+- The user filter is automatically applied to the search
+- If a search query is present, the search executes immediately
+- A notification shows which user was selected
+
 ## Keyboard Shortcuts
 
 ### Customizable Shortcuts

@@ -119,6 +119,7 @@ export async function initializeSettings() {
     keyboardShortcuts: migrateShortcuts(loadedSettings.keyboardShortcuts),
     reactionMappings: loadedSettings.reactionMappings || DEFAULT_REACTION_MAPPINGS,
     userFavorites: loadedSettings.userFavorites || [],  // Preserve user favorites
+    userFavoriteOrder: loadedSettings.userFavoriteOrder || [],  // Preserve user favorite order
     debugMode: loadedSettings.debugMode ?? false  // Default to false if not set
   };
   

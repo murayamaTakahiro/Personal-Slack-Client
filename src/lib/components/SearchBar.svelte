@@ -413,6 +413,18 @@
     clearAllFilters();
   }
   
+  // Set user for favorite user shortcuts
+  export function setUser(userName: string, userIdValue: string) {
+    user = userName;
+    userId = userIdValue;
+    
+    // Update search params
+    searchParams.update(params => ({
+      ...params,
+      user: userIdValue
+    }));
+  }
+  
   // Saved search functions
   export function toggleSavedSearches() {
     showSavedSearches = !showSavedSearches;
