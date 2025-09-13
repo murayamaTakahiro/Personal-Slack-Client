@@ -345,9 +345,6 @@
               class:selected={value === favorite.id}
               on:click={() => selectUser(favorite)}
             >
-              {#if index < 9}
-                <span class="favorite-number" title="Ctrl+Alt+{index + 1}">{index + 1}</span>
-              {/if}
               <span class="user-name">
                 {#if favorite.alias}
                   <strong>{favorite.alias}</strong>

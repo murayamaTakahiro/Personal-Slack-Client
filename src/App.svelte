@@ -892,44 +892,9 @@
       
       console.log('[App] saveCurrentSearch handler registered successfully');
 
-      // Register Ctrl+Alt+1 through Ctrl+Alt+9 for favorite users
-      for (let i = 1; i <= 9; i++) {
-        const shortcutKey = `selectFavoriteUser${i}`;
-        const shortcut = `Ctrl+Alt+${i}`;
-        
-        keyboardService.registerHandler(shortcutKey, {
-          action: () => {
-            const favorite = userService.getUserFavoriteByIndex(i - 1);
-            if (favorite) {
-              // Update search params with the favorite user
-              searchParams.update(params => ({
-                ...params,
-                user: favorite.id
-              }));
-              
-              // Update the SearchBar's user field
-              if (searchBarElement && typeof searchBarElement.setUser === 'function') {
-                const displayName = favorite.alias || favorite.displayName || favorite.realName || favorite.name;
-                searchBarElement.setUser(displayName, favorite.id);
-              }
-              
-              // Show feedback
-              const name = favorite.alias || favorite.displayName || favorite.realName || favorite.name;
-              showToast(`Selected user: ${name}`, 'success');
-              
-              // Auto-execute search if there's a query
-              const currentQuery = get(searchQuery);
-              if (currentQuery) {
-                handleSearch();
-              }
-            }
-          },
-          allowInInput: true,
-          preventDefault: true
-        });
-      }
-      
-      console.log('[App] Favorite user shortcuts registered (Ctrl+Alt+1-9)');
+      // Removed Ctrl+Alt+1-9 shortcuts for favorite users
+      // These shortcuts had compatibility issues across platforms
+      // Users can select favorites through the UI instead
     } catch (error) {
       console.error('[App] Failed to setup keyboard handlers:', error);
       // Don't let keyboard handler setup failure crash the app
