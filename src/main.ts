@@ -55,20 +55,22 @@ function initializeApp() {
 // Wait for DOM to be ready
 let app: any;
 
-// Always wait a tiny bit to ensure everything is properly initialized
-// This helps prevent cold start issues
+// ⚠️ 重要：この10msの遅延を絶対に削除・変更しないこと！
+// Tauri/WebView2の初期化に必要な時間です。
+// 削除すると白い画面で起動に失敗します。
+// 詳細は CRITICAL_STARTUP_NOTES.md を参照
 if (document.readyState === 'loading') {
   console.log('[Main] DOM is still loading, waiting for DOMContentLoaded event...');
   document.addEventListener('DOMContentLoaded', () => {
     console.log('[Main] DOMContentLoaded event fired, initializing app...');
-    // Small delay to ensure all resources are loaded
+    // ⚠️ CRITICAL: DO NOT REMOVE THIS DELAY
     setTimeout(() => {
       app = initializeApp();
     }, 10);
   });
 } else {
   console.log('[Main] DOM is already loaded, initializing app with small delay...');
-  // Even if DOM is ready, add a small delay for cold start stability
+  // ⚠️ CRITICAL: DO NOT REMOVE THIS DELAY
   setTimeout(() => {
     app = initializeApp();
   }, 10);
