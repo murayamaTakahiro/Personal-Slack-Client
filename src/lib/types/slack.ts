@@ -149,6 +149,7 @@ export interface AppSettings {
   keyboardShortcuts?: KeyboardShortcuts;
   userFavorites?: UserFavorite[];
   userFavoriteOrder?: string[];  // Track order of favorite user IDs
+  recentUsers?: string[];  // Track recent user IDs
   reactionMappings?: ReactionMapping[];
   mentionHistory?: MentionHistory[];
   debugMode?: boolean;

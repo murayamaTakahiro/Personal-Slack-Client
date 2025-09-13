@@ -7,6 +7,8 @@ export class UserService {
   private static instance: UserService;
   private userCache: Map<string, SlackUser> = new Map();
   private userFavorites: UserFavorite[] = [];
+  private recentUsers: SlackUser[] = [];
+  private recentUserIds: string[] = [];
   private searchCache: Map<string, SlackUser[]> = new Map();
   private unsubscribe: (() => void) | null = null;
   private favoriteOrder: string[] = []; // Track order of favorite user IDs
@@ -33,7 +35,9 @@ export class UserService {
       // Update favorites from settings whenever they change
       this.userFavorites = currentSettings.userFavorites || [];
       this.favoriteOrder = currentSettings.userFavoriteOrder || this.userFavorites.map(f => f.id);
+      this.recentUserIds = currentSettings.recentUsers || [];
       console.log('[UserService] Favorites updated from settings:', this.userFavorites.length, 'favorites');
+      this.updateRecentUsersFromIds();
     });
   }
 
@@ -59,12 +63,27 @@ export class UserService {
       const currentSettings = get(settings);
       this.userFavorites = currentSettings.userFavorites || [];
       this.favoriteOrder = currentSettings.userFavoriteOrder || this.userFavorites.map(f => f.id);
+      this.recentUserIds = currentSettings.recentUsers || [];
       console.log('[UserService] Favorites reloaded:', this.userFavorites.length, 'favorites');
+      this.updateRecentUsersFromIds();
     } catch (error) {
       console.error('[UserService] Error reloading favorites:', error);
       this.userFavorites = [];
       this.favoriteOrder = [];
+      this.recentUserIds = [];
     }
+  }
+
+  // Update recent users from IDs
+  private async updateRecentUsersFromIds(): Promise<void> {
+    const users: SlackUser[] = [];
+    for (const userId of this.recentUserIds) {
+      const user = await this.getUserById(userId);
+      if (user) {
+        users.push(user);
+      }
+    }
+    this.recentUsers = users;
   }
 
   // Get all users from Slack (with caching)
@@ -186,6 +205,34 @@ export class UserService {
     return ordered;
   }
 
+  // Get recent users
+  getRecentUsers(): SlackUser[] {
+    return this.recentUsers;
+  }
+
+  // Add user to recent users
+  async addToRecentUsers(userId: string): Promise<void> {
+    // Don't add if it's already a favorite
+    if (this.isUserFavorite(userId)) {
+      return;
+    }
+
+    // Remove from current position if exists
+    this.recentUserIds = this.recentUserIds.filter(id => id !== userId);
+
+    // Add to beginning
+    this.recentUserIds.unshift(userId);
+
+    // Keep only last 10 recent users
+    this.recentUserIds = this.recentUserIds.slice(0, 10);
+
+    // Update the actual user objects
+    await this.updateRecentUsersFromIds();
+
+    // Save to settings
+    this.saveRecentUsers();
+  }
+
   // Get favorite user by index (for keyboard shortcuts)
   getUserFavoriteByIndex(index: number): UserFavorite | null {
     const favorites = this.getUserFavorites();
@@ -269,6 +316,14 @@ export class UserService {
       ...s,
       userFavorites: this.userFavorites,
       userFavoriteOrder: this.favoriteOrder
+    }));
+  }
+
+  // Save recent users to settings
+  private saveRecentUsers(): void {
+    settings.update(s => ({
+      ...s,
+      recentUsers: this.recentUserIds
     }));
   }
 
