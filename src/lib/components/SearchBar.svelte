@@ -685,8 +685,18 @@
             bind:value={userId}
             onEnterKey={handleSearch}
             on:change={(e) => {
-              userId = e.detail.userId || '';
-              user = e.detail.userName || '';
+              // Handle both single and multi-user selection
+              if (e.detail.userIds && e.detail.userIds.length > 0) {
+                // Multi-user selection
+                userIds = e.detail.userIds;
+                userId = e.detail.userId || '';  // Comma-separated user IDs
+                user = e.detail.userName || '';
+              } else {
+                // Single user selection
+                userIds = [];
+                userId = e.detail.userId || '';
+                user = e.detail.userName || '';
+              }
             }}
           />
         </div>

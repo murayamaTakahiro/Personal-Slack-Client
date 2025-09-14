@@ -3,12 +3,17 @@
   import { userService } from '../services/userService';
   import { settings } from '../stores/settings';
   import { showToast } from '../stores/toast';
+  import { userSelectionStore, selectedUserIds, isMultiSelectMode, selectedUserDisplayNames } from '../stores/userSelection';
   import type { UserFavorite, SlackUser } from '../types/slack';
   
   export let value = '';
   export let onEnterKey: (() => void) | undefined = undefined;
-  
+
   const dispatch = createEventDispatcher();
+
+  // Subscribe to multi-select mode and selected users
+  $: mode = $isMultiSelectMode ? 'multi' : 'single';
+  $: selectedUsers = $selectedUserIds;
   
   let showDropdown = false;
   let searchQuery = '';
@@ -97,20 +102,25 @@
   }
   
   function selectUser(user: SlackUser | UserFavorite) {
-    value = user.id;
-    const displayName = 'alias' in user && user.alias
-      ? user.alias
-      : user.displayName || user.realName || user.name;
-    searchQuery = displayName;
-    searchResults = [];
-    showDropdown = false;
-
-    userService.addToRecentUsers(user.id);
-
-    dispatch('change', {
-      userId: user.id,
-      userName: displayName
-    });
+    if (mode === 'multi') {
+      userSelectionStore.toggleUserSelection(user.id, user);
+      // Keep dropdown open in multi-select mode
+      // Don't update searchQuery to keep it clear for further searching
+    } else {
+      value = user.id;
+      const displayName = 'alias' in user && user.alias
+        ? user.alias
+        : user.displayName || user.realName || user.name;
+      searchQuery = displayName;
+      searchResults = [];
+      showDropdown = false;
+      userSelectionStore.selectUser(user.id, user);
+      userService.addToRecentUsers(user.id);
+      dispatch('change', {
+        userId: user.id,
+        userName: displayName
+      });
+    }
   }
   
   async function toggleFavorite(user: SlackUser | UserFavorite, event: MouseEvent) {
@@ -173,9 +183,51 @@
   }
   
   export function clearSelection() {
+    if (mode === 'multi') {
+      userSelectionStore.clearSelection();
+    }
     value = '';
     searchQuery = '';
-    dispatch('change', { userId: '', userName: '' });
+    dispatch('change', { userId: '', userName: '', userIds: [] });
+  }
+
+  function toggleMode() {
+    userSelectionStore.toggleSelectionMode();
+  }
+
+  function applyMultiSelect() {
+    const userString = userSelectionStore.getFormattedUserString();
+    const displayNames = userSelectionStore.getSelectedUserDisplayNames();
+    value = userString;
+    // Clear search input to allow further searching
+    searchQuery = '';
+    showDropdown = false;
+    // Dispatch both formats for compatibility
+    dispatch('change', {
+      userIds: selectedUsers,
+      userId: userString,  // Comma-separated for multi-user
+      userName: displayNames.join(', ')
+    });
+  }
+
+  function selectAllFavorites() {
+    userSelectionStore.selectAllFavorites();
+    // Wait for store update then apply
+    setTimeout(() => {
+      if (mode === 'multi' && selectedUsers.length > 0) {
+        applyMultiSelect();
+      }
+    }, 50);
+  }
+
+  function selectRecentUsers() {
+    userSelectionStore.selectRecentUsers(5);
+    // Wait for store update then apply
+    setTimeout(() => {
+      if (mode === 'multi' && selectedUsers.length > 0) {
+        applyMultiSelect();
+      }
+    }, 50);
   }
   
   export function toggleDropdown() {
@@ -280,53 +332,163 @@
       showDropdown = false;
     }
   }
-  
+
+  // Global keyboard shortcuts
+  function handleGlobalKeydown(event: KeyboardEvent) {
+    // Ctrl+U or Cmd+U to toggle multi-select mode
+    if ((event.ctrlKey || event.metaKey) && event.key === 'u') {
+      event.preventDefault();
+      toggleMode();
+      return;
+    }
+
+    // Ctrl+Shift+U or Cmd+Shift+U to apply selected users
+    if ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === 'U' || event.key === 'u')) {
+      event.preventDefault();
+      if (mode === 'multi' && selectedUsers.length > 0) {
+        applyMultiSelect();
+      }
+      return;
+    }
+  }
+
   onMount(() => {
     document.addEventListener('click', handleClickOutside);
+    document.addEventListener('keydown', handleGlobalKeydown);
     return () => {
       document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener('keydown', handleGlobalKeydown);
     };
   });
 </script>
 
 <div class="user-selector">
-  <div class="input-wrapper">
-    <input
-      bind:this={inputElement}
-      type="text"
-      value={searchQuery}
-      on:input={handleInput}
-      on:focus={() => showDropdown = true}
-      on:keydown={handleKeydown}
-      placeholder={displayValue || "Search users or select from favorites"}
-      title="Use arrow keys to navigate, Enter to select, 'f' to toggle favorite"
-      class="user-input"
-    />
+  <div class="selector-header">
+    <div class="input-wrapper">
+      <input
+        bind:this={inputElement}
+        type="text"
+        value={searchQuery}
+        on:input={handleInput}
+        on:focus={() => showDropdown = true}
+        on:keydown={handleKeydown}
+        placeholder={mode === 'multi'
+          ? (selectedUsers.length > 0
+            ? `Search to add more (${selectedUsers.length} selected)`
+            : 'Search users (multi-select)')
+          : (displayValue || "Search users or select from favorites")}
+        title="Use arrow keys to navigate, Enter to select, 'f' to toggle favorite"
+        class="user-input"
+        class:has-selection={selectedUsers.length > 0 || value}
+      />
 
-    {#if value}
+      {#if value || selectedUsers.length > 0}
+        <button
+          on:click={clearSelection}
+          class="clear-btn"
+          title="Clear selection"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      {/if}
+    </div>
+
+    <div class="selector-controls">
       <button
-        on:click={clearSelection}
-        class="clear-btn"
-        title="Clear selection"
+        on:click={toggleMode}
+        class="mode-toggle"
+        class:active={mode === 'multi'}
+        title={mode === 'multi'
+          ? 'Multi-select mode: Select multiple users (Ctrl+U to switch to single)'
+          : 'Single-select mode: Select one user (Ctrl+U to switch to multi)'}
+        aria-label={mode === 'multi' ? 'Switch to single select' : 'Switch to multi-select'}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <line x1="18" y1="6" x2="6" y2="18"/>
-          <line x1="6" y1="6" x2="18" y2="18"/>
+        {#if mode === 'multi'}
+          <div class="button-content">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <rect x="3" y="3" width="7" height="7"/>
+              <rect x="14" y="3" width="7" height="7"/>
+              <rect x="3" y="14" width="7" height="7"/>
+              <rect x="14" y="14" width="7" height="7"/>
+            </svg>
+            {#if selectedUsers.length > 0}
+              <span class="badge">{selectedUsers.length}</span>
+            {/if}
+          </div>
+        {:else}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+          </svg>
+        {/if}
+      </button>
+
+      {#if userFavorites.length > 0}
+        <button
+          on:click={selectAllFavorites}
+          class="select-favorites"
+          title="Select all favorite users"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+        </button>
+      {/if}
+
+      <button
+        on:click={selectRecentUsers}
+        class="select-recent"
+        title="Select recent 5 users"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
         </svg>
       </button>
-    {/if}
 
-    <button
-      on:click={toggleDropdown}
-      class="favorite-star-btn"
-      title="Toggle favorites list"
-    >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-      </svg>
-    </button>
+      <button
+        on:click={toggleDropdown}
+        class="favorite-star-btn"
+        title="Toggle favorites list"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+      </button>
+    </div>
   </div>
-  
+
+  {#if mode === 'multi' && selectedUsers.length > 0}
+    <div class="selected-users">
+      <span class="selected-label">Selected ({selectedUsers.length}):</span>
+      {#each $selectedUserDisplayNames as displayName, index}
+        <span class="selected-tag">
+          {displayName}
+          <button
+            on:click={() => {
+              const userId = selectedUsers[index];
+              if (userId) {
+                userSelectionStore.toggleUserSelection(userId);
+              }
+            }}
+            class="remove-tag"
+          >
+            ×
+          </button>
+        </span>
+      {/each}
+      <button
+        on:click={applyMultiSelect}
+        class="apply-btn-inline"
+        title="Apply selected users to search (Ctrl+Shift+U)"
+      >
+        Apply ({selectedUsers.length})
+      </button>
+    </div>
+  {/if}
+
   {#if showDropdown}
     <div bind:this={dropdownElement} class="user-dropdown">
       {#if showDropdown}
@@ -342,9 +504,16 @@
             <div
               class="user-item"
               class:highlighted={highlightedIndex === index}
-              class:selected={value === favorite.id}
+              class:selected={mode === 'multi' ? selectedUsers.includes(favorite.id) : value === favorite.id}
               on:click={() => selectUser(favorite)}
             >
+              {#if mode === 'multi'}
+                <input
+                  type="checkbox"
+                  checked={selectedUsers.includes(favorite.id)}
+                  on:click|stopPropagation={() => userSelectionStore.toggleUserSelection(favorite.id, favorite)}
+                />
+              {/if}
               <span class="user-name">
                 {#if favorite.alias}
                   <strong>{favorite.alias}</strong>
@@ -382,9 +551,16 @@
             <div
               class="user-item"
               class:highlighted={highlightedIndex === actualIndex}
-              class:selected={value === user.id}
+              class:selected={mode === 'multi' ? selectedUsers.includes(user.id) : value === user.id}
               on:click={() => selectUser(user)}
             >
+              {#if mode === 'multi'}
+                <input
+                  type="checkbox"
+                  checked={selectedUsers.includes(user.id)}
+                  on:click|stopPropagation={() => userSelectionStore.toggleUserSelection(user.id, user)}
+                />
+              {/if}
               <span class="user-name">
                 {user.displayName || user.realName || user.name}
               </span>
@@ -413,9 +589,16 @@
               <div
                 class="user-item"
                 class:highlighted={highlightedIndex === actualIndex}
-                class:selected={value === user.id}
+                class:selected={mode === 'multi' ? selectedUsers.includes(user.id) : value === user.id}
                 on:click={() => selectUser(user)}
               >
+                {#if mode === 'multi'}
+                  <input
+                    type="checkbox"
+                    checked={selectedUsers.includes(user.id)}
+                    on:click|stopPropagation={() => userSelectionStore.toggleUserSelection(user.id, user)}
+                  />
+                {/if}
                 <span class="user-name">
                   {user.displayName || user.realName || user.name}
                 </span>
@@ -472,6 +655,17 @@
           </button>
         </div>
       {/if}
+
+      {#if mode === 'multi' && selectedUsers.length > 0}
+        <div class="dropdown-footer">
+          <button
+            on:click={applyMultiSelect}
+            class="apply-btn"
+          >
+            Apply Selection ({selectedUsers.length} user{selectedUsers.length !== 1 ? 's' : ''}) (Ctrl+Shift+U)
+          </button>
+        </div>
+      {/if}
     </div>
   {/if}
 </div>
@@ -482,15 +676,19 @@
     width: 100%;
   }
 
-  .input-wrapper {
-    position: relative;
+  .selector-header {
     display: flex;
-    align-items: center;
     gap: 0.5rem;
+    align-items: center;
+  }
+
+  .input-wrapper {
+    flex: 1;
+    position: relative;
   }
 
   .user-input {
-    flex: 1;
+    width: 100%;
     padding: 0.5rem;
     padding-right: 2rem;
     border: 1px solid var(--border);
@@ -500,6 +698,12 @@
     font-size: 0.875rem;
   }
 
+  .user-input.has-selection {
+    background: var(--primary-bg);
+    border-color: var(--primary);
+    font-weight: 500;
+  }
+
   .user-input:focus {
     outline: none;
     border-color: var(--primary);
@@ -507,7 +711,7 @@
 
   .clear-btn {
     position: absolute;
-    right: 3rem;
+    right: 0.5rem;
     top: 50%;
     transform: translateY(-50%);
     padding: 0.25rem;
@@ -524,6 +728,14 @@
     color: var(--text-primary);
   }
 
+  .selector-controls {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .mode-toggle,
+  .select-favorites,
+  .select-recent,
   .favorite-star-btn {
     padding: 0.5rem;
     background: transparent;
@@ -537,9 +749,102 @@
     transition: all 0.2s;
   }
 
+  .mode-toggle:hover,
+  .select-favorites:hover,
+  .select-recent:hover,
   .favorite-star-btn:hover {
     background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .favorite-star-btn:hover {
     color: gold;
+  }
+
+  .mode-toggle.active {
+    background: var(--primary-bg);
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .button-content {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: var(--primary);
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: bold;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+
+  .selected-users {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: var(--bg-hover);
+    border-radius: 4px;
+  }
+
+  .selected-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-right: 0.5rem;
+  }
+
+  .selected-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    background: var(--primary-bg);
+    border: 1px solid var(--primary);
+    border-radius: 12px;
+    font-size: 0.75rem;
+    color: var(--primary);
+  }
+
+  .remove-tag {
+    background: transparent;
+    border: none;
+    color: var(--primary);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0;
+    margin-left: 0.25rem;
+  }
+
+  .apply-btn-inline {
+    padding: 0.25rem 0.75rem;
+    background: var(--primary);
+    border: none;
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-left: auto;
+    transition: background 0.2s;
+  }
+
+  .apply-btn-inline:hover {
+    background: var(--primary-hover);
   }
 
   .user-dropdown {
@@ -593,6 +898,10 @@
     padding: 0.5rem 0.75rem;
     cursor: pointer;
     transition: background 0.1s;
+  }
+
+  .user-item input[type="checkbox"] {
+    margin-right: 0.5rem;
   }
 
   .user-item:hover,
@@ -738,5 +1047,27 @@
 
   .user-dropdown::-webkit-scrollbar-thumb:hover {
     background: var(--text-secondary);
+  }
+
+  .dropdown-footer {
+    padding: 0.75rem;
+    border-top: 1px solid var(--border);
+    background: var(--bg-secondary);
+  }
+
+  .apply-btn {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .apply-btn:hover {
+    background: var(--primary-hover);
   }
 </style>

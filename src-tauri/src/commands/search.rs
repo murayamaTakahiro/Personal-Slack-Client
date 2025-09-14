@@ -53,62 +53,129 @@ pub async fn search_messages(
     // Set default limit if not provided
     let max_results = limit.unwrap_or(100);
 
-    // Handle multi-channel search
+    // Handle multi-channel or multi-user search
     let mut all_slack_messages = Vec::new();
 
+    // Check if we have multi-user search
+    let is_multi_user = user.as_ref().map_or(false, |u| u.contains(','));
+
     if let Some(ref channel_param) = channel {
-        if channel_param.contains(',') {
-            // Multi-channel search: search each channel separately IN PARALLEL
-            let channels: Vec<String> = channel_param
-                .split(',')
-                .map(|ch| ch.trim().to_string())
-                .filter(|ch| !ch.is_empty())
-                .collect();
+        if channel_param.contains(',') || is_multi_user {
+            // Multi-channel or multi-user search: search each combination separately IN PARALLEL
+            let channels: Vec<String> = if channel_param.contains(',') {
+                channel_param
+                    .split(',')
+                    .map(|ch| ch.trim().to_string())
+                    .filter(|ch| !ch.is_empty())
+                    .collect()
+            } else {
+                vec![channel_param.clone()]
+            };
+
+            let users: Vec<String> = if is_multi_user {
+                user.as_ref().unwrap()
+                    .split(',')
+                    .map(|u| u.trim().to_string())
+                    .filter(|u| !u.is_empty())
+                    .collect()
+            } else {
+                user.clone().map_or(vec![], |u| vec![u])
+            };
 
             info!(
-                "Performing parallel multi-channel search for {} channels",
-                channels.len()
+                "Performing parallel search for {} channels and {} users",
+                channels.len(),
+                users.len()
             );
 
             // Create futures for parallel execution
-            let search_futures = channels.iter().map(|single_channel| {
-                let client = Arc::clone(&client);
-                let query = query.clone();
-                let channel = single_channel.clone();
-                let user = user.clone();
-                let from_date = from_date.clone();
-                let to_date = to_date.clone();
+            // If we have both multiple channels and users, we need to search each combination
+            use std::pin::Pin;
+            use futures::future::Future;
 
-                async move {
-                    let search_request = SearchRequest {
-                        query: query.clone(),
-                        channel: Some(channel.clone()),
-                        user,
-                        from_date,
-                        to_date,
-                        limit: Some(max_results),
-                        is_realtime: force_refresh,
-                    };
+            let mut search_futures: Vec<Pin<Box<dyn Future<Output = Result<Vec<SlackMessage>, anyhow::Error>> + Send>>> = Vec::new();
 
-                    let search_query = build_search_query(&search_request);
-                    info!(
-                        "Searching channel '{}' with query: {}",
-                        channel, search_query
-                    );
+            if users.is_empty() {
+                // Only multi-channel search
+                for single_channel in &channels {
+                    let client = Arc::clone(&client);
+                    let query = query.clone();
+                    let channel = single_channel.clone();
+                    let user = user.clone();
+                    let from_date = from_date.clone();
+                    let to_date = to_date.clone();
 
-                    match fetch_all_results(&client, search_query, max_results).await {
-                        Ok(messages) => {
-                            info!("Found {} messages in channel '{}'", messages.len(), channel);
-                            Ok::<Vec<SlackMessage>, anyhow::Error>(messages)
+                    search_futures.push(Box::pin(async move {
+                        let search_request = SearchRequest {
+                            query: query.clone(),
+                            channel: Some(channel.clone()),
+                            user,
+                            from_date,
+                            to_date,
+                            limit: Some(max_results),
+                            is_realtime: force_refresh,
+                        };
+
+                        let search_query = build_search_query(&search_request);
+                        info!(
+                            "Searching channel '{}' with query: {}",
+                            channel, search_query
+                        );
+
+                        match fetch_all_results(&client, search_query, max_results).await {
+                            Ok(messages) => {
+                                info!("Found {} messages in channel '{}'", messages.len(), channel);
+                                Ok::<Vec<SlackMessage>, anyhow::Error>(messages)
+                            }
+                            Err(e) => {
+                                error!("Failed to search channel '{}': {}", channel, e);
+                                Ok::<Vec<SlackMessage>, anyhow::Error>(vec![])
+                            }
                         }
-                        Err(e) => {
-                            error!("Failed to search channel '{}': {}", channel, e);
-                            // Return empty vec on error to continue with other channels
-                            Ok::<Vec<SlackMessage>, anyhow::Error>(vec![])
-                        }
+                    }));
+                }
+            } else {
+                // Multi-user search (with or without multi-channel)
+                for single_user in &users {
+                    for single_channel in &channels {
+                        let client = Arc::clone(&client);
+                        let query = query.clone();
+                        let channel = single_channel.clone();
+                        let user = single_user.clone();
+                        let from_date = from_date.clone();
+                        let to_date = to_date.clone();
+
+                        search_futures.push(Box::pin(async move {
+                            let search_request = SearchRequest {
+                                query: query.clone(),
+                                channel: Some(channel.clone()),
+                                user: Some(user.clone()),
+                                from_date,
+                                to_date,
+                                limit: Some(max_results),
+                                is_realtime: force_refresh,
+                            };
+
+                            let search_query = build_search_query(&search_request);
+                            info!(
+                                "Searching channel '{}' with user '{}' and query: {}",
+                                channel, user, search_query
+                            );
+
+                            match fetch_all_results(&client, search_query, max_results).await {
+                                Ok(messages) => {
+                                    info!("Found {} messages for user '{}' in channel '{}'", messages.len(), user, channel);
+                                    Ok::<Vec<SlackMessage>, anyhow::Error>(messages)
+                                }
+                                Err(e) => {
+                                    error!("Failed to search user '{}' in channel '{}': {}", user, channel, e);
+                                    Ok::<Vec<SlackMessage>, anyhow::Error>(vec![])
+                                }
+                            }
+                        }));
                     }
                 }
-            });
+            }
 
             // Execute all searches in parallel
             let results = join_all(search_futures).await;
@@ -239,6 +306,59 @@ pub async fn search_messages(
 
                 all_slack_messages =
                     fetch_all_results(&client, search_query.clone(), max_results).await?;
+            }
+        }
+    } else if is_multi_user {
+        // Multi-user search without specific channel
+        let users: Vec<String> = user.as_ref().unwrap()
+            .split(',')
+            .map(|u| u.trim().to_string())
+            .filter(|u| !u.is_empty())
+            .collect();
+
+        info!("Performing parallel search for {} users across all channels", users.len());
+
+        let search_futures = users.iter().map(|single_user| {
+            let client = Arc::clone(&client);
+            let query = query.clone();
+            let user = single_user.clone();
+            let from_date = from_date.clone();
+            let to_date = to_date.clone();
+
+            async move {
+                let search_request = SearchRequest {
+                    query: query.clone(),
+                    channel: None,
+                    user: Some(user.clone()),
+                    from_date,
+                    to_date,
+                    limit: Some(max_results),
+                    is_realtime: force_refresh,
+                };
+
+                let search_query = build_search_query(&search_request);
+                info!("Searching for user '{}' with query: {}", user, search_query);
+
+                match fetch_all_results(&client, search_query, max_results).await {
+                    Ok(messages) => {
+                        info!("Found {} messages for user '{}'", messages.len(), user);
+                        Ok::<Vec<SlackMessage>, anyhow::Error>(messages)
+                    }
+                    Err(e) => {
+                        error!("Failed to search user '{}': {}", user, e);
+                        Ok::<Vec<SlackMessage>, anyhow::Error>(vec![])
+                    }
+                }
+            }
+        });
+
+        // Execute all searches in parallel
+        let results = join_all(search_futures).await;
+
+        // Combine all results
+        for result in results {
+            if let Ok(messages) = result {
+                all_slack_messages.extend(messages);
             }
         }
     } else {
