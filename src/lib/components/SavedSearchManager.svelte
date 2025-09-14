@@ -12,6 +12,7 @@
   import { searchQuery, searchParams } from '../stores/search';
   import { showToast } from '../stores/toast';
   import { getKeyboardService } from '../services/keyboardService';
+  import { confirm } from '../stores/confirmation';
 
   const dispatch = createEventDispatcher();
 
@@ -148,23 +149,84 @@
     editingName = '';
   }
 
-  function deleteSearch(id: string, event: Event) {
+  async function deleteSearch(id: string, event: Event) {
     event.stopPropagation();
-    if (confirm('Delete this saved search?')) {
-      savedSearchesStore.deleteSearch(id);
-      showToast('Search deleted', 'success');
+    event.preventDefault();
+
+    const confirmed = await confirm({
+      title: 'Delete Saved Search',
+      message: 'Are you sure you want to delete this saved search?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      dangerous: true
+    });
+
+    if (confirmed) {
+      try {
+        // Reset hover state to prevent UI issues
+        if (hoveredId === id) {
+          hoveredId = null;
+        }
+
+        // Reset selection if the deleted item was selected
+        const currentIndex = filteredSearches.findIndex(s => s.id === id);
+        if (selectedIndex === currentIndex) {
+          selectedIndex = -1;
+        }
+
+        // Perform the deletion
+        await savedSearchesStore.deleteSearch(id);
+
+        // Show success message after successful deletion
+        showToast('Search deleted', 'success');
+
+        // Adjust selected index if necessary
+        if (selectedIndex > currentIndex && selectedIndex > 0) {
+          selectedIndex--;
+        }
+      } catch (error) {
+        console.error('[SavedSearchManager] Failed to delete search:', error);
+        showToast('Failed to delete search', 'error');
+      }
     }
   }
 
-  function toggleFavorite(id: string, event: Event) {
+  async function toggleFavorite(id: string, event: Event) {
     event.stopPropagation();
-    savedSearchesStore.toggleFavorite(id);
+    event.preventDefault();
+
+    try {
+      await savedSearchesStore.toggleFavorite(id);
+    } catch (error) {
+      console.error('[SavedSearchManager] Failed to toggle favorite:', error);
+      showToast('Failed to update favorite status', 'error');
+    }
   }
 
-  function clearAllSearches() {
-    if (confirm('Delete all saved searches? This cannot be undone.')) {
-      savedSearchesStore.clearAll();
-      showToast('All saved searches cleared', 'success');
+  async function clearAllSearches() {
+    const confirmed = await confirm({
+      title: 'Clear All Searches',
+      message: 'Are you sure you want to delete all saved searches? This action cannot be undone.',
+      confirmText: 'Delete All',
+      cancelText: 'Cancel',
+      dangerous: true
+    });
+
+    if (confirmed) {
+      try {
+        // Reset UI state before clearing
+        selectedIndex = -1;
+        hoveredId = null;
+        editingId = null;
+        editingName = '';
+        searchFilter = '';
+
+        await savedSearchesStore.clearAll();
+        showToast('All saved searches cleared', 'success');
+      } catch (error) {
+        console.error('[SavedSearchManager] Failed to clear all searches:', error);
+        showToast('Failed to clear searches', 'error');
+      }
     }
   }
 
@@ -240,8 +302,11 @@
   }
 
   onMount(() => {
-    document.addEventListener('keydown', handleKeydown);
-    
+    // Only add event listener if the component is open
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeydown);
+    }
+
     // Register keyboard shortcuts
     const keyboardService = getKeyboardService();
     if (keyboardService) {
@@ -253,13 +318,31 @@
   });
 
   onDestroy(() => {
+    // Clean up event listeners
     document.removeEventListener('keydown', handleKeydown);
-    
+
+    // Clean up keyboard shortcuts
     const keyboardService = getKeyboardService();
     if (keyboardService) {
       keyboardService.unregisterHandler('quickSaveSearch');
     }
+
+    // Reset component state
+    hoveredId = null;
+    editingId = null;
+    selectedIndex = -1;
   });
+
+  // Watch for isOpen changes to manage event listeners
+  $: {
+    if (typeof window !== 'undefined') {
+      if (isOpen) {
+        document.addEventListener('keydown', handleKeydown);
+      } else {
+        document.removeEventListener('keydown', handleKeydown);
+      }
+    }
+  }
 </script>
 
 {#if isOpen}
@@ -379,9 +462,9 @@
             </div>
             
             <div class="search-actions">
-              <button 
+              <button
                 class="btn-icon {search.isFavorite ? 'active' : ''}"
-                on:click={(e) => toggleFavorite(search.id, e)}
+                on:click|stopPropagation|preventDefault={(e) => toggleFavorite(search.id, e)}
                 title="Toggle favorite"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill={search.isFavorite ? 'currentColor' : 'none'} stroke="currentColor">
@@ -402,9 +485,9 @@
                 </button>
               {/if}
               
-              <button 
+              <button
                 class="btn-icon delete"
-                on:click={(e) => deleteSearch(search.id, e)}
+                on:click|stopPropagation|preventDefault={(e) => deleteSearch(search.id, e)}
                 title="Delete"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">

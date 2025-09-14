@@ -33,6 +33,7 @@
   let urlInputElement: HTMLInputElement;
   let showSavedSearches = false;
   let savedSearchButton: HTMLButtonElement;
+  let savedSearchKey = 0; // Key to force component recreation
   
   // Keep local filter values in sync with searchParams store
   // This ensures filters persist when dialogs are opened/closed or focus changes
@@ -429,6 +430,10 @@
   // Saved search functions
   export function toggleSavedSearches() {
     showSavedSearches = !showSavedSearches;
+    // Increment key to force component recreation if there were issues
+    if (showSavedSearches) {
+      savedSearchKey++;
+    }
   }
   
   function handleSavedSearchLoad(event: CustomEvent) {
@@ -754,15 +759,19 @@
   
   <!-- Saved Search Manager -->
   {#if showSavedSearches && savedSearchButton}
-    <SavedSearchManager
-      isOpen={showSavedSearches}
-      position={{ 
-        top: savedSearchButton.getBoundingClientRect().bottom + 5, 
-        left: savedSearchButton.getBoundingClientRect().left 
-      }}
-      on:load={handleSavedSearchLoad}
-      on:close={() => showSavedSearches = false}
-    />
+    {#key savedSearchKey}
+      <SavedSearchManager
+        isOpen={showSavedSearches}
+        position={{
+          top: savedSearchButton?.getBoundingClientRect().bottom + 5 || 100,
+          left: savedSearchButton?.getBoundingClientRect().left || 100
+        }}
+        on:load={handleSavedSearchLoad}
+        on:close={() => {
+          showSavedSearches = false;
+        }}
+      />
+    {/key}
   {/if}
 </div>
 

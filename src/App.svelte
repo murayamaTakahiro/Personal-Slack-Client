@@ -64,6 +64,7 @@
   import { initializeCurrentUser } from './lib/stores/currentUser';
   import UserIdSettings from './lib/components/UserIdSettings.svelte';
   import PerformanceMonitor from './lib/components/PerformanceMonitor.svelte';
+  import ConfirmationDialog from './lib/components/ConfirmationDialog.svelte';
   
   let channels: [string, string][] = [];
   let showSettings = false;
@@ -1606,6 +1607,9 @@
         <PerformanceMonitor />
       {/if}
     </ErrorBoundary>
+
+    <!-- Global Confirmation Dialog -->
+    <ConfirmationDialog />
   {/if} <!-- End main app initialized check -->
 </div>
 
@@ -1624,6 +1628,7 @@
     --warning: #ff9800;
     --danger: #dc3545;
     --danger-bg: #f8d7da;
+    --danger-hover: #c82333;
   }
   
   :global(:root.dark) {
@@ -1640,6 +1645,7 @@
     --warning: #ffa726;
     --danger: #f56565;
     --danger-bg: #4a2525;
+    --danger-hover: #dc2626;
   }
   
   :global(*) {

@@ -11,11 +11,16 @@
   function handleError(event: ErrorEvent) {
     // Prevent cascading errors
     if (hasError) return;
-    
+
+    // Check if this error originated from this error boundary's children
+    const target = event.target as HTMLElement;
+    const errorBoundaryElement = target?.closest?.('.error-boundary-wrapper');
+    if (!errorBoundaryElement) return;
+
     hasError = true;
     errorMessage = event.error?.message || 'Unknown error';
     errorStack = event.error?.stack || '';
-    
+
     // Log errors appropriately
     const logMessage = `[ErrorBoundary] Caught error in "${fallback}":`;
     if (import.meta.env.DEV) {
@@ -23,9 +28,10 @@
     } else {
       console.warn(logMessage, errorMessage);
     }
-    
+
     // Prevent the error from bubbling up
     event.preventDefault();
+    event.stopPropagation();
   }
   
   function handleRejection(event: PromiseRejectionEvent) {
