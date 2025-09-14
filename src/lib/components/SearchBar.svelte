@@ -20,6 +20,7 @@
   let channel = '';
   let user = '';
   let userId = '';  // Store the actual user ID
+  let userIds: string[] = [];  // Store multiple user IDs for multi-select
   let fromDate = '';
   let toDate = '';
   let limit = 1000;
