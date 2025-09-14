@@ -906,21 +906,39 @@ pub fn build_search_query(params: &SearchRequest) -> String {
     }
 
     // Add user filter - handle both user IDs and usernames
+    // IMPORTANT: For multi-user search, we DON'T add user filter to query
+    // Instead, we'll filter results client-side after fetching all channel messages
     if let Some(user) = &params.user {
-        let clean_user = user.trim_start_matches('@');
-        if !clean_user.is_empty() {
-            // Check if it's a user ID (starts with U and followed by alphanumeric)
-            if clean_user.starts_with('U')
-                && clean_user.len() > 8
-                && clean_user.chars().skip(1).all(|c| c.is_alphanumeric())
-            {
-                // For user IDs, use the <@USERID> format
-                info!("Using user ID format for search: <@{}>", clean_user);
-                query_parts.push(format!("from:<@{}>", clean_user));
+        // Check if we have multiple users (comma-separated)
+        if user.contains(',') {
+            // Multiple users - DON'T add to query, will filter client-side
+            info!("Multi-user search detected: '{}' - will filter client-side", user);
+            // Don't add any user filter to the query
+            // The search command will handle filtering by user IDs after fetching messages
+        } else {
+            // Single user - handle as before (this works with Slack API)
+            let trimmed = user.trim();
+            let clean_user = if trimmed.starts_with("<@") && trimmed.ends_with(">") {
+                // Remove <@...> brackets if present
+                &trimmed[2..trimmed.len()-1]
             } else {
-                // For usernames, use the plain format
-                info!("Using username format for search: {}", clean_user);
-                query_parts.push(format!("from:{}", clean_user));
+                // Just remove @ prefix
+                trimmed.trim_start_matches('@')
+            };
+            if !clean_user.is_empty() {
+                // Check if it's a user ID (starts with U and followed by alphanumeric)
+                if clean_user.starts_with('U')
+                    && clean_user.len() > 8
+                    && clean_user.chars().skip(1).all(|c| c.is_alphanumeric())
+                {
+                    // For user IDs, use plain format (no brackets)
+                    info!("Using user ID format for search: {}", clean_user);
+                    query_parts.push(format!("from:{}", clean_user));
+                } else {
+                    // For usernames, use the plain format
+                    info!("Using username format for search: {}", clean_user);
+                    query_parts.push(format!("from:{}", clean_user));
+                }
             }
         }
     }

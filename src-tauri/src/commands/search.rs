@@ -56,12 +56,14 @@ pub async fn search_messages(
     // Handle multi-channel or multi-user search
     let mut all_slack_messages = Vec::new();
 
-    // Check if we have multi-user search
-    let is_multi_user = user.as_ref().map_or(false, |u| u.contains(','));
+    // Check if we have multi-user search (no longer needed for special handling)
+    // Multi-user is now handled directly in build_search_query with OR logic
+    let _is_multi_channel = channel.as_ref().map_or(false, |c| c.contains(','));
 
     if let Some(ref channel_param) = channel {
-        if channel_param.contains(',') || is_multi_user {
-            // Multi-channel or multi-user search: search each combination separately IN PARALLEL
+        if channel_param.contains(',') {
+            // Multi-channel search: search each channel separately IN PARALLEL
+            // Note: Multi-user is now handled with OR logic in a single query
             let channels: Vec<String> = if channel_param.contains(',') {
                 channel_param
                     .split(',')
@@ -72,109 +74,90 @@ pub async fn search_messages(
                 vec![channel_param.clone()]
             };
 
-            let users: Vec<String> = if is_multi_user {
-                user.as_ref().unwrap()
-                    .split(',')
-                    .map(|u| u.trim().to_string())
-                    .filter(|u| !u.is_empty())
-                    .collect()
-            } else {
-                user.clone().map_or(vec![], |u| vec![u])
-            };
-
             info!(
-                "Performing parallel search for {} channels and {} users",
-                channels.len(),
-                users.len()
+                "Performing parallel search for {} channels",
+                channels.len()
             );
 
             // Create futures for parallel execution
-            // If we have both multiple channels and users, we need to search each combination
             use std::pin::Pin;
             use futures::future::Future;
 
             let mut search_futures: Vec<Pin<Box<dyn Future<Output = Result<Vec<SlackMessage>, anyhow::Error>> + Send>>> = Vec::new();
 
-            if users.is_empty() {
-                // Only multi-channel search
-                for single_channel in &channels {
-                    let client = Arc::clone(&client);
-                    let query = query.clone();
-                    let channel = single_channel.clone();
-                    let user = user.clone();
-                    let from_date = from_date.clone();
-                    let to_date = to_date.clone();
+            // Multi-channel search
+            for single_channel in &channels {
+                let client = Arc::clone(&client);
+                let query = query.clone();
+                let channel = single_channel.clone();
+                let user = user.clone();  // This might be multiple users with commas
+                let from_date = from_date.clone();
+                let to_date = to_date.clone();
 
-                    search_futures.push(Box::pin(async move {
-                        let search_request = SearchRequest {
-                            query: query.clone(),
-                            channel: Some(channel.clone()),
-                            user,
-                            from_date,
-                            to_date,
-                            limit: Some(max_results),
-                            is_realtime: force_refresh,
-                        };
+                search_futures.push(Box::pin(async move {
+                    let search_request = SearchRequest {
+                        query: query.clone(),
+                        channel: Some(channel.clone()),
+                        user: user.clone(),  // Pass the full user string
+                        from_date,
+                        to_date,
+                        limit: Some(max_results),
+                        is_realtime: force_refresh,
+                    };
 
-                        let search_query = build_search_query(&search_request);
-                        info!(
-                            "Searching channel '{}' with query: {}",
-                            channel, search_query
-                        );
+                    let search_query = build_search_query(&search_request);
+                    info!(
+                        "Searching channel '{}' with query: {}",
+                        channel, search_query
+                    );
 
-                        match fetch_all_results(&client, search_query, max_results).await {
-                            Ok(messages) => {
-                                info!("Found {} messages in channel '{}'", messages.len(), channel);
-                                Ok::<Vec<SlackMessage>, anyhow::Error>(messages)
+                    let mut messages = fetch_all_results(&client, search_query, max_results).await?;
+
+                    // Filter by user IDs if multi-user search
+                    if let Some(ref users) = user {
+                        if users.contains(',') {
+                            // Parse user IDs from comma-separated string
+                            let user_ids: Vec<String> = users
+                                .split(',')
+                                .map(|u| {
+                                    let trimmed = u.trim();
+                                    if trimmed.starts_with("<@") && trimmed.ends_with(">") {
+                                        trimmed[2..trimmed.len()-1].to_string()
+                                    } else {
+                                        trimmed.trim_start_matches('@').to_string()
+                                    }
+                                })
+                                .filter(|u| !u.is_empty())
+                                .collect();
+
+                            info!("Filtering {} messages for users: {:?}", messages.len(), user_ids);
+
+                            // Debug: Log first few messages to see user field
+                            for (i, msg) in messages.iter().take(3).enumerate() {
+                                info!("Message {}: user={:?}, text={:?}", i, msg.user, &msg.text[..msg.text.len().min(50)]);
                             }
-                            Err(e) => {
-                                error!("Failed to search channel '{}': {}", channel, e);
-                                Ok::<Vec<SlackMessage>, anyhow::Error>(vec![])
-                            }
+
+                            let message_count = messages.len();
+                            messages = messages.into_iter()
+                                .filter(|msg| {
+                                    let matches = msg.user.as_ref()
+                                        .map(|u| {
+                                            let user_match = user_ids.contains(u);
+                                            if !user_match && message_count < 10 {
+                                                info!("User '{}' not in filter list {:?}", u, user_ids);
+                                            }
+                                            user_match
+                                        })
+                                        .unwrap_or(false);
+                                    matches
+                                })
+                                .collect();
+                            info!("After filtering: {} messages", messages.len());
                         }
-                    }));
-                }
-            } else {
-                // Multi-user search (with or without multi-channel)
-                for single_user in &users {
-                    for single_channel in &channels {
-                        let client = Arc::clone(&client);
-                        let query = query.clone();
-                        let channel = single_channel.clone();
-                        let user = single_user.clone();
-                        let from_date = from_date.clone();
-                        let to_date = to_date.clone();
-
-                        search_futures.push(Box::pin(async move {
-                            let search_request = SearchRequest {
-                                query: query.clone(),
-                                channel: Some(channel.clone()),
-                                user: Some(user.clone()),
-                                from_date,
-                                to_date,
-                                limit: Some(max_results),
-                                is_realtime: force_refresh,
-                            };
-
-                            let search_query = build_search_query(&search_request);
-                            info!(
-                                "Searching channel '{}' with user '{}' and query: {}",
-                                channel, user, search_query
-                            );
-
-                            match fetch_all_results(&client, search_query, max_results).await {
-                                Ok(messages) => {
-                                    info!("Found {} messages for user '{}' in channel '{}'", messages.len(), user, channel);
-                                    Ok::<Vec<SlackMessage>, anyhow::Error>(messages)
-                                }
-                                Err(e) => {
-                                    error!("Failed to search user '{}' in channel '{}': {}", user, channel, e);
-                                    Ok::<Vec<SlackMessage>, anyhow::Error>(vec![])
-                                }
-                            }
-                        }));
                     }
-                }
+
+                    Ok::<Vec<SlackMessage>, anyhow::Error>(messages)
+                }));
             }
 
             // Execute all searches in parallel
@@ -189,7 +172,8 @@ pub async fn search_messages(
         } else {
             // Single channel search
             // Check if we have a text query or just filters
-            if query.trim().is_empty() && user.is_none() {
+            let is_multi_user = user.as_ref().map_or(false, |u| u.contains(','));
+            if query.trim().is_empty() && !is_multi_user {
                 // No text query and no user filter - use conversations.history for better results
                 info!(
                     "Using conversations.history API for channel '{}' without text query",
@@ -306,59 +290,49 @@ pub async fn search_messages(
 
                 all_slack_messages =
                     fetch_all_results(&client, search_query.clone(), max_results).await?;
-            }
-        }
-    } else if is_multi_user {
-        // Multi-user search without specific channel
-        let users: Vec<String> = user.as_ref().unwrap()
-            .split(',')
-            .map(|u| u.trim().to_string())
-            .filter(|u| !u.is_empty())
-            .collect();
 
-        info!("Performing parallel search for {} users across all channels", users.len());
+                // Filter by user IDs if multi-user search
+                if let Some(ref users) = user {
+                    if users.contains(',') {
+                        // Parse user IDs from comma-separated string
+                        let user_ids: Vec<String> = users
+                            .split(',')
+                            .map(|u| {
+                                let trimmed = u.trim();
+                                if trimmed.starts_with("<@") && trimmed.ends_with(">") {
+                                    trimmed[2..trimmed.len()-1].to_string()
+                                } else {
+                                    trimmed.trim_start_matches('@').to_string()
+                                }
+                            })
+                            .filter(|u| !u.is_empty())
+                            .collect();
 
-        let search_futures = users.iter().map(|single_user| {
-            let client = Arc::clone(&client);
-            let query = query.clone();
-            let user = single_user.clone();
-            let from_date = from_date.clone();
-            let to_date = to_date.clone();
+                        info!("Filtering {} messages for users: {:?}", all_slack_messages.len(), user_ids);
 
-            async move {
-                let search_request = SearchRequest {
-                    query: query.clone(),
-                    channel: None,
-                    user: Some(user.clone()),
-                    from_date,
-                    to_date,
-                    limit: Some(max_results),
-                    is_realtime: force_refresh,
-                };
+                        // Debug: Log first few messages to see user field
+                        for (i, msg) in all_slack_messages.iter().take(3).enumerate() {
+                            info!("Message {}: user={:?}, text={:?}", i, msg.user, &msg.text[..msg.text.len().min(50)]);
+                        }
 
-                let search_query = build_search_query(&search_request);
-                info!("Searching for user '{}' with query: {}", user, search_query);
-
-                match fetch_all_results(&client, search_query, max_results).await {
-                    Ok(messages) => {
-                        info!("Found {} messages for user '{}'", messages.len(), user);
-                        Ok::<Vec<SlackMessage>, anyhow::Error>(messages)
-                    }
-                    Err(e) => {
-                        error!("Failed to search user '{}': {}", user, e);
-                        Ok::<Vec<SlackMessage>, anyhow::Error>(vec![])
+                        let message_count = all_slack_messages.len();
+                        all_slack_messages = all_slack_messages.into_iter()
+                            .filter(|msg| {
+                                let matches = msg.user.as_ref()
+                                    .map(|u| {
+                                        let user_match = user_ids.contains(u);
+                                        if !user_match && message_count < 10 {
+                                            info!("User '{}' not in filter list {:?}", u, user_ids);
+                                        }
+                                        user_match
+                                    })
+                                    .unwrap_or(false);
+                                matches
+                            })
+                            .collect();
+                        info!("After filtering: {} messages", all_slack_messages.len());
                     }
                 }
-            }
-        });
-
-        // Execute all searches in parallel
-        let results = join_all(search_futures).await;
-
-        // Combine all results
-        for result in results {
-            if let Ok(messages) = result {
-                all_slack_messages.extend(messages);
             }
         }
     } else {
@@ -377,6 +351,35 @@ pub async fn search_messages(
         info!("Executing search with query: {}", search_query);
 
         all_slack_messages = fetch_all_results(&client, search_query.clone(), max_results).await?;
+
+        // Filter by user IDs if multi-user search
+        if let Some(ref users) = user {
+            if users.contains(',') {
+                // Parse user IDs from comma-separated string
+                let user_ids: Vec<String> = users
+                    .split(',')
+                    .map(|u| {
+                        let trimmed = u.trim();
+                        if trimmed.starts_with("<@") && trimmed.ends_with(">") {
+                            trimmed[2..trimmed.len()-1].to_string()
+                        } else {
+                            trimmed.trim_start_matches('@').to_string()
+                        }
+                    })
+                    .filter(|u| !u.is_empty())
+                    .collect();
+
+                info!("Filtering {} messages for users: {:?}", all_slack_messages.len(), user_ids);
+                all_slack_messages = all_slack_messages.into_iter()
+                    .filter(|msg| {
+                        msg.user.as_ref()
+                            .map(|u| user_ids.contains(u))
+                            .unwrap_or(false)
+                    })
+                    .collect();
+                info!("After filtering: {} messages", all_slack_messages.len());
+            }
+        }
     }
 
     // Sort by timestamp (newest first) and limit to max_results
@@ -1054,6 +1057,49 @@ pub async fn search_messages_fast(
             // Sort by timestamp (newest first) and limit to max_results
             all_slack_messages.sort_by(|a, b| b.ts.cmp(&a.ts));
             all_slack_messages = all_slack_messages.into_iter().take(max_results).collect();
+
+            // Filter by user IDs if multi-user search (AFTER combining all channel results)
+            if let Some(ref users) = user {
+                if users.contains(',') {
+                    // Parse user IDs from comma-separated string
+                    let user_ids: Vec<String> = users
+                        .split(',')
+                        .map(|u| {
+                            let trimmed = u.trim();
+                            if trimmed.starts_with("<@") && trimmed.ends_with(">") {
+                                trimmed[2..trimmed.len()-1].to_string()
+                            } else {
+                                trimmed.trim_start_matches('@').to_string()
+                            }
+                        })
+                        .filter(|u| !u.is_empty())
+                        .collect();
+
+                    info!("Fast search (multi-channel): Filtering {} messages for users: {:?}", all_slack_messages.len(), user_ids);
+
+                    // Debug: Log first few messages to see user field
+                    for (i, msg) in all_slack_messages.iter().take(3).enumerate() {
+                        info!("Fast search (multi-channel): Message {}: user={:?}, text={:?}", i, msg.user, &msg.text[..msg.text.len().min(50)]);
+                    }
+
+                    let message_count = all_slack_messages.len();
+                    all_slack_messages = all_slack_messages.into_iter()
+                        .filter(|msg| {
+                            let matches = msg.user.as_ref()
+                                .map(|u| {
+                                    let user_match = user_ids.contains(u);
+                                    if !user_match && message_count < 10 {
+                                        info!("Fast search (multi-channel): User '{}' not in filter list {:?}", u, user_ids);
+                                    }
+                                    user_match
+                                })
+                                .unwrap_or(false);
+                            matches
+                        })
+                        .collect();
+                    info!("Fast search (multi-channel): After filtering: {} messages", all_slack_messages.len());
+                }
+            }
         } else {
             // Single channel search
             let search_request = SearchRequest {
@@ -1068,8 +1114,51 @@ pub async fn search_messages_fast(
             
             let search_query = build_search_query(&search_request);
             info!("Fast search with query: {}", search_query);
-            
+
             all_slack_messages = fetch_all_results(&client, search_query.clone(), max_results).await?;
+
+            // Filter by user IDs if multi-user search
+            if let Some(ref users) = user {
+                if users.contains(',') {
+                    // Parse user IDs from comma-separated string
+                    let user_ids: Vec<String> = users
+                        .split(',')
+                        .map(|u| {
+                            let trimmed = u.trim();
+                            if trimmed.starts_with("<@") && trimmed.ends_with(">") {
+                                trimmed[2..trimmed.len()-1].to_string()
+                            } else {
+                                trimmed.trim_start_matches('@').to_string()
+                            }
+                        })
+                        .filter(|u| !u.is_empty())
+                        .collect();
+
+                    info!("Fast search (single channel): Filtering {} messages for users: {:?}", all_slack_messages.len(), user_ids);
+
+                    // Debug: Log first few messages to see user field
+                    for (i, msg) in all_slack_messages.iter().take(3).enumerate() {
+                        info!("Fast search (single channel): Message {}: user={:?}, text={:?}", i, msg.user, &msg.text[..msg.text.len().min(50)]);
+                    }
+
+                    let message_count = all_slack_messages.len();
+                    all_slack_messages = all_slack_messages.into_iter()
+                        .filter(|msg| {
+                            let matches = msg.user.as_ref()
+                                .map(|u| {
+                                    let user_match = user_ids.contains(u);
+                                    if !user_match && message_count < 10 {
+                                        info!("Fast search (single channel): User '{}' not in filter list {:?}", u, user_ids);
+                                    }
+                                    user_match
+                                })
+                                .unwrap_or(false);
+                            matches
+                        })
+                        .collect();
+                    info!("Fast search (single channel): After filtering: {} messages", all_slack_messages.len());
+                }
+            }
         }
     } else {
         // No channel specified
@@ -1087,8 +1176,51 @@ pub async fn search_messages_fast(
         info!("Fast search with query: {}", search_query);
         
         all_slack_messages = fetch_all_results(&client, search_query.clone(), max_results).await?;
+
+        // Filter by user IDs if multi-user search
+        if let Some(ref users) = user {
+            if users.contains(',') {
+                // Parse user IDs from comma-separated string
+                let user_ids: Vec<String> = users
+                    .split(',')
+                    .map(|u| {
+                        let trimmed = u.trim();
+                        if trimmed.starts_with("<@") && trimmed.ends_with(">") {
+                            trimmed[2..trimmed.len()-1].to_string()
+                        } else {
+                            trimmed.trim_start_matches('@').to_string()
+                        }
+                    })
+                    .filter(|u| !u.is_empty())
+                    .collect();
+
+                info!("Fast search: Filtering {} messages for users: {:?}", all_slack_messages.len(), user_ids);
+
+                // Debug: Log first few messages to see user field
+                for (i, msg) in all_slack_messages.iter().take(3).enumerate() {
+                    info!("Fast search: Message {}: user={:?}, text={:?}", i, msg.user, &msg.text[..msg.text.len().min(50)]);
+                }
+
+                let message_count = all_slack_messages.len();
+                all_slack_messages = all_slack_messages.into_iter()
+                    .filter(|msg| {
+                        let matches = msg.user.as_ref()
+                            .map(|u| {
+                                let user_match = user_ids.contains(u);
+                                if !user_match && message_count < 10 {
+                                    info!("Fast search: User '{}' not in filter list {:?}", u, user_ids);
+                                }
+                                user_match
+                            })
+                            .unwrap_or(false);
+                        matches
+                    })
+                    .collect();
+                info!("Fast search: After filtering: {} messages", all_slack_messages.len());
+            }
+        }
     }
-    
+
     // Get user cache from state
     let mut user_cache_simple = state.get_user_cache().await;
     let channel_cache = state.get_channel_cache().await;
