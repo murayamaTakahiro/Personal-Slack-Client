@@ -1,9 +1,14 @@
 <script lang="ts">
   import { confirmationStore } from '../stores/confirmation';
   import { fade, scale } from 'svelte/transition';
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
 
   $: state = $confirmationStore;
+
+  let dialogElement: HTMLDivElement;
+  let confirmButton: HTMLButtonElement;
+  let cancelButton: HTMLButtonElement;
+  let previousActiveElement: HTMLElement | null = null;
 
   function handleConfirm() {
     confirmationStore.respond(true);
@@ -19,9 +24,28 @@
     if (event.key === 'Escape') {
       event.preventDefault();
       handleCancel();
-    } else if (event.key === 'Enter') {
+    } else if (event.key === 'Enter' && document.activeElement !== cancelButton) {
       event.preventDefault();
       handleConfirm();
+    } else if (event.key === 'Tab') {
+      // Trap focus within the dialog
+      event.preventDefault();
+
+      if (event.shiftKey) {
+        // Shift+Tab: move focus backwards
+        if (document.activeElement === confirmButton || document.activeElement === dialogElement) {
+          cancelButton?.focus();
+        } else {
+          confirmButton?.focus();
+        }
+      } else {
+        // Tab: move focus forwards
+        if (document.activeElement === cancelButton || document.activeElement === dialogElement) {
+          confirmButton?.focus();
+        } else {
+          cancelButton?.focus();
+        }
+      }
     }
   }
 
@@ -32,12 +56,35 @@
     }
   }
 
+  // Focus management
+  async function setupFocus() {
+    if (state.isOpen) {
+      // Store the currently focused element
+      previousActiveElement = document.activeElement as HTMLElement;
+
+      // Wait for the DOM to update
+      await tick();
+
+      // Focus the confirm button by default
+      confirmButton?.focus();
+    } else if (previousActiveElement) {
+      // Restore focus when dialog closes
+      previousActiveElement.focus();
+      previousActiveElement = null;
+    }
+  }
+
+  // Watch for dialog state changes
+  $: if (state.isOpen !== undefined) {
+    setupFocus();
+  }
+
   onMount(() => {
-    document.addEventListener('keydown', handleKeydown);
+    document.addEventListener('keydown', handleKeydown, true); // Use capture phase
   });
 
   onDestroy(() => {
-    document.removeEventListener('keydown', handleKeydown);
+    document.removeEventListener('keydown', handleKeydown, true);
   });
 </script>
 
@@ -46,13 +93,18 @@
     class="confirmation-backdrop"
     on:click={handleBackdropClick}
     transition:fade={{ duration: 200 }}
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="dialog-title"
   >
     <div
+      bind:this={dialogElement}
       class="confirmation-dialog"
       transition:scale={{ duration: 200, start: 0.95 }}
+      tabindex="-1"
     >
       <div class="dialog-header">
-        <h3>{state.options.title}</h3>
+        <h3 id="dialog-title">{state.options.title}</h3>
       </div>
 
       <div class="dialog-body">
@@ -61,15 +113,18 @@
 
       <div class="dialog-footer">
         <button
+          bind:this={cancelButton}
           class="btn-cancel"
           on:click={handleCancel}
+          type="button"
         >
           {state.options.cancelText}
         </button>
         <button
+          bind:this={confirmButton}
           class="btn-confirm {state.options.dangerous ? 'dangerous' : ''}"
           on:click={handleConfirm}
-          autofocus
+          type="button"
         >
           {state.options.confirmText}
         </button>

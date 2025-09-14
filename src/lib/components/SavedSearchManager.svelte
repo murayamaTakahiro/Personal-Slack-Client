@@ -12,7 +12,8 @@
   import { searchQuery, searchParams } from '../stores/search';
   import { showToast } from '../stores/toast';
   import { getKeyboardService } from '../services/keyboardService';
-  import { confirm } from '../stores/confirmation';
+  import { confirm, confirmationStore } from '../stores/confirmation';
+  import { get } from 'svelte/store';
 
   const dispatch = createEventDispatcher();
 
@@ -232,6 +233,10 @@
 
   function handleKeydown(event: KeyboardEvent) {
     if (!isOpen) return;
+
+    // Don't handle keyboard events if confirmation dialog is open
+    const confirmState = get(confirmationStore);
+    if (confirmState.isOpen) return;
 
     switch (event.key) {
       case 'ArrowDown':
