@@ -447,16 +447,6 @@
           <polyline points="12 6 12 12 16 14"/>
         </svg>
       </button>
-
-      <button
-        on:click={toggleDropdown}
-        class="favorite-star-btn"
-        title="Toggle favorites list"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-        </svg>
-      </button>
     </div>
   </div>
 
@@ -735,8 +725,7 @@
 
   .mode-toggle,
   .select-favorites,
-  .select-recent,
-  .favorite-star-btn {
+  .select-recent {
     padding: 0.5rem;
     background: transparent;
     border: 1px solid var(--border);
@@ -751,14 +740,9 @@
 
   .mode-toggle:hover,
   .select-favorites:hover,
-  .select-recent:hover,
-  .favorite-star-btn:hover {
+  .select-recent:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
-  }
-
-  .favorite-star-btn:hover {
-    color: gold;
   }
 
   .mode-toggle.active {
