@@ -256,6 +256,28 @@ impl SlackClient {
         Ok(all_users)
     }
 
+    // Helper function to resolve channel name to ID
+    pub async fn resolve_channel_id(&self, channel_name: &str) -> Result<String> {
+        // If it already looks like a channel ID (starts with C or G), return as-is
+        if channel_name.starts_with('C') || channel_name.starts_with('G') {
+            return Ok(channel_name.to_string());
+        }
+
+        // Otherwise, fetch channel list and find the matching channel
+        let channels = self.get_channels().await?;
+
+        // Remove # prefix if present
+        let clean_name = channel_name.trim_start_matches('#');
+
+        for channel in channels {
+            if channel.name.as_deref() == Some(clean_name) {
+                return Ok(channel.id);
+            }
+        }
+
+        Err(anyhow!("Channel '{}' not found", clean_name))
+    }
+
     pub async fn get_channels(&self) -> Result<Vec<SlackConversation>> {
         let url = format!("{}/conversations.list", SLACK_API_BASE);
 
@@ -441,14 +463,35 @@ impl SlackClient {
             ));
         }
 
+        // Get response text
+        let response_text = response.text().await?;
+
+        // Debug: Log response size (but not the full content to avoid memory issues)
+        debug!("API Response size: {} bytes", response_text.len());
+
+        // Optional: Only enable this for debugging when needed
+        // {
+        //     use std::fs;
+        //     let debug_file = "slack_response_debug.json";
+        //     if let Err(e) = fs::write(debug_file, &response_text) {
+        //         error!("Failed to write debug file: {}", e);
+        //     } else {
+        //         info!("API response saved to {} for debugging", debug_file);
+        //     }
+        // }
+
         #[derive(Deserialize)]
         struct ConversationsHistoryResponse {
             ok: bool,
             messages: Option<Vec<SlackMessage>>,
             error: Option<String>,
+            #[serde(default)]
+            channel: Option<String>,
+            #[serde(default)]
+            oldest: Option<String>,
         }
 
-        let result: ConversationsHistoryResponse = response.json().await?;
+        let result: ConversationsHistoryResponse = serde_json::from_str(&response_text)?;
 
         if !result.ok {
             let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
@@ -456,7 +499,22 @@ impl SlackClient {
             return Err(anyhow!("Slack API error: {}", error_msg));
         }
 
-        Ok(result.messages.unwrap_or_default())
+        let messages = result.messages.unwrap_or_default();
+        info!("Retrieved {} messages from conversations.history", messages.len());
+
+        // Debug: Log sample of messages to understand their structure
+        for (i, msg) in messages.iter().take(3).enumerate() {
+            debug!(
+                "Sample message {}: user={:?}, subtype={:?}, username={:?}, text_preview={:?}",
+                i,
+                msg.user,
+                msg.subtype,
+                msg.username,
+                msg.text.chars().take(50).collect::<String>()
+            );
+        }
+
+        Ok(messages)
     }
 
     pub async fn get_channel_messages_with_reactions(
@@ -507,14 +565,35 @@ impl SlackClient {
             ));
         }
 
+        // Get response text
+        let response_text = response.text().await?;
+
+        // Debug: Log response size (but not the full content to avoid memory issues)
+        debug!("API Response size: {} bytes", response_text.len());
+
+        // Optional: Only enable this for debugging when needed
+        // {
+        //     use std::fs;
+        //     let debug_file = "slack_response_debug.json";
+        //     if let Err(e) = fs::write(debug_file, &response_text) {
+        //         error!("Failed to write debug file: {}", e);
+        //     } else {
+        //         info!("API response saved to {} for debugging", debug_file);
+        //     }
+        // }
+
         #[derive(Deserialize)]
         struct ConversationsHistoryResponse {
             ok: bool,
             messages: Option<Vec<SlackMessage>>,
             error: Option<String>,
+            #[serde(default)]
+            channel: Option<String>,
+            #[serde(default)]
+            oldest: Option<String>,
         }
 
-        let result: ConversationsHistoryResponse = response.json().await?;
+        let result: ConversationsHistoryResponse = serde_json::from_str(&response_text)?;
 
         if !result.ok {
             let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
@@ -906,9 +985,16 @@ pub fn build_search_query(params: &SearchRequest) -> String {
     }
 
     // Add user filter - handle both user IDs and usernames
-    // IMPORTANT: For multi-user search, we DON'T add user filter to query
-    // Instead, we'll filter results client-side after fetching all channel messages
+    // IMPORTANT: When both channel and user are specified, we'll use conversations.history
+    // instead of search.messages to avoid API limitations with private channels
     if let Some(user) = &params.user {
+        // If we have both channel and user, return special flag for conversations.history
+        if params.channel.is_some() && !params.channel.as_ref().unwrap().contains(',') {
+            // Single channel + user case: use conversations.history
+            info!("Channel and user both specified - will use conversations.history for better results");
+            return "USE_CONVERSATIONS_HISTORY".to_string();
+        }
+
         // Check if we have multiple users (comma-separated)
         if user.contains(',') {
             // Multiple users - DON'T add to query, will filter client-side
@@ -969,12 +1055,12 @@ pub fn build_search_query(params: &SearchRequest) -> String {
                     let tomorrow_formatted = tomorrow.format("%Y-%m-%d");
                     query_parts.push(format!("before:{}", tomorrow_formatted));
                 } else {
-                    // For normal searches, subtract one day for inclusive search
-                    let adjusted_date = date - chrono::Duration::days(1);
-                    let formatted_date = adjusted_date.format("%Y-%m-%d");
+                    // For normal searches, use the date as-is
+                    // Slack's "after:" operator is inclusive (includes the specified date)
+                    let formatted_date = date.format("%Y-%m-%d");
                     info!(
-                        "Normal search: adjusted from_date '{}' -> '{}'",
-                        date_part, formatted_date
+                        "Normal search: using from_date '{}'",
+                        formatted_date
                     );
                     query_parts.push(format!("after:{}", formatted_date));
                 };

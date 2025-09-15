@@ -124,9 +124,12 @@ pub struct SlackMessage {
     pub thread_ts: Option<String>,
     pub user: Option<String>,
     pub username: Option<String>,
+    pub subtype: Option<String>,  // Add subtype to identify bot messages
     pub text: String,
-    pub channel: SlackChannelInfo,
-    pub permalink: String,
+    #[serde(default)]
+    pub channel: Option<SlackChannelInfo>,  // Make channel optional for conversations.history
+    #[serde(default)]
+    pub permalink: Option<String>,  // Make permalink optional for conversations.history
     #[serde(default)]
     pub reactions: Option<Vec<SlackReaction>>,
     #[serde(default)]

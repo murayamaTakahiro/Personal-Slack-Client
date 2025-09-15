@@ -1,8 +1,9 @@
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::slack::{
     build_search_query, fetch_all_results, Message, SearchRequest, SearchResult, SlackClient,
-    SlackMessage, SlackReaction, SlackUser,
+    SlackMessage, SlackReaction, SlackUser, SlackChannelInfo,
 };
+use anyhow::anyhow;
 use crate::state::{AppState, CachedUser};
 use futures::future::join_all;
 use std::sync::Arc;
@@ -396,7 +397,11 @@ pub async fn search_messages(
             .enumerate()
             .filter_map(|(idx, msg)| {
                 if msg.reactions.is_none() {
-                    Some((idx, msg.channel.id.clone(), msg.ts.clone()))
+                    if let Some(channel_info) = &msg.channel {
+                        Some((idx, channel_info.id.clone(), msg.ts.clone()))
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
@@ -541,14 +546,20 @@ pub async fn search_messages(
         };
 
         // Get channel name from cache or use the one from the message
-        let channel_name = if let Some(cached_name) = channel_cache.get(&slack_msg.channel.id) {
-            cached_name.clone()
+        let (channel_id, channel_name) = if let Some(channel_info) = &slack_msg.channel {
+            let channel_name = if let Some(cached_name) = channel_cache.get(&channel_info.id) {
+                cached_name.clone()
+            } else {
+                let name = channel_info.name.clone();
+                state
+                    .cache_channel(channel_info.id.clone(), name.clone())
+                    .await;
+                name
+            };
+            (channel_info.id.clone(), channel_name)
         } else {
-            let name = slack_msg.channel.name.clone();
-            state
-                .cache_channel(slack_msg.channel.id.clone(), name.clone())
-                .await;
-            name
+            // If channel info is missing, use empty values
+            ("unknown".to_string(), "Unknown Channel".to_string())
         };
 
         // Get fresh user cache for mention replacement
@@ -563,9 +574,9 @@ pub async fn search_messages(
             user: slack_msg.user.unwrap_or_else(|| "Unknown".to_string()),
             user_name,
             text: processed_text,
-            channel: slack_msg.channel.id.clone(),
+            channel: channel_id,
             channel_name,
-            permalink: slack_msg.permalink.clone(),
+            permalink: slack_msg.permalink.unwrap_or_else(|| String::new()),
             is_thread_parent,
             reply_count,
             reactions: slack_msg.reactions.clone(),
@@ -1115,7 +1126,140 @@ pub async fn search_messages_fast(
             let search_query = build_search_query(&search_request);
             info!("Fast search with query: {}", search_query);
 
-            all_slack_messages = fetch_all_results(&client, search_query.clone(), max_results).await?;
+            // Check if we should use conversations.history instead
+            if search_query == "USE_CONVERSATIONS_HISTORY" {
+                // Use conversations.history for better private channel support
+                info!("Using conversations.history for channel + user search");
+
+                // Extract channel name and resolve to ID
+                let channel_name = match channel.as_ref() {
+                    Some(ch) => ch.trim_start_matches('#'),
+                    None => {
+                        error!("Channel is required for conversations.history");
+                        return Err(AppError::ApiError("Channel is required".to_string()));
+                    }
+                };
+
+                // Resolve channel name to ID
+                let channel_id = match client.resolve_channel_id(channel_name).await {
+                    Ok(id) => {
+                        info!("Resolved channel '{}' to ID: {}", channel_name, id);
+                        id
+                    }
+                    Err(e) => {
+                        error!("Failed to resolve channel '{}': {}", channel_name, e);
+                        return Err(AppError::from(anyhow!("Channel '{}' not found", channel_name)));
+                    }
+                };
+
+                // Convert date formats
+                let oldest = from_date.as_ref().map(|d| {
+                    // Convert ISO date to Unix timestamp
+                    if let Some(date_part) = d.split('T').next() {
+                        if let Ok(date) = chrono::NaiveDate::parse_from_str(date_part, "%Y-%m-%d") {
+                            // Use a safe default if time construction fails
+                            if let Some(datetime) = date.and_hms_opt(0, 0, 0) {
+                                let timestamp = datetime.and_utc().timestamp();
+                                timestamp.to_string()
+                            } else {
+                                // Fall back to original string
+                                d.clone()
+                            }
+                        } else {
+                            d.clone()
+                        }
+                    } else {
+                        d.clone()
+                    }
+                });
+
+                let latest = to_date.as_ref().map(|d| {
+                    // Convert ISO date to Unix timestamp
+                    if let Some(date_part) = d.split('T').next() {
+                        if let Ok(date) = chrono::NaiveDate::parse_from_str(date_part, "%Y-%m-%d") {
+                            // Use a safe default if time construction fails
+                            if let Some(datetime) = date.and_hms_opt(23, 59, 59) {
+                                let timestamp = datetime.and_utc().timestamp();
+                                timestamp.to_string()
+                            } else {
+                                // Fall back to original string
+                                d.clone()
+                            }
+                        } else {
+                            d.clone()
+                        }
+                    } else {
+                        d.clone()
+                    }
+                });
+
+                // Get all messages from the channel
+                match client.get_channel_messages(&channel_id, oldest, latest, max_results).await {
+                    Ok(mut messages) => {
+                        info!("Retrieved {} messages from channel {}", messages.len(), channel_id);
+
+                        // Add channel info to messages from conversations.history
+                        // (conversations.history doesn't include channel info in each message)
+                        for msg in &mut messages {
+                            if msg.channel.is_none() {
+                                msg.channel = Some(SlackChannelInfo {
+                                    id: channel_id.clone(),
+                                    name: channel_name.to_string(),
+                                });
+                            }
+                            // Also generate permalink if missing
+                            if msg.permalink.is_none() {
+                                // Format: https://workspace.slack.com/archives/CHANNEL_ID/pTIMESTAMP
+                                msg.permalink = Some(format!("https://workspace.slack.com/archives/{}/p{}",
+                                    channel_id,
+                                    msg.ts.replace(".", "")
+                                ));
+                            }
+                        }
+
+                        all_slack_messages = messages;
+                    }
+                    Err(e) => {
+                        error!("Failed to get channel messages: {}", e);
+                        return Err(AppError::from(e));
+                    }
+                }
+
+                // Filter by user if specified
+                if let Some(ref user_filter) = user {
+                    let user_id = if user_filter.starts_with("<@") && user_filter.ends_with(">") {
+                        &user_filter[2..user_filter.len()-1]
+                    } else {
+                        user_filter.trim_start_matches('@')
+                    };
+
+                    info!("Filtering {} messages for user: {}", all_slack_messages.len(), user_id);
+
+                    // Debug: Log first few messages to check user field
+                    for (i, msg) in all_slack_messages.iter().take(5).enumerate() {
+                        debug!("Message {}: user={:?}, text preview={:?}",
+                            i,
+                            msg.user,
+                            &msg.text.chars().take(50).collect::<String>()
+                        );
+                    }
+
+                    all_slack_messages = all_slack_messages.into_iter()
+                        .filter(|msg| {
+                            let matches = msg.user.as_ref() == Some(&user_id.to_string());
+                            if matches {
+                                debug!("Found matching message from user {}: {:?}", user_id, &msg.text.chars().take(50).collect::<String>());
+                            }
+                            matches
+                        })
+                        .collect();
+
+                    info!("After user filter: {} messages", all_slack_messages.len());
+                }
+            } else {
+                // Use normal search.messages API
+                all_slack_messages = fetch_all_results(&client, search_query.clone(), max_results).await?;
+            }
 
             // Filter by user IDs if multi-user search
             if let Some(ref users) = user {
@@ -1292,9 +1436,14 @@ pub async fn search_messages_fast(
             slack_msg.username.unwrap_or_else(|| "Unknown".to_string())
         };
         
-        let channel_name = channel_cache.get(&slack_msg.channel.id)
-            .cloned()
-            .unwrap_or_else(|| slack_msg.channel.name.clone());
+        let (channel_id, channel_name) = if let Some(channel_info) = &slack_msg.channel {
+            let name = channel_cache.get(&channel_info.id)
+                .cloned()
+                .unwrap_or_else(|| channel_info.name.clone());
+            (channel_info.id.clone(), name)
+        } else {
+            ("unknown".to_string(), "Unknown Channel".to_string())
+        };
         
         // Get fresh user cache for mention replacement
         let user_cache_full = state.get_user_cache_full().await;
@@ -1306,9 +1455,9 @@ pub async fn search_messages_fast(
             user: slack_msg.user.unwrap_or_else(|| "Unknown".to_string()),
             user_name,
             text: processed_text,
-            channel: slack_msg.channel.id.clone(),
+            channel: channel_id,
             channel_name,
-            permalink: slack_msg.permalink.clone(),
+            permalink: slack_msg.permalink.unwrap_or_else(|| String::new()),
             is_thread_parent: false,
             reply_count: None,
             reactions: None, // No reactions - frontend will load them
