@@ -485,10 +485,6 @@ impl SlackClient {
             ok: bool,
             messages: Option<Vec<SlackMessage>>,
             error: Option<String>,
-            #[serde(default)]
-            channel: Option<String>,
-            #[serde(default)]
-            oldest: Option<String>,
         }
 
         let result: ConversationsHistoryResponse = serde_json::from_str(&response_text)?;
@@ -587,10 +583,6 @@ impl SlackClient {
             ok: bool,
             messages: Option<Vec<SlackMessage>>,
             error: Option<String>,
-            #[serde(default)]
-            channel: Option<String>,
-            #[serde(default)]
-            oldest: Option<String>,
         }
 
         let result: ConversationsHistoryResponse = serde_json::from_str(&response_text)?;
