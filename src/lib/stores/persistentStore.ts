@@ -1,36 +1,37 @@
 // Dynamically import Store to handle cases where Tauri might not be available
-let Store: any = null;
+let storeModule: any = null;
 let store: any = null;
 let storeInitialized = false;
 
 async function getStore(): Promise<any> {
+  // Return existing store if already initialized successfully
+  if (store) {
+    return store;
+  }
+
+  // Only set initialized flag after successful initialization
   if (!storeInitialized) {
-    storeInitialized = true;
     try {
       // Only try to import if we're in Tauri environment
       if (typeof window !== 'undefined' && '__TAURI__' in window) {
-        // Add a timeout for Tauri store initialization
-        const storePromise = import('@tauri-apps/plugin-store').then(module => {
-          Store = module.Store;
-          store = new Store('settings.json');
-          console.log('[PersistentStore] Successfully initialized Tauri store');
-          return store;
-        });
-        
-        // Race with timeout to prevent hanging
-        store = await Promise.race([
-          storePromise,
-          new Promise(resolve => setTimeout(() => {
-            console.warn('[PersistentStore] Tauri store initialization timed out, using localStorage');
-            resolve(null);
-          }, 1000)) // 1 second timeout
-        ]);
+        // Import the store module
+        if (!storeModule) {
+          storeModule = await import('@tauri-apps/plugin-store');
+          console.log('[PersistentStore] Store module imported successfully');
+        }
+
+        // For Tauri v2, use load() to get or create the store
+        const { load } = storeModule;
+        store = await load('settings.json', { autoSave: true });
+        console.log('[PersistentStore] Successfully initialized Tauri store with load()');
+        storeInitialized = true;
       } else {
         console.log('[PersistentStore] Not in Tauri environment, will use localStorage');
+        storeInitialized = true; // In non-Tauri env, don't retry
       }
     } catch (error) {
-      console.warn('[PersistentStore] Failed to import Tauri store, will use localStorage:', error);
-      store = null;
+      console.warn('[PersistentStore] Failed to initialize Tauri store, will use localStorage:', error);
+      // Don't set initialized flag on error, allow retry
     }
   }
   return store;
@@ -61,7 +62,7 @@ export async function saveToStore(key: string, value: any): Promise<void> {
     
     // Use Tauri store
     await s.set(key, value);
-    await s.save();
+    // Note: autoSave is enabled, so no need to call save() explicitly
     console.log('[PersistentStore] Successfully saved to Tauri store');
   } catch (error) {
     console.error('[PersistentStore] Failed to save to Tauri store:', error);
@@ -140,14 +141,5 @@ function loadFromLocalStorage<T>(key: string, defaultValue: T): T {
  * Check if we're in a Tauri environment
  */
 export function isTauri(): boolean {
-  // Always use localStorage for more reliable operation
-  // This avoids issues with Tauri store initialization on cold start
-  return false;
-  
-  // Original code kept for reference:
-  // if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-  //   console.log('[PersistentStore] Development mode detected, using localStorage');
-  //   return false;
-  // }
-  // return typeof window !== 'undefined' && '__TAURI__' in window;
+  return typeof window !== 'undefined' && '__TAURI__' in window;
 }

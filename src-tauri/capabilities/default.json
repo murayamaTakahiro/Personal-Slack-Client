@@ -9,6 +9,19 @@
     "dialog:allow-message",
     "dialog:allow-confirm",
     "dialog:allow-ask",
-    "dialog:default"
+    "dialog:default",
+    "store:allow-get",
+    "store:allow-set",
+    "store:allow-delete",
+    "store:allow-clear",
+    "store:allow-reset",
+    "store:allow-keys",
+    "store:allow-values",
+    "store:allow-entries",
+    "store:allow-length",
+    "store:allow-has",
+    "store:allow-save",
+    "store:allow-load",
+    "store:default"
   ]
 }
