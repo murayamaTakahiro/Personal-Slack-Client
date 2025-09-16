@@ -1571,7 +1571,7 @@
       </div>
       {/if}
     {/if}
-    
+
     <!-- Global UI Components with Error Boundaries -->
     <ErrorBoundary fallback="Keyboard help unavailable">
       <KeyboardHelp bind:show={showKeyboardHelp} />
