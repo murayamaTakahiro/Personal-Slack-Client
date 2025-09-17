@@ -48,9 +48,9 @@ export function parseMessageWithEmojis(text: string): MessageSegment[] {
   }
   
   // Then find simple @mentions (after text has been decoded from Slack format)
-  // Updated regex to capture full display names including spaces
-  // Matches @username or "@firstname lastname" patterns
-  const simpleMentionRegex = /@([\w.-]+(?:\s+[\w.-]+)*)/g;
+  // Updated regex to ensure mentions end at word boundaries to prevent over-matching
+  // Matches @username with proper boundary detection
+  const simpleMentionRegex = /@([\w.-]+)(?=\s|$|[,.:;!?\n])/g;
   while ((match = simpleMentionRegex.exec(text)) !== null) {
     // Check if this mention is inside a Slack-formatted mention
     const isInsideSlackMention = allMatches.some(m => 
