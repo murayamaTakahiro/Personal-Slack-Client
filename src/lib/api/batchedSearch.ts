@@ -27,8 +27,9 @@ export async function searchMessagesWithBatching(params: SearchParams): Promise<
       query: params.query || '',
       channel: params.channel,
       user: params.user,
-      fromDate: params.fromDate?.toISOString(),
-      toDate: params.toDate?.toISOString(),
+      // Handle both Date objects and string formats
+      fromDate: params.fromDate instanceof Date ? params.fromDate.toISOString() : params.fromDate,
+      toDate: params.toDate instanceof Date ? params.toDate.toISOString() : params.toDate,
       limit: params.limit,
       forceRefresh: params.isRealtimeUpdate || false
     });
@@ -53,8 +54,9 @@ export async function searchMessagesWithBatching(params: SearchParams): Promise<
           query: query,
           channel: batchChannel,
           user: params.user,
-          fromDate: params.fromDate?.toISOString(),
-          toDate: params.toDate?.toISOString(),
+          // Handle both Date objects and string formats
+          fromDate: params.fromDate instanceof Date ? params.fromDate.toISOString() : params.fromDate,
+          toDate: params.toDate instanceof Date ? params.toDate.toISOString() : params.toDate,
           limit: params.limit,
           forceRefresh: params.isRealtimeUpdate || false
         });

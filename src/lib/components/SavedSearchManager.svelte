@@ -105,8 +105,9 @@
       query: currentQuery,
       channel: currentParams.channel,
       userId: currentParams.user,
-      fromDate: currentParams.fromDate?.toISOString().split('T')[0],
-      toDate: currentParams.toDate?.toISOString().split('T')[0]
+      // Handle both Date objects and string formats
+      fromDate: currentParams.fromDate ? (currentParams.fromDate instanceof Date ? currentParams.fromDate.toISOString().split('T')[0] : currentParams.fromDate) : undefined,
+      toDate: currentParams.toDate ? (currentParams.toDate instanceof Date ? currentParams.toDate.toISOString().split('T')[0] : currentParams.toDate) : undefined
     });
 
     if (duplicate) {
@@ -124,8 +125,9 @@
       query: currentQuery,
       channel: currentParams.channel,
       userId: currentParams.user,
-      fromDate: currentParams.fromDate?.toISOString().split('T')[0],
-      toDate: currentParams.toDate?.toISOString().split('T')[0],
+      // Handle both Date objects and string formats
+      fromDate: currentParams.fromDate ? (currentParams.fromDate instanceof Date ? currentParams.fromDate.toISOString().split('T')[0] : currentParams.fromDate) : undefined,
+      toDate: currentParams.toDate ? (currentParams.toDate instanceof Date ? currentParams.toDate.toISOString().split('T')[0] : currentParams.toDate) : undefined,
       limit: currentParams.limit
     });
 

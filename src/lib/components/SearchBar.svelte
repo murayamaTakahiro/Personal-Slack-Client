@@ -111,12 +111,15 @@
         });
       }
       
+      // Fix date handling to be inclusive
+      // Send dates as YYYY-MM-DD strings directly to backend
+      // Backend will handle the inclusive search logic
       const params = {
         query: $searchQuery.trim() || undefined,  // Make query optional
         channel: cleanChannel || undefined,
         user: resolvedUserId || undefined,
-        fromDate: fromDate ? new Date(fromDate) : undefined,
-        toDate: toDate ? new Date(toDate) : undefined,
+        fromDate: fromDate || undefined,  // Send as string YYYY-MM-DD
+        toDate: toDate || undefined,      // Send as string YYYY-MM-DD
         limit,
         isRealtimeUpdate // Pass this flag through
       };

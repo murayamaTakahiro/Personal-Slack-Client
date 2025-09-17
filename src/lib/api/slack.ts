@@ -14,8 +14,9 @@ export async function searchMessages(params: SearchParams): Promise<SearchResult
     query: params.query || '',  // Send empty string if no query
     channel: params.channel,
     user: params.user,
-    fromDate: params.fromDate?.toISOString(),
-    toDate: params.toDate?.toISOString(),
+    // Handle both Date objects and string formats
+    fromDate: params.fromDate instanceof Date ? params.fromDate.toISOString() : params.fromDate,
+    toDate: params.toDate instanceof Date ? params.toDate.toISOString() : params.toDate,
     limit: params.limit,
     forceRefresh: params.isRealtimeUpdate || false  // Add force refresh for realtime updates
   });
