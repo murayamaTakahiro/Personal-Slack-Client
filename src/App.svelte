@@ -1868,6 +1868,7 @@
     flex-direction: column;
     min-width: 0;
     min-height: 0; /* Critical for nested flex scrolling */
+    overflow: hidden; /* Prevent panel from expanding beyond its flex allocation */
   }
   
   .thread-panel {
@@ -1876,6 +1877,7 @@
     flex-direction: column;
     min-width: 0;
     min-height: 0; /* Critical for nested flex scrolling */
+    overflow: hidden; /* Prevent panel from expanding beyond its flex allocation */
   }
   
   .btn-primary,
@@ -2129,4 +2131,6 @@
     justify-content: center;
     margin-top: 2rem;
   }
+
+
 </style>

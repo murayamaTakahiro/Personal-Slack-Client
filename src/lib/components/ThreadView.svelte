@@ -464,6 +464,8 @@
     border-radius: 8px;
     overflow: hidden;
     outline: none;
+    min-height: 0; /* Important for flex containers with scrollable children */
+    height: 100%; /* Ensure container takes full available height */
   }
   
   .thread-view:focus {
@@ -548,6 +550,7 @@
     flex: 1;
     overflow-y: auto;
     padding: 1rem;
+    min-height: 0; /* Critical for nested flex scrolling */
   }
   
   /* Removed .message styles - now using MessageItem component */

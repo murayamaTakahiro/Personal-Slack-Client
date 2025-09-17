@@ -137,6 +137,22 @@
           // Add focus indicator to current element
           messageElement.classList.add('keyboard-focused');
 
+          // Debug info
+          const canScroll = listContainer.scrollHeight > listContainer.clientHeight;
+          const computedStyle = window.getComputedStyle(listContainer);
+          console.log('[SCROLL DEBUG] Container info:', {
+            canScroll,
+            scrollHeight: listContainer.scrollHeight,
+            clientHeight: listContainer.clientHeight,
+            offsetHeight: listContainer.offsetHeight,
+            currentScrollTop: listContainer.scrollTop,
+            computedHeight: computedStyle.height,
+            computedMaxHeight: computedStyle.maxHeight,
+            computedOverflow: computedStyle.overflowY,
+            parentHeight: listContainer.parentElement?.offsetHeight,
+            container: listContainer
+          });
+
           // Get the actual position relative to the messages container
           const rect = messageElement.getBoundingClientRect();
           const containerRect = listContainer.getBoundingClientRect();
@@ -146,11 +162,27 @@
           const isAbove = relativeTop < 0;
           const isBelow = relativeTop + rect.height > containerRect.height;
 
+          console.log('[SCROLL DEBUG] Position:', {
+            relativeTop,
+            isAbove,
+            isBelow,
+            elementHeight: rect.height,
+            containerHeight: containerRect.height,
+            messageIndex: focusedIndex
+          });
+
           // Scroll if needed
           if (isAbove || isBelow) {
             // Calculate target scroll position
             const targetScrollTop = listContainer.scrollTop + relativeTop - 20; // 20px padding from top
+            console.log('[SCROLL DEBUG] Scrolling from', listContainer.scrollTop, 'to', targetScrollTop);
+
             listContainer.scrollTop = targetScrollTop;
+
+            // Verify scroll happened
+            setTimeout(() => {
+              console.log('[SCROLL DEBUG] After scroll:', listContainer.scrollTop);
+            }, 100);
           }
         } else if (!messageElement) {
           // If element not found (progressive loading), try once more after short delay
@@ -715,6 +747,7 @@
     border-radius: 8px;
     overflow: hidden;
     min-height: 0; /* Important for flex containers with scrollable children */
+    height: 100%; /* Ensure container takes full available height */
   }
   
   .loading,
@@ -727,6 +760,7 @@
     justify-content: center;
     padding: 2rem;
     color: var(--text-secondary);
+    min-height: 0; /* Ensure proper flex sizing */
   }
   
   .loading .spinner {
@@ -761,7 +795,9 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    min-height: 0; /* Critical for scrolling */
+    min-height: 0;
+    height: 100%; /* Ensure it takes full height from parent */
+    overflow: hidden; /* Prevent container from expanding */
   }
 
   .results-header {
@@ -806,7 +842,7 @@
     padding: 0.5rem;
     outline: none;
     min-height: 0; /* Important for flex child to be scrollable */
-    position: relative; /* Ensure this is the offset parent for child elements */
+    height: 0; /* Force container to not expand beyond flex allocation */
   }
   
   .messages:focus {

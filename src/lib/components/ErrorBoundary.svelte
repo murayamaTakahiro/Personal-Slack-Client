@@ -160,6 +160,10 @@
   
   .error-boundary-wrapper {
     /* No special styling - just a wrapper for error handling */
+    display: flex;
+    flex-direction: column;
+    /* flex: 1; */
+    min-height: 0;
   }
   
   .error-message {
