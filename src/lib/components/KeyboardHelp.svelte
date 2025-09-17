@@ -104,15 +104,25 @@
       {
         name: 'Message Actions',
         shortcuts: [
-          { 
-            key: 'postMessage', 
+          {
+            key: 'postMessage',
             description: 'Post Message to Channel',
             shortcut: shortcuts.postMessage || 'p'
           },
-          { 
-            key: 'replyInThread', 
+          {
+            key: 'postMessageContinuous',
+            description: 'Post Message (Continuous)',
+            shortcut: shortcuts.postMessageContinuous || 'Shift+P'
+          },
+          {
+            key: 'replyInThread',
             description: 'Reply in Thread',
             shortcut: shortcuts.replyInThread || 't'
+          },
+          {
+            key: 'replyInThreadContinuous',
+            description: 'Reply in Thread (Continuous)',
+            shortcut: shortcuts.replyInThreadContinuous || 'Shift+T'
           },
           { 
             key: 'openReactionPicker', 

@@ -100,7 +100,9 @@ export interface KeyboardShortcuts {
   jumpToFirst: string | string[];
   jumpToLast: string | string[];
   postMessage?: string | string[];
+  postMessageContinuous?: string | string[];
   replyInThread?: string | string[];
+  replyInThreadContinuous?: string | string[];
   openReactionPicker?: string | string[];
   openUrls?: string | string[];
   reaction1?: string | string[];

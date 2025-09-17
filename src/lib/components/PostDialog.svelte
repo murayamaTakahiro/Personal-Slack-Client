@@ -12,7 +12,8 @@
   export let channelName: string;
   export let threadTs: string = '';
   export let messagePreview: string = '';
-  
+  export let continuousMode: boolean = false; // New property for continuous posting mode
+
   const dispatch = createEventDispatcher();
   
   let text = '';
@@ -21,6 +22,8 @@
   let mentionTextarea: MentionTextarea;
   let userMap: Map<string, SlackUser> = new Map();
   let alsoSendToChannel = false; // For thread replies, option to also post to channel
+  let postedCount = 0; // Track number of messages posted in continuous mode
+  let showSuccessMessage = false; // Show success feedback
   
   // Reset state and focus when component mounts (dialog opens)
   onMount(async () => {
@@ -28,6 +31,8 @@
     error = null;
     posting = false;
     alsoSendToChannel = false; // Reset checkbox state
+    postedCount = 0; // Reset posted count
+    showSuccessMessage = false; // Reset success message
     
     // Load users for mention conversion
     const users = await userService.getAllUsers();
@@ -46,24 +51,42 @@
   
   async function handlePost() {
     if (!text.trim()) return;
-    
+
     posting = true;
     error = null;
-    
+
     try {
       // Convert mentions to Slack format before posting
       const formattedText = mentionService.convertToSlackFormat(text, userMap);
-      
+
       if (mode === 'channel') {
         await postToChannel(channelId, formattedText);
       } else {
         // Pass the alsoSendToChannel flag to the API
         await postThreadReply(channelId, threadTs, formattedText, alsoSendToChannel);
       }
-      
+
       text = ''; // Reset text after successful post
-      dispatch('success');
-      handleCancel();
+      postedCount++; // Increment counter
+
+      if (continuousMode) {
+        // In continuous mode, don't close the dialog
+        showSuccessMessage = true;
+        // Hide success message after 2 seconds
+        setTimeout(() => {
+          showSuccessMessage = false;
+        }, 2000);
+
+        // Refocus the textarea for the next message
+        await tick();
+        if (mentionTextarea) {
+          mentionTextarea.focus();
+        }
+      } else {
+        // Normal mode - close dialog after posting
+        dispatch('success');
+        handleCancel();
+      }
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to post message';
     } finally {
@@ -74,6 +97,8 @@
   function handleCancel() {
     text = ''; // Reset text when canceling
     error = null; // Clear any errors
+    postedCount = 0; // Reset posted count
+    showSuccessMessage = false; // Hide any success messages
     dispatch('cancel');
   }
   
@@ -97,12 +122,18 @@
     <div class="dialog-header">
       <h3>
         {mode === 'channel' ? 'Post to Channel' : 'Reply to Thread'}
+        {#if continuousMode}
+          <span class="continuous-badge">Continuous Mode</span>
+        {/if}
       </h3>
       <button class="close-btn" on:click={handleCancel}>×</button>
     </div>
     
     <div class="dialog-info">
       <span class="channel-badge">#{decodeSlackText(channelName)}</span>
+      {#if continuousMode && postedCount > 0}
+        <span class="posted-count">{postedCount} message{postedCount > 1 ? 's' : ''} posted</span>
+      {/if}
       {#if mode === 'thread' && messagePreview}
         <div class="thread-preview">
           Replying to: {decodeSlackText(messagePreview)}
@@ -129,14 +160,24 @@
         on:input={handleInput}
         on:keydown={handleKeydown}
       />
-      
+
+      {#if showSuccessMessage && continuousMode}
+        <div class="success-message">Message posted successfully!</div>
+      {/if}
+
       {#if error}
         <div class="error-message">{error}</div>
       {/if}
     </div>
     
     <div class="dialog-footer">
-      <span class="hint">Ctrl+Enter to send • Escape to cancel • @ to mention</span>
+      <span class="hint">
+        {#if continuousMode}
+          Ctrl+Enter to send (stays open) • Escape to exit • @ to mention
+        {:else}
+          Ctrl+Enter to send • Escape to cancel • @ to mention
+        {/if}
+      </span>
       <div class="buttons">
         <button 
           class="btn-cancel" 
@@ -218,6 +259,27 @@
     background: var(--color-hover);
   }
 
+  .continuous-badge {
+    display: inline-block;
+    margin-left: 12px;
+    padding: 2px 8px;
+    background: #4CAF50;
+    color: white;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: normal;
+    vertical-align: middle;
+  }
+
+  .posted-count {
+    margin-left: 12px;
+    padding: 4px 8px;
+    background: var(--color-background);
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+  }
+
   .dialog-info {
     padding: 12px 20px;
     background: var(--color-background-secondary);
@@ -286,6 +348,17 @@
   }
 
 
+  .success-message {
+    margin-top: 12px;
+    padding: 8px 12px;
+    background: #e8f5e9;
+    border: 1px solid #4CAF50;
+    border-radius: 4px;
+    color: #2e7d32;
+    font-size: 13px;
+    animation: fadeIn 0.3s ease-in;
+  }
+
   .error-message {
     margin-top: 12px;
     padding: 8px 12px;
@@ -294,6 +367,17 @@
     border-radius: 4px;
     color: #c00;
     font-size: 13px;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .dialog-footer {
@@ -350,6 +434,12 @@
   }
 
   /* Dark mode specific adjustments */
+  :global([data-theme='dark']) .success-message {
+    background: #1b3a1f;
+    border-color: #4CAF50;
+    color: #81c784;
+  }
+
   :global([data-theme='dark']) .error-message {
     background: #400;
     border-color: #600;

@@ -24,7 +24,7 @@
     },
     {
       name: 'Message Actions',
-      shortcuts: ['postMessage', 'replyInThread', 'openReactionPicker', 'openUrls']
+      shortcuts: ['postMessage', 'postMessageContinuous', 'replyInThread', 'replyInThreadContinuous', 'openReactionPicker', 'openUrls']
     },
     {
       name: 'Quick Reactions',
@@ -57,7 +57,9 @@
     jumpToFirst: 'h',
     jumpToLast: 'e',
     postMessage: 'p',
+    postMessageContinuous: 'Shift+P',
     replyInThread: 't',
+    replyInThreadContinuous: 'Shift+T',
     openReactionPicker: 'r',
     reaction1: '1',
     reaction2: '2',
@@ -102,7 +104,9 @@
     jumpToFirst: 'Jump to First Message',
     jumpToLast: 'Jump to Last Message',
     postMessage: 'Post Message to Channel',
+    postMessageContinuous: 'Post Message (Continuous Mode)',
     replyInThread: 'Reply in Thread',
+    replyInThreadContinuous: 'Reply in Thread (Continuous Mode)',
     openReactionPicker: 'Open Reaction Picker',
     reaction1: 'Quick Reaction 1',
     reaction2: 'Quick Reaction 2',
@@ -143,7 +147,9 @@
     jumpToFirst: 'When viewing messages or results',
     jumpToLast: 'When viewing messages or results',
     postMessage: 'When a message is selected',
+    postMessageContinuous: 'When a message is selected',
     replyInThread: 'When a message is selected',
+    replyInThreadContinuous: 'When a message is selected',
     openReactionPicker: 'When a message is selected',
     reaction1: 'When a message is selected',
     reaction2: 'When a message is selected',

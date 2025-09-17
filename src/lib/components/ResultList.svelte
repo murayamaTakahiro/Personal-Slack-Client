@@ -29,6 +29,7 @@
   // Post dialog state
   let showPostDialog = false;
   let postMode: 'channel' | 'thread' = 'channel';
+  let continuousMode = false;
   
   // Progressive loading state
   const INITIAL_LOAD = 50;
@@ -315,9 +316,10 @@
     });
   }
   
-  function openPostDialog(mode: 'channel' | 'thread') {
+  function openPostDialog(mode: 'channel' | 'thread', isContinuous: boolean = false) {
     if (focusedIndex >= 0 && focusedIndex < messages.length) {
       postMode = mode;
+      continuousMode = isContinuous;
       showPostDialog = true;
     }
   }
@@ -546,9 +548,35 @@
       action: () => {
         // Don't handle if post dialog is open
         if (showPostDialog) return;
-        
+
         if (focusedIndex >= 0 && focusedIndex < messages.length) {
           openPostDialog('thread');
+        }
+      },
+      allowInInput: false
+    });
+
+    // Post Message Continuous (Shift+P key)
+    keyboardService.registerHandler('postMessageContinuous', {
+      action: () => {
+        // Don't handle if post dialog is open
+        if (showPostDialog) return;
+
+        if (focusedIndex >= 0 && focusedIndex < messages.length) {
+          openPostDialog('channel', true);
+        }
+      },
+      allowInInput: false
+    });
+
+    // Reply in Thread Continuous (Shift+T key)
+    keyboardService.registerHandler('replyInThreadContinuous', {
+      action: () => {
+        // Don't handle if post dialog is open
+        if (showPostDialog) return;
+
+        if (focusedIndex >= 0 && focusedIndex < messages.length) {
+          openPostDialog('thread', true);
         }
       },
       allowInInput: false
@@ -604,7 +632,9 @@
       keyboardService.unregisterHandler('prevResult');
       keyboardService.unregisterHandler('openResult');
       keyboardService.unregisterHandler('postMessage');
+      keyboardService.unregisterHandler('postMessageContinuous');
       keyboardService.unregisterHandler('replyInThread');
+      keyboardService.unregisterHandler('replyInThreadContinuous');
       keyboardService.unregisterHandler('jumpToFirst');
       keyboardService.unregisterHandler('jumpToLast');
       keyboardService.unregisterHandler('openUrls');
@@ -728,6 +758,7 @@
   {#if showPostDialog && focusedIndex >= 0 && focusedIndex < messages.length}
     <PostDialog
       mode={postMode}
+      continuousMode={continuousMode}
       channelId={messages[focusedIndex].channel}
       channelName={messages[focusedIndex].channelName || messages[focusedIndex].channel}
       threadTs={postMode === 'thread' ? messages[focusedIndex].ts : ''}
