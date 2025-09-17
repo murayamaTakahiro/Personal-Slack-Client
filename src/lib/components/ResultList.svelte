@@ -92,12 +92,15 @@
       // Only reset to first item if no item is currently focused
       if (focusedIndex === -1) {
         focusedIndex = 0;
-        updateFocus();
       }
+
       // Focus the list container to enable keyboard navigation
       if (listContainer) {
         listContainer.focus();
       }
+
+      // Update focus and scroll
+      updateFocus();
     }
   }
   
@@ -111,61 +114,116 @@
     if (focusedIndex >= 0 && focusedIndex < messages.length) {
       const message = messages[focusedIndex];
       selectedMessage.set(message);
-      
+
       // Ensure the focused message is loaded if using progressive loading
       if (focusedIndex >= displayedCount) {
         displayedCount = Math.min(focusedIndex + LOAD_INCREMENT, messages.length);
       }
-      
-      // Scroll into view if needed
-      // Use double requestAnimationFrame to ensure DOM has updated
+
+      // CRITICAL: Ensure list container has focus for keyboard navigation
+      if (listContainer && document.activeElement !== listContainer) {
+        listContainer.focus();
+      }
+
+      // Simple direct scroll using scrollTop
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const element = messageElements[focusedIndex];
-          if (element && listContainer) {
-            const rect = element.getBoundingClientRect();
-            const containerRect = listContainer.getBoundingClientRect();
-            
-            if (rect.top < containerRect.top) {
-              element.scrollIntoView({ block: 'start', behavior: 'smooth' });
-            } else if (rect.bottom > containerRect.bottom) {
-              element.scrollIntoView({ block: 'end', behavior: 'smooth' });
-            }
+        const messageElement = document.querySelector(`[data-message-ts="${message.ts}"]`) as HTMLElement;
+        if (messageElement && listContainer) {
+          // Remove previous focus indicators
+          document.querySelectorAll('[data-message-ts]').forEach(el => {
+            el.classList.remove('keyboard-focused');
+          });
+
+          // Add focus indicator to current element
+          messageElement.classList.add('keyboard-focused');
+
+          // Get the actual position relative to the messages container
+          const rect = messageElement.getBoundingClientRect();
+          const containerRect = listContainer.getBoundingClientRect();
+
+          // Calculate relative position
+          const relativeTop = rect.top - containerRect.top;
+          const isAbove = relativeTop < 0;
+          const isBelow = relativeTop + rect.height > containerRect.height;
+
+          // Scroll if needed
+          if (isAbove || isBelow) {
+            // Calculate target scroll position
+            const targetScrollTop = listContainer.scrollTop + relativeTop - 20; // 20px padding from top
+            listContainer.scrollTop = targetScrollTop;
           }
-        });
+        } else if (!messageElement) {
+          // If element not found (progressive loading), try once more after short delay
+          setTimeout(() => {
+            const retryElement = document.querySelector(`[data-message-ts="${message.ts}"]`) as HTMLElement;
+            if (retryElement && listContainer) {
+              // Remove previous focus indicators
+              document.querySelectorAll('[data-message-ts]').forEach(el => {
+                el.classList.remove('keyboard-focused');
+              });
+
+              // Add focus indicator
+              retryElement.classList.add('keyboard-focused');
+
+              // Use the same relative position approach
+              const rect = retryElement.getBoundingClientRect();
+              const containerRect = listContainer.getBoundingClientRect();
+              const relativeTop = rect.top - containerRect.top;
+              const isAbove = relativeTop < 0;
+              const isBelow = relativeTop + rect.height > containerRect.height;
+
+              if (isAbove || isBelow) {
+                const targetScrollTop = listContainer.scrollTop + relativeTop - 20;
+                listContainer.scrollTop = targetScrollTop;
+              }
+            }
+          }, 50);
+        }
       });
     }
   }
   
   function handleKeyNavigation(direction: 'up' | 'down') {
     if (messages.length === 0) return;
-    
-    // Initialize focus if not set
+
+    // CRITICAL: Ensure list container has focus before navigation
+    if (listContainer && document.activeElement !== listContainer) {
+      listContainer.focus();
+    }
+
+    // Initialize focus if not set - start from first message
     if (focusedIndex === -1) {
-      focusedIndex = direction === 'down' ? 0 : messages.length - 1;
+      focusedIndex = 0;
     } else {
+      // Normal navigation when focus is already set
       if (direction === 'down') {
         if (focusedIndex < messages.length - 1) {
           focusedIndex++;
+          // Ensure the next message is loaded
+          if (focusedIndex >= displayedCount) {
+            displayedCount = Math.min(focusedIndex + LOAD_INCREMENT, messages.length);
+          }
         } else {
-          focusedIndex = 0; // Wrap to start
+          // Don't wrap, stay at the last message
+          focusedIndex = messages.length - 1;
         }
-      } else {
+      } else { // direction === 'up'
         if (focusedIndex > 0) {
           focusedIndex--;
         } else {
-          focusedIndex = messages.length - 1; // Wrap to end
+          // Don't wrap, stay at the first message
+          focusedIndex = 0;
         }
       }
     }
-    
+
     updateFocus();
   }
   
   function jumpToFirst() {
     if (messages.length === 0) return;
     focusedIndex = 0;
-    
+
     // Show a toast with message preview
     const firstMessage = messages[focusedIndex];
     if (firstMessage) {
@@ -176,38 +234,30 @@
         `${firstMessage.userName}: ${preview}${suffix}`
       );
     }
-    
+
     updateFocus();
-    
-    // Ensure the message is visible with extra emphasis
-    // Use double requestAnimationFrame for consistency with jumpToLast
+
+    // Add highlight animation
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const element = messageElements[focusedIndex];
-        if (element && listContainer) {
-          // Scroll to the message with padding
-          element.scrollIntoView({ block: 'center', behavior: 'smooth' });
-          
-          // Add a temporary highlight animation
-          element.classList.add('highlight-jump');
-          setTimeout(() => {
-            element.classList.remove('highlight-jump');
-          }, 1500);
-        }
-      });
+      const element = document.querySelector(`[data-message-ts="${firstMessage.ts}"]`) as HTMLElement;
+      if (element) {
+        element.classList.add('highlight-jump');
+        setTimeout(() => {
+          element.classList.remove('highlight-jump');
+        }, 1500);
+      }
     });
   }
   
   function jumpToLast() {
     if (messages.length === 0) return;
     focusedIndex = messages.length - 1;
-    
+
     // Ensure all messages are loaded before jumping to the last one
-    // This fixes the issue where the last message isn't visible if it's beyond the progressive loading limit
     if (displayedCount < messages.length) {
       displayedCount = messages.length;
     }
-    
+
     // Show a toast with message preview
     const lastMessage = messages[focusedIndex];
     if (lastMessage) {
@@ -218,25 +268,18 @@
         `${lastMessage.userName}: ${preview}${suffix}`
       );
     }
-    
+
     updateFocus();
-    
-    // Ensure the message is visible with extra emphasis
-    // Use double requestAnimationFrame to ensure DOM has updated with new messages
+
+    // Add highlight animation
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const element = messageElements[focusedIndex];
-        if (element && listContainer) {
-          // Scroll to the message with padding
-          element.scrollIntoView({ block: 'center', behavior: 'smooth' });
-          
-          // Add a temporary highlight animation
-          element.classList.add('highlight-jump');
-          setTimeout(() => {
-            element.classList.remove('highlight-jump');
-          }, 1500);
-        }
-      });
+      const element = document.querySelector(`[data-message-ts="${lastMessage.ts}"]`) as HTMLElement;
+      if (element) {
+        element.classList.add('highlight-jump');
+        setTimeout(() => {
+          element.classList.remove('highlight-jump');
+        }, 1500);
+      }
     });
   }
   
@@ -579,70 +622,74 @@
       {/if}
     </div>
   {:else}
-    <div class="results-header">
-      <h3>
-        {#if !$searchParams?.query}
-          Browsing {messages.length} message{messages.length !== 1 ? 's' : ''}
-          {#if $searchParams?.channel}
-            in #{$searchParams.channel}
-          {/if}
-        {:else}
-          {messages.length} message{messages.length !== 1 ? 's' : ''} found
-        {/if}
-      </h3>
-      {#if $reactionLoadingState.isLoading}
-        <div class="reaction-loading-indicator">
-          <span class="loading-spinner"></span>
-          <span class="loading-text">
-            Loading reactions: {$reactionLoadingState.loadedCount} / {$reactionLoadingState.totalCount}
-            {#if $reactionLoadingState.errors > 0}
-              ({$reactionLoadingState.errors} failed)
+    <div class="results-container">
+      <div class="results-header">
+        <h3>
+          {#if !$searchParams?.query}
+            Browsing {messages.length} message{messages.length !== 1 ? 's' : ''}
+            {#if $searchParams?.channel}
+              in #{$searchParams.channel}
             {/if}
-          </span>
-        </div>
-      {/if}
-    </div>
-    <div 
-      class="messages" 
-      bind:this={listContainer}
-      tabindex="0"
-      role="list"
-      aria-label="Search results"
-      on:keydown={handleKeyDown}>
-      {#each visibleMessages as message, index (message.ts)}
-        <div bind:this={messageElements[index]}>
-          {#if $performanceSettings.useOptimizedMessageItem}
-            <OptimizedMessageItem 
-              {message}
-              on:click={() => handleMessageClick(message)}
-              selected={$selectedMessage?.ts === message.ts}
-              showChannelBadge={isMultiChannel}
-            />
           {:else}
-            <MessageItem 
-              {message}
-              on:click={() => handleMessageClick(message)}
-              selected={$selectedMessage?.ts === message.ts}
-              focused={focusedIndex === index}
-              showChannelBadge={isMultiChannel}
-            />
+            {messages.length} message{messages.length !== 1 ? 's' : ''} found
           {/if}
-        </div>
-      {/each}
-      
-      <!-- Sentinel element for progressive loading -->
-      {#if displayedCount < messages.length}
-        <div 
-          bind:this={sentinelElement}
-          class="load-more-sentinel"
-          use:observeSentinel
-        >
-          <div class="loading-indicator">
-            <span class="spinner-small"></span>
-            Loading more messages... ({displayedCount} of {messages.length})
+        </h3>
+        {#if $reactionLoadingState.isLoading}
+          <div class="reaction-loading-indicator">
+            <span class="loading-spinner"></span>
+            <span class="loading-text">
+              Loading reactions: {$reactionLoadingState.loadedCount} / {$reactionLoadingState.totalCount}
+              {#if $reactionLoadingState.errors > 0}
+                ({$reactionLoadingState.errors} failed)
+              {/if}
+            </span>
           </div>
-        </div>
-      {/if}
+        {/if}
+      </div>
+      <div
+        class="messages"
+        bind:this={listContainer}
+        tabindex="0"
+        role="list"
+        aria-label="Search results"
+        on:keydown={handleKeyDown}>
+        {#each visibleMessages as message, visibleIndex (message.ts)}
+          {@const actualIndex = messages.findIndex(m => m.ts === message.ts)}
+          <div data-message-ts={message.ts} data-message-index={actualIndex}>
+            {#if $performanceSettings.useOptimizedMessageItem}
+              <OptimizedMessageItem
+                {message}
+                on:click={() => handleMessageClick(message)}
+                selected={$selectedMessage?.ts === message.ts}
+                focused={focusedIndex === actualIndex}
+                showChannelBadge={isMultiChannel}
+              />
+            {:else}
+              <MessageItem
+                {message}
+                on:click={() => handleMessageClick(message)}
+                selected={$selectedMessage?.ts === message.ts}
+                focused={focusedIndex === actualIndex}
+                showChannelBadge={isMultiChannel}
+              />
+            {/if}
+          </div>
+        {/each}
+
+        <!-- Sentinel element for progressive loading -->
+        {#if displayedCount < messages.length}
+          <div
+            bind:this={sentinelElement}
+            class="load-more-sentinel"
+            use:observeSentinel
+          >
+            <div class="loading-indicator">
+              <span class="spinner-small"></span>
+              Loading more messages... ({displayedCount} of {messages.length})
+            </div>
+          </div>
+        {/if}
+      </div>
     </div>
   {/if}
   
@@ -667,6 +714,7 @@
     background: var(--bg-secondary);
     border-radius: 8px;
     overflow: hidden;
+    min-height: 0; /* Important for flex containers with scrollable children */
   }
   
   .loading,
@@ -708,11 +756,19 @@
     margin-top: 0.5rem;
     opacity: 0.7;
   }
-  
+
+  .results-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Critical for scrolling */
+  }
+
   .results-header {
     padding: 1rem;
     border-bottom: 1px solid var(--border);
     background: var(--bg-primary);
+    flex-shrink: 0; /* Prevent header from shrinking */
   }
   
   .results-header h3 {
@@ -749,6 +805,8 @@
     overflow-y: auto;
     padding: 0.5rem;
     outline: none;
+    min-height: 0; /* Important for flex child to be scrollable */
+    position: relative; /* Ensure this is the offset parent for child elements */
   }
   
   .messages:focus {
@@ -816,7 +874,31 @@
   :global(.highlight-jump) {
     animation: highlightJump 1.5s ease-out;
   }
-  
+
+  /* Keyboard focus indicator */
+  :global(.keyboard-focused) {
+    position: relative;
+  }
+
+  :global(.keyboard-focused)::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border: 2px solid var(--primary);
+    border-radius: 8px;
+    pointer-events: none;
+    animation: focusPulse 1s ease-in-out infinite;
+  }
+
+  @keyframes focusPulse {
+    0%, 100% {
+      opacity: 0.8;
+    }
+    50% {
+      opacity: 0.4;
+    }
+  }
+
   @keyframes highlightJump {
     0% {
       transform: scale(1);

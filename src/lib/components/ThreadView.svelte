@@ -392,27 +392,29 @@
     </div>
     
     <div class="thread-messages">
-      <div class="thread-parent">
-        <MessageItem 
+      <div class="thread-parent thread-message-0">
+        <MessageItem
           message={thread.parent}
           selected={selectedIndex === 0}
           enableReactions={false}
           on:click={() => handleMessageClick(0)}
         />
       </div>
-      
+
       {#if thread.replies.length > 0}
         <div class="thread-replies">
           <div class="replies-header">
             {thread.replies.length} {thread.replies.length === 1 ? 'reply' : 'replies'}
           </div>
           {#each thread.replies as reply, index}
-            <MessageItem 
-              message={reply}
-              selected={selectedIndex === index + 1}
-              enableReactions={false}
-              on:click={() => handleMessageClick(index + 1)}
-            />
+            <div class="thread-message-{index + 1}">
+              <MessageItem
+                message={reply}
+                selected={selectedIndex === index + 1}
+                enableReactions={false}
+                on:click={() => handleMessageClick(index + 1)}
+              />
+            </div>
           {/each}
         </div>
       {:else}
@@ -441,12 +443,14 @@
         </button>
       </div>
       
-      <MessageItem 
-        message={message}
-        selected={selectedIndex === 0}
-        enableReactions={false}
-        on:click={() => handleMessageClick(0)}
-      />
+      <div class="thread-message-0">
+        <MessageItem
+          message={message}
+          selected={selectedIndex === 0}
+          enableReactions={false}
+          on:click={() => handleMessageClick(0)}
+        />
+      </div>
     </div>
   {/if}
 </div>

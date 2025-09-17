@@ -1665,6 +1665,7 @@
     flex-direction: column;
     height: 100vh;
     padding: 1rem;
+    overflow: hidden; /* Prevent overflow of the main container */
   }
   
   .app-header {
@@ -1675,6 +1676,7 @@
     background: var(--bg-secondary);
     border-radius: 8px;
     margin-bottom: 1rem;
+    flex-shrink: 0; /* Prevent header from shrinking */
   }
   
   .app-header > :last-child {
@@ -1857,6 +1859,7 @@
     gap: 1rem;
     flex: 1;
     min-height: 0;
+    overflow: hidden; /* Prevent children from overflowing */
   }
   
   .results-panel {
@@ -1864,6 +1867,7 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+    min-height: 0; /* Critical for nested flex scrolling */
   }
   
   .thread-panel {
@@ -1871,6 +1875,7 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+    min-height: 0; /* Critical for nested flex scrolling */
   }
   
   .btn-primary,

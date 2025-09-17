@@ -19,6 +19,7 @@
 
   export let message: Message;
   export let selected = false;
+  export let focused = false;
   export let enableReactions = true;
   export let showChannelBadge = false;
 
@@ -409,6 +410,7 @@
 <button
   class="message-item"
   class:selected
+  class:focused
   on:click={handleClick}
   bind:this={messageItemElement}
 >

@@ -16,6 +16,7 @@
   
   export let message: Message;
   export let selected = false;
+  export let focused = false;
   export let enableReactions = true;
   export let showChannelBadge = false;
   
@@ -379,6 +380,7 @@
 <button
   class="message-item"
   class:selected
+  class:focused
   on:click={handleClick}
   bind:this={messageItemElement}
 >
@@ -533,6 +535,11 @@
   .message-item.selected {
     background: var(--primary-bg);
     border-color: var(--primary);
+  }
+
+  .message-item.focused {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
   }
   
   .message-header {
