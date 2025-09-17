@@ -17,13 +17,17 @@ export interface WorkspaceCredentials {
   token: string;        // Stored securely in backend
 }
 
+import type { UserFavorite } from './slack';
+
 export interface WorkspaceData {
   workspaceId: string;
   channels?: string[];          // Channel IDs/names cache
   channelFavorites?: string[];  // Favorite channel IDs
   recentChannels?: string[];    // Recently used channel IDs
   searchHistory?: string[];     // Recent search queries
-  userFavorites?: string[];     // Favorite user IDs
+  userFavorites?: UserFavorite[];  // Favorite users with their details
+  userFavoriteOrder?: string[]; // Track order of favorite user IDs
+  recentUsers?: string[];       // Recently used user IDs
   lastSync?: Date;              // Last data sync timestamp
 }
 

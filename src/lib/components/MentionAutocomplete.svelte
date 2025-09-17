@@ -18,19 +18,33 @@
   onMount(() => {
     // Load favorites
     userFavorites = userService.getUserFavorites();
-    
+
     // Initial search
     searchUsers(searchQuery);
-    
+
+    // Listen for workspace switch events
+    const handleWorkspaceSwitch = () => {
+      userFavorites = userService.getUserFavorites();
+      // Re-search with current query to update the list
+      searchUsers(searchQuery);
+    };
+
+    window.addEventListener('workspace-switched', handleWorkspaceSwitch);
+
     // Add keyboard event listener
     document.addEventListener('keydown', handleKeydown);
-    
+
     // Position dropdown
     if (dropdownElement) {
       adjustDropdownPosition();
     }
+
+    // Return cleanup function
+    return () => {
+      window.removeEventListener('workspace-switched', handleWorkspaceSwitch);
+    };
   });
-  
+
   onDestroy(() => {
     document.removeEventListener('keydown', handleKeydown);
   });

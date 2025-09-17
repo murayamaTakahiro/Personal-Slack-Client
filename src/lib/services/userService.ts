@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { SlackUser, UserFavorite } from '../types/slack';
 import { settings } from '../stores/settings';
+import { workspaceStore, activeWorkspace } from '../stores/workspaces';
 import { get } from 'svelte/store';
 
 export class UserService {
@@ -16,6 +17,10 @@ export class UserService {
   private constructor() {
     // Don't subscribe to settings immediately - wait for initialization
     // This prevents circular dependency issues during app startup
+    // Listen for workspace switching events
+    if (typeof window !== 'undefined') {
+      window.addEventListener('workspace-switched', this.handleWorkspaceSwitch.bind(this));
+    }
   }
 
   static getInstance(): UserService {
@@ -25,20 +30,49 @@ export class UserService {
     return UserService.instance;
   }
 
+  // Handle workspace switching
+  private handleWorkspaceSwitch(): void {
+    console.log('[UserService] Workspace switched, clearing cache and reloading favorites');
+    // Clear caches when switching workspaces
+    this.clearCache();
+    // Reload favorites for the new workspace
+    this.loadWorkspaceFavorites();
+  }
+
+  // Load favorites from the current workspace
+  private loadWorkspaceFavorites(): void {
+    const workspace = get(activeWorkspace);
+    if (!workspace) {
+      this.userFavorites = [];
+      this.favoriteOrder = [];
+      this.recentUserIds = [];
+      return;
+    }
+
+    const state = get(workspaceStore);
+    const workspaceData = state.workspaceData[workspace.id];
+    if (workspaceData) {
+      this.userFavorites = workspaceData.userFavorites || [];
+      this.favoriteOrder = workspaceData.userFavoriteOrder || this.userFavorites.map(f => f.id);
+      this.recentUserIds = workspaceData.recentUsers || [];
+      console.log(`[UserService] Loaded ${this.userFavorites.length} favorites for workspace ${workspace.name}`);
+      this.updateRecentUsersFromIds();
+    } else {
+      this.userFavorites = [];
+      this.favoriteOrder = [];
+      this.recentUserIds = [];
+    }
+  }
+
   // Subscribe to settings changes to keep favorites in sync
   private subscribeToSettings(): void {
     if (this.unsubscribe) {
       this.unsubscribe();
     }
-    
-    this.unsubscribe = settings.subscribe(currentSettings => {
-      // Update favorites from settings whenever they change
-      this.userFavorites = currentSettings.userFavorites || [];
-      this.favoriteOrder = currentSettings.userFavoriteOrder || this.userFavorites.map(f => f.id);
-      this.recentUserIds = currentSettings.recentUsers || [];
-      console.log('[UserService] Favorites updated from settings:', this.userFavorites.length, 'favorites');
-      this.updateRecentUsersFromIds();
-    });
+
+    // Instead of subscribing to settings, we now rely on workspace data
+    // This method is kept for backward compatibility but now loads from workspace
+    this.loadWorkspaceFavorites();
   }
 
   // Initialize the service after settings are ready
@@ -57,15 +91,11 @@ export class UserService {
     }
   }
 
-  // Method to explicitly reload favorites from settings
+  // Method to explicitly reload favorites from workspace
   public reloadFavorites(): void {
     try {
-      const currentSettings = get(settings);
-      this.userFavorites = currentSettings.userFavorites || [];
-      this.favoriteOrder = currentSettings.userFavoriteOrder || this.userFavorites.map(f => f.id);
-      this.recentUserIds = currentSettings.recentUsers || [];
+      this.loadWorkspaceFavorites();
       console.log('[UserService] Favorites reloaded:', this.userFavorites.length, 'favorites');
-      this.updateRecentUsersFromIds();
     } catch (error) {
       console.error('[UserService] Error reloading favorites:', error);
       this.userFavorites = [];
@@ -310,21 +340,31 @@ export class UserService {
     return this.userFavorites.some(fav => fav.id === userId);
   }
 
-  // Save favorites to settings
+  // Save favorites to workspace data
   private saveFavorites(): void {
-    settings.update(s => ({
-      ...s,
+    const workspace = get(activeWorkspace);
+    if (!workspace) return;
+
+    const state = get(workspaceStore);
+    const workspaceData = state.workspaceData[workspace.id] || {};
+    workspaceStore.updateWorkspaceData(workspace.id, {
+      ...workspaceData,
       userFavorites: this.userFavorites,
       userFavoriteOrder: this.favoriteOrder
-    }));
+    });
   }
 
-  // Save recent users to settings
+  // Save recent users to workspace data
   private saveRecentUsers(): void {
-    settings.update(s => ({
-      ...s,
+    const workspace = get(activeWorkspace);
+    if (!workspace) return;
+
+    const state = get(workspaceStore);
+    const workspaceData = state.workspaceData[workspace.id] || {};
+    workspaceStore.updateWorkspaceData(workspace.id, {
+      ...workspaceData,
       recentUsers: this.recentUserIds
-    }));
+    });
   }
 
   // Clear all caches
@@ -333,11 +373,14 @@ export class UserService {
     this.searchCache.clear();
   }
 
-  // Clean up subscriptions
+  // Clean up subscriptions and event listeners
   dispose(): void {
     if (this.unsubscribe) {
       this.unsubscribe();
       this.unsubscribe = null;
+    }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('workspace-switched', this.handleWorkspaceSwitch.bind(this));
     }
   }
 }

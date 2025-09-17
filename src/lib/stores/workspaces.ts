@@ -145,6 +145,8 @@ function createWorkspaceStore() {
         recentChannels: [],
         searchHistory: [],
         userFavorites: [],
+        userFavoriteOrder: [],
+        recentUsers: [],
         lastSync: new Date()
       };
       
@@ -311,7 +313,9 @@ function createWorkspaceStore() {
         channelFavorites: [],
         recentChannels: [],
         searchHistory: [],
-        userFavorites: []
+        userFavorites: [],
+        userFavoriteOrder: [],
+        recentUsers: []
       };
       
       // Try to load existing favorites and recent channels
