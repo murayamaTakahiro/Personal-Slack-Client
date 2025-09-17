@@ -14,6 +14,7 @@
   import { getKeyboardService } from '../services/keyboardService';
   import { confirm, confirmationStore } from '../stores/confirmation';
   import { get } from 'svelte/store';
+  import { cleanupDuplicateSavedSearches } from '../utils/cleanupSavedSearches';
 
   const dispatch = createEventDispatcher();
 
@@ -227,6 +228,28 @@
       } catch (error) {
         console.error('[SavedSearchManager] Failed to clear all searches:', error);
         showToast('Failed to clear searches', 'error');
+      }
+    }
+  }
+
+  async function runCleanup() {
+    const confirmed = await confirm({
+      title: 'Fix Duplicate Searches',
+      message: 'This will clean up duplicate saved searches that may have been created across workspaces. Continue?',
+      confirmText: 'Fix Duplicates',
+      cancelText: 'Cancel',
+      dangerous: false
+    });
+
+    if (confirmed) {
+      try {
+        await cleanupDuplicateSavedSearches();
+        // Re-initialize after cleanup
+        await savedSearchesStore.initialize();
+        showToast('Duplicate searches cleaned up successfully', 'success');
+      } catch (error) {
+        console.error('[SavedSearchManager] Cleanup failed:', error);
+        showToast('Failed to clean up duplicate searches', 'error');
       }
     }
   }
@@ -509,6 +532,9 @@
       <div class="dropdown-footer">
         <button class="btn-link" on:click={clearAllSearches}>
           Clear all searches
+        </button>
+        <button class="btn-link" on:click={runCleanup} title="Fix duplicate searches across workspaces">
+          Fix Duplicates
         </button>
       </div>
     {/if}

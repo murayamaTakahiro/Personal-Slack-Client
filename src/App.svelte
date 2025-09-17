@@ -65,7 +65,7 @@
   import UserIdSettings from './lib/components/UserIdSettings.svelte';
   import PerformanceMonitor from './lib/components/PerformanceMonitor.svelte';
   import ConfirmationDialog from './lib/components/ConfirmationDialog.svelte';
-  
+
   let channels: [string, string][] = [];
   let showSettings = false;
   let token = '';
@@ -967,20 +967,23 @@
     });
     searchError.set(null);
     searchLoading.set(false);
-    
+
     // Reset realtime mode when switching workspaces
     realtimeStore.setEnabled(false);
     stopRealtimeUpdates();
-    
+
     // Clear all caches and search optimizations
     clearAllCaches();
     searchOptimizer.cancelAllSearches();
     searchOptimizer.clearCache();
-    
+
     // Clear channels and user cache before loading new ones
     channels = [];
     channelStore.reset(); // Reset the channel store state
     userService.clearCache();
+
+    // Reset saved searches and reinitialize for new workspace
+    savedSearchesStore.reset();
     
     // Get the active workspace after the switch
     const currentWorkspace = $activeWorkspace;
@@ -1024,6 +1027,11 @@
           
           // Load new channels for the switched workspace
           await loadChannels();
+
+          // Re-initialize saved searches for the new workspace
+          logger.debug('[App] Re-initializing saved searches for workspace switch...');
+          await savedSearchesStore.initialize();
+          logger.debug('[App] Saved searches re-initialized');
           
           // Force UI update by reassigning channels
           channels = [...channels];
