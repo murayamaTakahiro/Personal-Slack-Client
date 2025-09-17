@@ -29,27 +29,30 @@
   let unsubscribeSettings: (() => void) | null = null;
   let highlightedIndex = -1;
   
-  // Load favorites on mount and subscribe to settings changes
+  // Load favorites on mount and listen for workspace switches
   onMount(() => {
     // Initial load
     userFavorites = userService.getUserFavorites();
     recentUsers = userService.getRecentUsers();
 
-    // Subscribe to settings changes to update favorites
-    unsubscribeSettings = settings.subscribe(currentSettings => {
-      if (currentSettings.userFavorites) {
-        userFavorites = currentSettings.userFavorites;
+    // Listen for workspace switch events
+    const handleWorkspaceSwitch = () => {
+      userFavorites = userService.getUserFavorites();
+      recentUsers = userService.getRecentUsers();
+      // Clear any selected users when switching workspace
+      if (mode === 'multi') {
+        userSelectionStore.clearSelection();
       }
-      if (currentSettings.recentUsers) {
-        recentUsers = currentSettings.recentUsers;
-      }
-    });
+      value = '';
+      searchQuery = '';
+      searchResults = []; // Clear search results when switching workspace
+    };
 
-    // Clean up subscription on component destroy
+    window.addEventListener('workspace-switched', handleWorkspaceSwitch);
+
+    // Clean up event listener on component destroy
     return () => {
-      if (unsubscribeSettings) {
-        unsubscribeSettings();
-      }
+      window.removeEventListener('workspace-switched', handleWorkspaceSwitch);
     };
   });
   
