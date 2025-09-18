@@ -38,13 +38,13 @@
     alsoSendToChannel = false; // Reset checkbox state
     postedCount = 0; // Reset posted count
     showSuccessMessage = false; // Reset success message
-    
+
     // Load users for mention conversion
     const users = await userService.getAllUsers();
     users.forEach(user => {
       userMap.set(user.id, user);
     });
-    
+
     // Focus the textarea after DOM updates
     setTimeout(() => {
       if (mentionTextarea) {
@@ -52,6 +52,24 @@
         mentionTextarea.select();
       }
     }, 50);
+
+    // Capture keyboard events to prevent parent shortcuts while dialog is open
+    const captureHandler = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.key.toLowerCase() === 'u') {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        handleSelectFiles();
+      }
+    };
+
+    // Add capture listener to intercept events before they bubble
+    document.addEventListener('keydown', captureHandler, true);
+
+    // Cleanup on unmount
+    return () => {
+      document.removeEventListener('keydown', captureHandler, true);
+    };
   });
   
   async function handlePost() {
@@ -131,10 +149,33 @@
   function handleKeydown(event: CustomEvent) {
     // The event from MentionTextarea dispatches the KeyboardEvent directly
     const keyEvent = event.detail as KeyboardEvent;
+    handleKeyboardEvent(keyEvent);
+  }
+
+  function handleKeyboardEvent(keyEvent: KeyboardEvent) {
     if (keyEvent.key === 'Escape') {
       handleCancel();
     } else if (keyEvent.ctrlKey && keyEvent.key === 'Enter') {
       handlePost();
+    } else if (keyEvent.ctrlKey && keyEvent.key.toLowerCase() === 'u') {
+      // Ctrl+U to open file picker
+      keyEvent.preventDefault();
+      keyEvent.stopPropagation(); // Stop propagation to prevent global shortcuts
+      handleSelectFiles();
+    }
+  }
+
+  // Global keydown handler for the dialog
+  function handleDialogKeydown(event: KeyboardEvent) {
+    // Stop propagation for all shortcuts to prevent global handlers
+    if (event.key === 'Escape' || (event.ctrlKey && (event.key === 'Enter' || event.key.toLowerCase() === 'u'))) {
+      event.stopPropagation();
+    }
+
+    // Handle Ctrl+U specifically
+    if (event.ctrlKey && event.key.toLowerCase() === 'u') {
+      event.preventDefault();
+      handleSelectFiles();
     }
   }
   
@@ -199,7 +240,7 @@
 </script>
 
 <div class="post-dialog-overlay" on:click={handleCancel}>
-  <div class="post-dialog" on:click|stopPropagation>
+  <div class="post-dialog" on:click|stopPropagation on:keydown={handleDialogKeydown}>
     <div class="dialog-header">
       <h3>
         {mode === 'channel' ? 'Post to Channel' : 'Reply to Thread'}
@@ -262,7 +303,7 @@
           class="btn-attach"
           on:click={handleSelectFiles}
           disabled={posting}
-          title="Attach files"
+          title="Attach files (Ctrl+U)"
         >
           📎 Attach files
         </button>
@@ -283,9 +324,9 @@
     <div class="dialog-footer">
       <span class="hint">
         {#if continuousMode}
-          Ctrl+Enter to send (stays open) • Escape to exit • @ to mention
+          Ctrl+Enter to send (stays open) • Ctrl+U to attach files • Escape to exit • @ to mention
         {:else}
-          Ctrl+Enter to send • Escape to cancel • @ to mention
+          Ctrl+Enter to send • Ctrl+U to attach files • Escape to cancel • @ to mention
         {/if}
       </span>
       <div class="buttons">
