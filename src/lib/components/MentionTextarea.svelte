@@ -92,11 +92,18 @@
   
   // Expose focus method for parent components
   export function focus() {
-    textarea?.focus();
+    if (textarea) {
+      textarea.focus();
+      // Set cursor to the beginning to ensure it's visible
+      textarea.setSelectionRange(0, 0);
+    }
   }
-  
+
   export function select() {
-    textarea?.select();
+    if (textarea) {
+      textarea.select();
+      textarea.focus();
+    }
   }
 </script>
 

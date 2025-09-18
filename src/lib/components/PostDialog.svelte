@@ -40,13 +40,13 @@
       userMap.set(user.id, user);
     });
     
-    // Focus the textarea after a tick
-    tick().then(() => {
+    // Focus the textarea after DOM updates
+    setTimeout(() => {
       if (mentionTextarea) {
         mentionTextarea.focus();
         mentionTextarea.select();
       }
-    });
+    }, 50);
   });
   
   async function handlePost() {
@@ -78,10 +78,14 @@
         }, 2000);
 
         // Refocus the textarea for the next message
-        await tick();
-        if (mentionTextarea) {
-          mentionTextarea.focus();
-        }
+        // Use setTimeout to ensure DOM updates are complete
+        setTimeout(() => {
+          if (mentionTextarea) {
+            mentionTextarea.focus();
+            // Also trigger a select to ensure the cursor is visible
+            mentionTextarea.select();
+          }
+        }, 50);
       } else {
         // Normal mode - close dialog after posting
         dispatch('success');
