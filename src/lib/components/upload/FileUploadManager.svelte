@@ -3,11 +3,13 @@
   import {
     uploadFileToSlack,
     uploadClipboardImage,
+    uploadFilesBatch,
     formatFileSize,
     validateFileSize,
     getFileInfo,
     fileToBase64,
     type SlackFile,
+    type BatchUploadRequest,
   } from '../../api/upload';
 
   export let channelId: string;
@@ -140,13 +142,78 @@
   }
 
   export async function uploadAllWithComment(initialComment: string = '') {
-    // Start uploading all pending files with the initial comment
-    for (const upload of uploads) {
-      if (upload.status === 'pending') {
-        upload.initialComment = initialComment;
-      }
+    // Batch upload all pending files in a single message
+    const pendingUploads = uploads.filter(u => u.status === 'pending');
+    if (pendingUploads.length === 0) return;
+
+    // Separate files by type
+    const filePathUploads = pendingUploads.filter(u => u.filePath);
+    const dataUploads = pendingUploads.filter(u => u.data);
+    const fileObjectUploads = pendingUploads.filter(u => u.file && !u.filePath && !u.data);
+
+    // Prepare batch request
+    const batchRequest: BatchUploadRequest = {
+      files: filePathUploads.map(u => ({
+        file_path: u.filePath!,
+        channel_id: channelId,
+        initial_comment: undefined, // Will be set at batch level
+        thread_ts: undefined, // Will be set at batch level
+      })),
+      data_items: dataUploads.map(u => ({
+        data: u.data!,
+        filename: u.filename,
+        channel_id: channelId,
+        initial_comment: undefined,
+        thread_ts: undefined,
+      })),
+      channel_id: channelId,
+      initial_comment: initialComment || undefined,
+      thread_ts: threadTs || undefined,
+    };
+
+    // Handle File objects (convert to base64)
+    for (const upload of fileObjectUploads) {
+      const base64 = await fileToBase64(upload.file!);
+      batchRequest.data_items.push({
+        data: base64,
+        filename: upload.filename,
+        channel_id: channelId,
+        initial_comment: undefined,
+        thread_ts: undefined,
+      });
     }
-    processQueue();
+
+    // Mark all as uploading
+    pendingUploads.forEach(u => {
+      u.status = 'uploading';
+    });
+    uploads = uploads;
+
+    try {
+      // Upload all files in batch
+      const response = await uploadFilesBatch(batchRequest);
+
+      if (response && response.ok) {
+        // Mark all as completed
+        pendingUploads.forEach(u => {
+          u.status = 'completed';
+          u.progress = 100;
+        });
+        dispatch('uploaded', { batch: true, count: pendingUploads.length });
+      } else {
+        throw new Error(response?.error || 'Batch upload failed');
+      }
+    } catch (error) {
+      // Mark all as failed
+      pendingUploads.forEach(u => {
+        u.status = 'failed';
+        u.error = error instanceof Error ? error.message : 'Upload failed';
+      });
+      dispatch('error', { error: error instanceof Error ? error.message : 'Batch upload failed' });
+    }
+
+    uploads = uploads;
+    checkAllUploadsComplete();
   }
 
   async function processQueue() {

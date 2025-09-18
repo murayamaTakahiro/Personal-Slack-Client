@@ -1,4 +1,4 @@
-use crate::slack::upload::{FileUploadResponse, FileUploader, validate_file, get_mime_type};
+use crate::slack::upload::{FileUploadRequest as SlackFileUploadRequest, FileUploadResponse, FileUploader, validate_file, get_mime_type};
 use crate::state::AppState;
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
@@ -154,4 +154,145 @@ pub struct FileInfo {
     pub mime_type: String,
     pub size: u64,
     pub path: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BatchUploadRequest {
+    pub files: Vec<UploadFileRequest>,
+    pub data_items: Vec<UploadDataRequest>,
+    pub channel_id: String,
+    pub initial_comment: Option<String>,
+    pub thread_ts: Option<String>,
+}
+
+#[tauri::command]
+pub async fn upload_files_batch(
+    state: tauri::State<'_, AppState>,
+    request: BatchUploadRequest,
+) -> Result<FileUploadResponse, String> {
+    info!(
+        "Batch uploading {} files and {} data items to channel: {}",
+        request.files.len(),
+        request.data_items.len(),
+        request.channel_id
+    );
+
+    // Get the Slack token
+    let token = state
+        .get_token()
+        .await
+        .map_err(|e| format!("Failed to get token: {}", e))?;
+
+    // Create uploader
+    let uploader = FileUploader::new(token)
+        .map_err(|e| format!("Failed to create uploader: {}", e))?;
+
+    // Convert file requests to the format needed by the uploader
+    let mut slack_file_requests = Vec::new();
+
+    // Add file path uploads
+    for file_req in request.files {
+        // Validate the file
+        if let Err(e) = validate_file(&file_req.file_path, MAX_FILE_SIZE) {
+            error!("File validation failed for {}: {}", file_req.file_path, e);
+            return Err(format!("File validation failed for {}: {}", file_req.file_path, e));
+        }
+
+        let path = PathBuf::from(&file_req.file_path);
+        let filename = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown")
+            .to_string();
+
+        slack_file_requests.push(SlackFileUploadRequest {
+            channel_id: request.channel_id.clone(),
+            file_path: file_req.file_path,
+            filename: Some(filename.clone()),
+            title: Some(filename),
+            initial_comment: None, // Will be set at batch level
+            thread_ts: None, // Will be set at batch level
+        });
+    }
+
+    // Handle data uploads (clipboard images) separately
+    let mut data_items = Vec::new();
+    for data_req in request.data_items {
+        let data = BASE64
+            .decode(&data_req.data)
+            .map_err(|e| format!("Failed to decode image data: {}", e))?;
+
+        if data.len() > MAX_FILE_SIZE {
+            return Err(format!(
+                "Data size ({} bytes) exceeds maximum allowed size ({} bytes)",
+                data.len(),
+                MAX_FILE_SIZE
+            ));
+        }
+
+        data_items.push((data, data_req.filename));
+    }
+
+    // Upload based on what we have
+    if !slack_file_requests.is_empty() && !data_items.is_empty() {
+        // We have both files and data - need to handle this case
+        // For now, we'll prioritize files and warn about data
+        info!("Warning: Mixed batch upload (files + clipboard) not fully supported yet");
+
+        match uploader
+            .upload_files_batch(
+                slack_file_requests,
+                &request.channel_id,
+                request.initial_comment,
+                request.thread_ts,
+            )
+            .await
+        {
+            Ok(response) => Ok(response),
+            Err(e) => {
+                error!("Failed to batch upload files: {}", e);
+                Err(format!("Failed to batch upload files: {}", e))
+            }
+        }
+    } else if !slack_file_requests.is_empty() {
+        // Only files
+        match uploader
+            .upload_files_batch(
+                slack_file_requests,
+                &request.channel_id,
+                request.initial_comment,
+                request.thread_ts,
+            )
+            .await
+        {
+            Ok(response) => Ok(response),
+            Err(e) => {
+                error!("Failed to batch upload files: {}", e);
+                Err(format!("Failed to batch upload files: {}", e))
+            }
+        }
+    } else if !data_items.is_empty() {
+        // Only data (clipboard images)
+        match uploader
+            .upload_data_batch(
+                data_items,
+                &request.channel_id,
+                request.initial_comment,
+                request.thread_ts,
+            )
+            .await
+        {
+            Ok(files) => Ok(FileUploadResponse {
+                ok: true,
+                file: files.first().cloned(),
+                error: None,
+            }),
+            Err(e) => {
+                error!("Failed to batch upload data: {}", e);
+                Err(format!("Failed to batch upload data: {}", e))
+            }
+        }
+    } else {
+        Err("No files or data to upload".to_string())
+    }
 }

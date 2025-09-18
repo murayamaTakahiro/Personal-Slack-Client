@@ -24,7 +24,7 @@ pub struct FileUploadResponse {
     pub error: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SlackFile {
     pub id: String,
     pub name: String,
@@ -141,7 +141,7 @@ impl FileUploader {
         Ok(())
     }
 
-    /// Step 3: Complete the upload
+    /// Step 3: Complete the upload (single file)
     async fn complete_upload(
         &self,
         file_id: &str,
@@ -199,6 +199,72 @@ impl FileUploader {
 
         debug!("Upload completed successfully: {}", file.id);
         Ok(file)
+    }
+
+    /// Step 3: Complete multiple uploads in a single message
+    async fn complete_batch_upload(
+        &self,
+        file_infos: Vec<(String, Option<String>)>, // (file_id, title)
+        channel_id: &str,
+        initial_comment: Option<String>,
+        thread_ts: Option<String>,
+    ) -> Result<Vec<SlackFile>> {
+        let url = format!("{}/files.completeUploadExternal", SLACK_API_BASE);
+
+        let files_array: Vec<serde_json::Value> = file_infos
+            .iter()
+            .map(|(id, title)| {
+                let mut file_obj = serde_json::json!({ "id": id });
+                if let Some(t) = title {
+                    file_obj["title"] = serde_json::json!(t);
+                }
+                file_obj
+            })
+            .collect();
+
+        let mut params = serde_json::json!({
+            "files": files_array,
+            "channel_id": channel_id,
+        });
+
+        if let Some(comment) = initial_comment {
+            params["initial_comment"] = serde_json::json!(comment);
+        }
+
+        if let Some(ts) = thread_ts {
+            params["thread_ts"] = serde_json::json!(ts);
+        }
+
+        info!("Completing batch upload for {} files to channel: {}", file_infos.len(), channel_id);
+
+        let response = self
+            .client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.token))
+            .json(&params)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await?;
+            error!("Failed to complete batch upload. Status: {}, Response: {}", status, text);
+            return Err(anyhow!("Failed to complete batch upload: {}", text));
+        }
+
+        let result: CompleteUploadResponse = response.json().await?;
+
+        if !result.ok {
+            return Err(anyhow!(
+                "Failed to complete batch upload: {}",
+                result.error.unwrap_or_else(|| "Unknown error".to_string())
+            ));
+        }
+
+        let files = result.files.ok_or_else(|| anyhow!("No files in response"))?;
+
+        debug!("Batch upload completed successfully: {} files", files.len());
+        Ok(files)
     }
 
     /// Upload a file using the 3-step workflow
@@ -281,6 +347,93 @@ impl FileUploader {
             file: Some(file),
             error: None,
         })
+    }
+
+    /// Upload multiple files in a single batch (all files in one message)
+    pub async fn upload_files_batch(
+        &self,
+        files: Vec<FileUploadRequest>,
+        channel_id: &str,
+        initial_comment: Option<String>,
+        thread_ts: Option<String>,
+    ) -> Result<FileUploadResponse> {
+        if files.is_empty() {
+            return Err(anyhow!("No files to upload"));
+        }
+
+        let mut uploaded_files: Vec<(String, Option<String>)> = Vec::new();
+
+        // Step 1 & 2: Upload each file individually to get file IDs
+        for file_req in files {
+            if file_req.file_path.is_empty() {
+                return Err(anyhow!("File path is required for batch upload"));
+            }
+
+            // File path provided
+            let path = Path::new(&file_req.file_path);
+            let filename = file_req.filename.clone().unwrap_or_else(|| {
+                path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("file")
+                    .to_string()
+            });
+            let title = file_req.title.clone().or_else(|| Some(filename.clone()));
+            let file_data = fs::read(&file_req.file_path).await?;
+
+            info!("Processing file: {} ({} bytes)", filename, file_data.len());
+            let (upload_url, file_id) = self.get_upload_url(&filename, file_data.len()).await?;
+            self.upload_to_url(&upload_url, file_data).await?;
+
+            uploaded_files.push((file_id, title));
+        }
+
+        // Step 3: Complete all uploads in a single call
+        let files = self
+            .complete_batch_upload(
+                uploaded_files,
+                channel_id,
+                initial_comment,
+                thread_ts,
+            )
+            .await?;
+
+        Ok(FileUploadResponse {
+            ok: true,
+            file: files.first().cloned(), // Return first file for compatibility
+            error: None,
+        })
+    }
+
+    /// Upload multiple data blobs (e.g., clipboard images) in a single batch
+    pub async fn upload_data_batch(
+        &self,
+        data_items: Vec<(Vec<u8>, String)>, // (data, filename)
+        channel_id: &str,
+        initial_comment: Option<String>,
+        thread_ts: Option<String>,
+    ) -> Result<Vec<SlackFile>> {
+        if data_items.is_empty() {
+            return Err(anyhow!("No data to upload"));
+        }
+
+        let mut uploaded_files: Vec<(String, Option<String>)> = Vec::new();
+
+        // Step 1 & 2: Upload each data blob individually to get file IDs
+        for (data, filename) in data_items {
+            info!("Processing data: {} ({} bytes)", filename, data.len());
+            let (upload_url, file_id) = self.get_upload_url(&filename, data.len()).await?;
+            self.upload_to_url(&upload_url, data).await?;
+            uploaded_files.push((file_id, Some(filename)));
+        }
+
+        // Step 3: Complete all uploads in a single call
+        self.complete_batch_upload(
+            uploaded_files,
+            channel_id,
+            initial_comment,
+            thread_ts,
+        )
+        .await
     }
 }
 

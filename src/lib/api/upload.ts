@@ -177,3 +177,20 @@ export function formatFileSize(bytes: number): string {
 
   return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
+
+export interface BatchUploadRequest {
+  files: FileUploadRequest[];
+  data_items: UploadDataRequest[];
+  channel_id: string;
+  initial_comment?: string;
+  thread_ts?: string;
+}
+
+/**
+ * Upload multiple files in a batch (single message)
+ */
+export async function uploadFilesBatch(
+  request: BatchUploadRequest
+): Promise<FileUploadResponse> {
+  return await invoke('upload_files_batch', { request });
+}

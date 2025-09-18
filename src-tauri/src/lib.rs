@@ -94,6 +94,7 @@ pub fn run() {
             commands::upload::upload_file_to_slack,
             commands::upload::upload_clipboard_image,
             commands::upload::get_file_info,
+            commands::upload::upload_files_batch,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
