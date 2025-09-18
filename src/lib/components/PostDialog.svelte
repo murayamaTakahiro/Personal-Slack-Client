@@ -6,6 +6,9 @@
   import { userService } from '../services/userService';
   import type { SlackUser } from '../types/slack';
   import { decodeSlackText } from '../utils/htmlEntities';
+  import FileUploadManager from './upload/FileUploadManager.svelte';
+  import { getClipboardImage } from '../api/upload';
+  import { open } from '@tauri-apps/plugin-dialog';
   
   export let mode: 'channel' | 'thread';
   export let channelId: string;
@@ -24,6 +27,8 @@
   let alsoSendToChannel = false; // For thread replies, option to also post to channel
   let postedCount = 0; // Track number of messages posted in continuous mode
   let showSuccessMessage = false; // Show success feedback
+  let fileUploadManager: FileUploadManager;
+  let isDragging = false; // For drag and drop visual feedback
   
   // Reset state and focus when component mounts (dialog opens)
   onMount(async () => {
@@ -119,6 +124,62 @@
   function handleInput(event: CustomEvent<{ value: string }>) {
     text = event.detail.value;
   }
+
+  // File upload handlers
+  async function handlePaste(event: ClipboardEvent) {
+    // Check for image data in clipboard
+    const clipboardImage = await getClipboardImage();
+    if (clipboardImage && fileUploadManager) {
+      await fileUploadManager.addClipboardData(clipboardImage.data, clipboardImage.filename);
+    }
+  }
+
+  async function handleDragOver(event: DragEvent) {
+    event.preventDefault();
+    isDragging = true;
+  }
+
+  function handleDragLeave(event: DragEvent) {
+    event.preventDefault();
+    isDragging = false;
+  }
+
+  async function handleDrop(event: DragEvent) {
+    event.preventDefault();
+    isDragging = false;
+
+    if (!event.dataTransfer?.files || !fileUploadManager) {
+      return;
+    }
+
+    const files = Array.from(event.dataTransfer.files);
+    await fileUploadManager.addFiles(files);
+  }
+
+  async function handleSelectFiles() {
+    try {
+      const selected = await open({
+        multiple: true,
+        directory: false,
+      });
+
+      if (selected && fileUploadManager) {
+        // Convert file paths to File objects
+        // For now, we'll need to handle this differently since we get paths, not File objects
+        // We'll upload directly using the paths
+        if (Array.isArray(selected)) {
+          for (const path of selected) {
+            // We'll need to implement direct path upload
+            console.log('Selected file path:', path);
+          }
+        } else if (selected) {
+          console.log('Selected file path:', selected);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to select files:', err);
+    }
+  }
 </script>
 
 <div class="post-dialog-overlay" on:click={handleCancel}>
@@ -155,7 +216,14 @@
       {/if}
     </div>
     
-    <div class="dialog-body">
+    <div
+      class="dialog-body"
+      class:dragging={isDragging}
+      on:dragover={handleDragOver}
+      on:dragleave={handleDragLeave}
+      on:drop={handleDrop}
+      on:paste={handlePaste}
+    >
       <MentionTextarea
         bind:this={mentionTextarea}
         value={text}
@@ -164,6 +232,28 @@
         on:input={handleInput}
         on:keydown={handleKeydown}
       />
+
+      <!-- File Upload Manager -->
+      <FileUploadManager
+        bind:this={fileUploadManager}
+        {channelId}
+        threadTs={mode === 'thread' ? threadTs : ''}
+      />
+
+      <!-- File Upload Actions -->
+      <div class="upload-actions">
+        <button
+          class="btn-attach"
+          on:click={handleSelectFiles}
+          disabled={posting}
+          title="Attach files"
+        >
+          📎 Attach files
+        </button>
+        <span class="upload-hint">
+          or drag & drop files, or paste images from clipboard
+        </span>
+      </div>
 
       {#if showSuccessMessage && continuousMode}
         <div class="success-message">Message posted successfully!</div>
@@ -349,6 +439,26 @@
     flex-direction: column;
     overflow-y: auto;
     background: var(--color-background, #ffffff);
+    position: relative;
+  }
+
+  .dialog-body.dragging {
+    background: var(--color-background-secondary);
+    border: 2px dashed var(--color-primary);
+  }
+
+  .dialog-body.dragging::after {
+    content: 'Drop files here';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.1);
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--color-primary);
+    pointer-events: none;
   }
 
 
@@ -371,6 +481,42 @@
     border-radius: 4px;
     color: #c00;
     font-size: 13px;
+  }
+
+  .upload-actions {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .btn-attach {
+    padding: 6px 12px;
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s;
+  }
+
+  .btn-attach:hover:not(:disabled) {
+    background: var(--color-hover);
+    border-color: var(--color-primary);
+  }
+
+  .btn-attach:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .upload-hint {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    font-style: italic;
   }
 
   @keyframes fadeIn {

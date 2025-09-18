@@ -1,6 +1,7 @@
 pub mod client;
 pub mod models;
 pub mod parser;
+pub mod upload;
 
 pub use client::{build_search_query, fetch_all_results, SlackClient};
 pub use models::*;

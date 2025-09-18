@@ -36,6 +36,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .manage(AppState::new())
         .setup(|app| {
             // Get the main window and maximize it on startup
@@ -89,6 +91,9 @@ pub fn run() {
             commands::files::download_slack_files_batch,
             commands::files::select_download_folder,
             commands::files::create_file_data_url,
+            commands::upload::upload_file_to_slack,
+            commands::upload::upload_clipboard_image,
+            commands::upload::get_file_info,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
