@@ -5,6 +5,8 @@
     uploadClipboardImage,
     formatFileSize,
     validateFileSize,
+    getFileInfo,
+    fileToBase64,
     type SlackFile,
   } from '../../api/upload';
 
@@ -16,6 +18,7 @@
   interface FileUpload {
     id: string;
     file?: File;
+    filePath?: string; // For file picker files
     data?: string; // Base64 for clipboard images
     filename: string;
     size: number;
@@ -24,6 +27,7 @@
     error?: string;
     slackFile?: SlackFile;
     preview?: string;
+    initialComment?: string; // Message to include with the upload
   }
 
   let uploads: FileUpload[] = [];
@@ -57,9 +61,47 @@
 
     uploads = [...uploads, upload];
     uploadQueue.push(upload);
-    processQueue();
+    // Don't auto-start processing, wait for uploadAllWithComment
+    // processQueue();
 
     return id;
+  }
+
+  export async function addFilePath(filePath: string) {
+    const id = `filepath-${Date.now()}-${Math.random()}`;
+
+    try {
+      // Get file info from the backend
+      const fileInfo = await getFileInfo(filePath);
+
+      // Validate file size (1GB max)
+      if (!validateFileSize(fileInfo.size)) {
+        dispatch('error', { message: `File ${fileInfo.filename} is too large. Maximum size is 1GB.` });
+        return;
+      }
+
+      const upload: FileUpload = {
+        id,
+        filePath, // Store the file path instead of File object
+        filename: fileInfo.filename,
+        size: fileInfo.size,
+        status: 'pending',
+        progress: 0,
+      };
+
+      // For images, we could generate a preview but that would require reading the file
+      // For now, just show the file icon
+
+      uploads = [...uploads, upload];
+      uploadQueue.push(upload);
+      // Don't auto-start processing, wait for uploadAllWithComment
+      // processQueue();
+
+      return id;
+    } catch (error) {
+      dispatch('error', { message: `Failed to add file: ${error}` });
+      return null;
+    }
   }
 
   export async function addFiles(files: File[]) {
@@ -91,9 +133,20 @@
 
     uploads = [...uploads, upload];
     uploadQueue.push(upload);
-    processQueue();
+    // Don't auto-start processing, wait for uploadAllWithComment
+    // processQueue();
 
     return id;
+  }
+
+  export async function uploadAllWithComment(initialComment: string = '') {
+    // Start uploading all pending files with the initial comment
+    for (const upload of uploads) {
+      if (upload.status === 'pending') {
+        upload.initialComment = initialComment;
+      }
+    }
+    processQueue();
   }
 
   async function processQueue() {
@@ -127,19 +180,33 @@
     try {
       let response;
 
-      if (upload.file) {
-        // Upload local file
-        // For now, we'll need to get the file path (this would require file dialog)
-        // This is a limitation - we'll address it with drag & drop
-        dispatch('needFilePath', { upload });
-        return;
+      if (upload.filePath) {
+        // Upload file from file path (from file picker)
+        response = await uploadFileToSlack(
+          upload.filePath,
+          channelId,
+          upload.initialComment,
+          threadTs || undefined
+        );
+      } else if (upload.file) {
+        // Upload File object (from drag & drop - not yet fully implemented)
+        // We need to convert File to a path or base64
+        // For now, this is a limitation
+        const base64 = await fileToBase64(upload.file);
+        response = await uploadClipboardImage(
+          base64,
+          upload.filename,
+          channelId,
+          upload.initialComment,
+          threadTs || undefined
+        );
       } else if (upload.data) {
         // Upload clipboard data
         response = await uploadClipboardImage(
           upload.data,
           upload.filename,
           channelId,
-          undefined,
+          upload.initialComment,
           threadTs || undefined
         );
       } else {

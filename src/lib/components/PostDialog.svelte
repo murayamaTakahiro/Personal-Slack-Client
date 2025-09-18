@@ -55,20 +55,32 @@
   });
   
   async function handlePost() {
-    if (!text.trim()) return;
+    // Check if there are files to upload
+    const hasFiles = fileUploadManager?.hasUploads();
+
+    // If no text and no files, don't do anything
+    if (!text.trim() && !hasFiles) return;
 
     posting = true;
     error = null;
 
     try {
       // Convert mentions to Slack format before posting
-      const formattedText = mentionService.convertToSlackFormat(text, userMap);
+      const formattedText = text.trim() ? mentionService.convertToSlackFormat(text, userMap) : '';
 
-      if (mode === 'channel') {
-        await postToChannel(channelId, formattedText);
-      } else {
-        // Pass the alsoSendToChannel flag to the API
-        await postThreadReply(channelId, threadTs, formattedText, alsoSendToChannel);
+      // If we have files, upload them with the message as initial_comment
+      if (hasFiles) {
+        // Set the initial comment for all pending uploads
+        await fileUploadManager.uploadAllWithComment(formattedText);
+        // Don't post a separate message - the file upload includes it
+      } else if (formattedText) {
+        // No files, just post the message normally
+        if (mode === 'channel') {
+          await postToChannel(channelId, formattedText);
+        } else {
+          // Pass the alsoSendToChannel flag to the API
+          await postThreadReply(channelId, threadTs, formattedText, alsoSendToChannel);
+        }
       }
 
       text = ''; // Reset text after successful post
@@ -81,6 +93,11 @@
         setTimeout(() => {
           showSuccessMessage = false;
         }, 2000);
+
+        // Clear completed uploads
+        if (hasFiles) {
+          fileUploadManager.clearCompleted();
+        }
 
         // Refocus the textarea for the next message
         // Use setTimeout to ensure DOM updates are complete
@@ -164,16 +181,15 @@
       });
 
       if (selected && fileUploadManager) {
-        // Convert file paths to File objects
-        // For now, we'll need to handle this differently since we get paths, not File objects
-        // We'll upload directly using the paths
+        // Handle file paths from the file dialog
         if (Array.isArray(selected)) {
+          // Multiple files selected
           for (const path of selected) {
-            // We'll need to implement direct path upload
-            console.log('Selected file path:', path);
+            await fileUploadManager.addFilePath(path);
           }
         } else if (selected) {
-          console.log('Selected file path:', selected);
+          // Single file selected
+          await fileUploadManager.addFilePath(selected);
         }
       }
     } catch (err) {
@@ -280,10 +296,10 @@
         >
           Cancel
         </button>
-        <button 
-          class="btn-send" 
+        <button
+          class="btn-send"
           on:click={handlePost}
-          disabled={posting || !text.trim()}
+          disabled={posting || (!text.trim() && !fileUploadManager?.hasUploads())}
         >
           {posting ? 'Sending...' : 'Send'}
         </button>
