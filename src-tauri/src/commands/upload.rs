@@ -14,6 +14,7 @@ pub struct UploadFileRequest {
     pub channel_id: String,
     pub initial_comment: Option<String>,
     pub thread_ts: Option<String>,
+    pub reply_broadcast: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -23,6 +24,7 @@ pub struct UploadDataRequest {
     pub channel_id: String,
     pub initial_comment: Option<String>,
     pub thread_ts: Option<String>,
+    pub reply_broadcast: Option<bool>,
 }
 
 #[tauri::command]
@@ -55,6 +57,7 @@ pub async fn upload_file_to_slack(
             &request.channel_id,
             request.initial_comment,
             request.thread_ts,
+            request.reply_broadcast,
         )
         .await
     {
@@ -105,6 +108,7 @@ pub async fn upload_clipboard_image(
             &request.channel_id,
             request.initial_comment,
             request.thread_ts,
+            request.reply_broadcast,
         )
         .await
     {
@@ -163,6 +167,7 @@ pub struct BatchUploadRequest {
     pub channel_id: String,
     pub initial_comment: Option<String>,
     pub thread_ts: Option<String>,
+    pub reply_broadcast: Option<bool>,
 }
 
 #[tauri::command]
@@ -245,6 +250,7 @@ pub async fn upload_files_batch(
                 &request.channel_id,
                 request.initial_comment,
                 request.thread_ts,
+                request.reply_broadcast,
             )
             .await
         {
@@ -262,6 +268,7 @@ pub async fn upload_files_batch(
                 &request.channel_id,
                 request.initial_comment,
                 request.thread_ts,
+                request.reply_broadcast,
             )
             .await
         {
@@ -279,6 +286,7 @@ pub async fn upload_files_batch(
                 &request.channel_id,
                 request.initial_comment,
                 request.thread_ts,
+                request.reply_broadcast,
             )
             .await
         {

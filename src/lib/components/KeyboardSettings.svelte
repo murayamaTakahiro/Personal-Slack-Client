@@ -42,7 +42,7 @@
     focusSearchBar: 'Ctrl+K',
     focusResults: 'Ctrl+1',
     focusThread: 'Ctrl+2',
-    focusUrlInput: 'Ctrl+U',
+    // focusUrlInput removed - no keyboard shortcut
     toggleSettings: 'Ctrl+,',
     newSearch: 'Ctrl+N',
     nextResult: ['j', 'ArrowDown'],

@@ -53,22 +53,23 @@
       }
     }, 50);
 
-    // Capture keyboard events to prevent parent shortcuts while dialog is open
-    const captureHandler = (event: KeyboardEvent) => {
+    // Handle Ctrl+U for file upload
+    const keydownHandler = (event: KeyboardEvent) => {
       if (event.ctrlKey && event.key.toLowerCase() === 'u') {
+        console.log('[PostDialog] Handling Ctrl+U for file upload');
         event.preventDefault();
         event.stopPropagation();
-        event.stopImmediatePropagation();
         handleSelectFiles();
       }
     };
 
-    // Add capture listener to intercept events before they bubble
-    document.addEventListener('keydown', captureHandler, true);
+    // Add listener in normal bubble phase (not capture)
+    document.addEventListener('keydown', keydownHandler, false);
 
     // Cleanup on unmount
     return () => {
-      document.removeEventListener('keydown', captureHandler, true);
+      console.log('[PostDialog] Cleaning up keydown handler');
+      document.removeEventListener('keydown', keydownHandler, false);
     };
   });
   
@@ -295,6 +296,7 @@
         bind:this={fileUploadManager}
         {channelId}
         threadTs={mode === 'thread' ? threadTs : ''}
+        {alsoSendToChannel}
       />
 
       <!-- File Upload Actions -->

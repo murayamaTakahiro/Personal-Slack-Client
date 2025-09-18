@@ -85,7 +85,8 @@ export interface KeyboardShortcuts {
   focusSearchBar: string | string[];
   focusResults: string | string[];
   focusThread: string | string[];
-  focusUrlInput: string | string[];
+  // focusUrlInput removed - now optional for backward compatibility
+  focusUrlInput?: string | string[];
   toggleSettings: string | string[];
   newSearch: string | string[];
   nextResult: string | string[];

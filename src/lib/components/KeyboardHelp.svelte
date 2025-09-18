@@ -45,11 +45,6 @@
             shortcut: shortcuts.focusThread || 'Ctrl+2'
           },
           { 
-            key: 'focusUrlInput', 
-            description: 'Focus URL Input',
-            shortcut: shortcuts.focusUrlInput || 'Ctrl+U'
-          },
-          { 
             key: 'nextResult', 
             description: 'Next Result',
             shortcut: shortcuts.nextResult || ['j', 'ArrowDown']

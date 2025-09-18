@@ -22,6 +22,7 @@
     loadSecureSettings 
   } from './lib/stores/secureSettings';
   import { settings, initializeSettings, toggleDebugMode } from './lib/stores/settings';
+  import { isPostDialogOpen } from './lib/stores/postDialog';
   import { maskTokenClient } from './lib/api/secure';
   import { 
     searchMessages, 
@@ -81,6 +82,8 @@
   let previousMessageIds = new Set<string>();
   let unsubscribeRealtime: (() => void) | null = null;
   let unsubscribeSearchResults: (() => void) | null = null;
+  let unsubscribePostDialog: (() => void) | null = null;
+  let postDialogOpen = false;  // Track PostDialog state
   let appInitialized = false;
   let initializationError: string | null = null;
   let initializationStep = 'Starting...';
@@ -265,6 +268,16 @@
         }
       }
       
+      // Subscribe to PostDialog state
+      try {
+        unsubscribePostDialog = isPostDialogOpen.subscribe(value => {
+          postDialogOpen = value;
+          console.log('[App] PostDialog state changed:', value);
+        });
+      } catch (error) {
+        console.error('[App] Failed to subscribe to PostDialog state:', error);
+      }
+
       // Setup realtime updates subscription with error handling
       try {
         let previousInterval: number | null = null;
@@ -366,9 +379,10 @@
       // between settings store and reaction service store
       
       // Add global keyboard event listener with error handling
+      // Use capture phase (true) to intercept Ctrl+U before other handlers
       try {
-        document.addEventListener('keydown', handleGlobalKeydown);
-        console.log('[App] Global keydown listener added successfully');
+        document.addEventListener('keydown', handleGlobalKeydown, true);
+        console.log('[App] Global keydown listener added successfully (capture phase)');
       } catch (error) {
         console.error('[App] Failed to add global keydown listener:', error);
       }
@@ -494,9 +508,9 @@
       clearTimeout(initializationTimeout);
       initializationTimeout = null;
     }
-    // Clean up event listeners
+    // Clean up event listeners (make sure to use same capture flag as addEventListener)
     if (typeof document !== 'undefined') {
-      document.removeEventListener('keydown', handleGlobalKeydown);
+      document.removeEventListener('keydown', handleGlobalKeydown, true);
     }
     if (typeof window !== 'undefined') {
       window.removeEventListener('workspace-switched', handleWorkspaceSwitched);
@@ -510,17 +524,42 @@
     if (unsubscribeSearchResults) {
       unsubscribeSearchResults();
     }
+    if (unsubscribePostDialog) {
+      unsubscribePostDialog();
+    }
   });
-  
+
   function handleGlobalKeydown(event: KeyboardEvent) {
+    // Add debug log for all Ctrl key events
+    if (event.ctrlKey) {
+      console.log('[App] Ctrl key event detected:', event.key, 'PostDialog open:', postDialogOpen);
+    }
+
     try {
+      // Handle Ctrl+U - only allow when PostDialog is open
+      if (event.ctrlKey && event.key.toLowerCase() === 'u') {
+        console.log('[App] Ctrl+U pressed, PostDialog open:', postDialogOpen);
+        if (!postDialogOpen) {
+          // PostDialog is NOT open, block Ctrl+U
+          console.log('[App] Blocking Ctrl+U - PostDialog not open');
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation(); // Also stop immediate propagation
+        } else {
+          console.log('[App] Allowing PostDialog to handle Ctrl+U');
+          // PostDialog is open, let it handle the event
+          // Do NOT prevent default here - let PostDialog handle it
+        }
+        return;
+      }
+
       // If keyboard help is shown, let it handle its own keyboard events
-      if (showKeyboardHelp && (event.key === 'Escape' || 
+      if (showKeyboardHelp && (event.key === 'Escape' ||
           ['ArrowUp', 'ArrowDown', 'j', 'k', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key))) {
         // The KeyboardHelp component will handle these
         return;
       }
-      
+
       // Check for help shortcut - works globally, not just when settings is closed
       if (event.key === '?') {
         // Check if we're in an input field where '?' should type normally
@@ -736,25 +775,9 @@
     });
     
     console.log('🔍 DEBUG: focusThread handler registered');
-    
-      // Focus URL Input
-      keyboardService.registerHandler('focusUrlInput', {
-        action: () => {
-          if (!showSettings && searchBarElement && 
-              typeof searchBarElement.isAdvancedOpen === 'function' && 
-              typeof searchBarElement.toggleAdvancedSearch === 'function' && 
-              typeof searchBarElement.focusUrlInput === 'function') {
-            // Make sure advanced search is open first
-            if (!searchBarElement.isAdvancedOpen()) {
-              searchBarElement.toggleAdvancedSearch();
-            }
-            // Then focus the URL input
-            searchBarElement.focusUrlInput();
-          }
-        },
-        allowInInput: true  // Allow even when in input fields for better navigation
-      });
-    
+
+      // focusUrlInput removed - no keyboard shortcut assigned
+
       // Toggle Channel Selector
       keyboardService.registerHandler('toggleChannelSelector', {
         action: () => {

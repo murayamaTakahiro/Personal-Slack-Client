@@ -14,6 +14,7 @@
 
   export let channelId: string;
   export let threadTs: string = '';
+  export let alsoSendToChannel: boolean = false;
 
   const dispatch = createEventDispatcher();
 
@@ -158,6 +159,7 @@
         channel_id: channelId,
         initial_comment: undefined, // Will be set at batch level
         thread_ts: undefined, // Will be set at batch level
+        reply_broadcast: undefined, // Will be set at batch level
       })),
       data_items: dataUploads.map(u => ({
         data: u.data!,
@@ -165,10 +167,12 @@
         channel_id: channelId,
         initial_comment: undefined,
         thread_ts: undefined,
+        reply_broadcast: undefined, // Will be set at batch level
       })),
       channel_id: channelId,
       initial_comment: initialComment || undefined,
       thread_ts: threadTs || undefined,
+      reply_broadcast: alsoSendToChannel,
     };
 
     // Handle File objects (convert to base64)
@@ -180,6 +184,7 @@
         channel_id: channelId,
         initial_comment: undefined,
         thread_ts: undefined,
+        reply_broadcast: undefined, // Will be set at batch level
       });
     }
 
@@ -253,7 +258,8 @@
           upload.filePath,
           channelId,
           upload.initialComment,
-          threadTs || undefined
+          threadTs || undefined,
+          alsoSendToChannel
         );
       } else if (upload.file) {
         // Upload File object (from drag & drop - not yet fully implemented)
@@ -265,7 +271,8 @@
           upload.filename,
           channelId,
           upload.initialComment,
-          threadTs || undefined
+          threadTs || undefined,
+          alsoSendToChannel
         );
       } else if (upload.data) {
         // Upload clipboard data
@@ -274,7 +281,8 @@
           upload.filename,
           channelId,
           upload.initialComment,
-          threadTs || undefined
+          threadTs || undefined,
+          alsoSendToChannel
         );
       } else {
         throw new Error('No file or data to upload');

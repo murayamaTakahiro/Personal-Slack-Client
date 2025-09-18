@@ -5,6 +5,7 @@
   import OptimizedMessageItem from './OptimizedMessageItem.svelte';
   import PostDialog from './PostDialog.svelte';
   import { selectedMessage, searchParams, reactionLoadingState } from '../stores/search';
+  import { isPostDialogOpen } from '../stores/postDialog';
   import { getKeyboardService } from '../services/keyboardService';
   import { urlService } from '../services/urlService';
   import { openUrlsSmart } from '../api/urls';
@@ -321,11 +322,13 @@
       postMode = mode;
       continuousMode = isContinuous;
       showPostDialog = true;
+      isPostDialogOpen.set(true);  // Update global store
     }
   }
   
   function handlePostSuccess() {
     showPostDialog = false;
+    isPostDialogOpen.set(false);  // Update global store
     // Refocus the list container immediately
     requestAnimationFrame(() => {
       if (listContainer) {
@@ -441,6 +444,7 @@
   
   function handlePostCancel() {
     showPostDialog = false;
+    isPostDialogOpen.set(false);  // Update global store
     // Refocus the list container immediately
     requestAnimationFrame(() => {
       if (listContainer) {
@@ -620,12 +624,15 @@
   });
   
   onDestroy(() => {
+    // Reset PostDialog state when component is destroyed
+    isPostDialogOpen.set(false);
+
     // Cleanup Intersection Observer
     if (loadMoreObserver) {
       loadMoreObserver.disconnect();
       loadMoreObserver = null;
     }
-    
+
     const keyboardService = getKeyboardService();
     if (keyboardService) {
       keyboardService.unregisterHandler('nextResult');

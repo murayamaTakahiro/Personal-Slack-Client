@@ -336,31 +336,12 @@
     }
   }
 
-  // Global keyboard shortcuts
-  function handleGlobalKeydown(event: KeyboardEvent) {
-    // Ctrl+U or Cmd+U to toggle multi-select mode
-    if ((event.ctrlKey || event.metaKey) && event.key === 'u') {
-      event.preventDefault();
-      toggleMode();
-      return;
-    }
-
-    // Ctrl+Shift+U or Cmd+Shift+U to apply selected users
-    if ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === 'U' || event.key === 'u')) {
-      event.preventDefault();
-      if (mode === 'multi' && selectedUsers.length > 0) {
-        applyMultiSelect();
-      }
-      return;
-    }
-  }
+  // Global keyboard shortcuts (removed - no keyboard shortcut for toggle mode)
 
   onMount(() => {
     document.addEventListener('click', handleClickOutside);
-    document.addEventListener('keydown', handleGlobalKeydown);
     return () => {
       document.removeEventListener('click', handleClickOutside);
-      document.removeEventListener('keydown', handleGlobalKeydown);
     };
   });
 </script>
@@ -405,8 +386,8 @@
         class="mode-toggle"
         class:active={mode === 'multi'}
         title={mode === 'multi'
-          ? 'Multi-select mode: Select multiple users (Ctrl+U to switch to single)'
-          : 'Single-select mode: Select one user (Ctrl+U to switch to multi)'}
+          ? 'Multi-select mode: Select multiple users'
+          : 'Single-select mode: Select one user'}
         aria-label={mode === 'multi' ? 'Switch to single select' : 'Switch to multi-select'}
       >
         {#if mode === 'multi'}

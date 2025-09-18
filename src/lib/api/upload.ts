@@ -5,6 +5,7 @@ export interface FileUploadRequest {
   channel_id: string;
   initial_comment?: string;
   thread_ts?: string;
+  reply_broadcast?: boolean;
 }
 
 export interface UploadDataRequest {
@@ -13,6 +14,7 @@ export interface UploadDataRequest {
   channel_id: string;
   initial_comment?: string;
   thread_ts?: string;
+  reply_broadcast?: boolean;
 }
 
 export interface SlackFile {
@@ -52,13 +54,15 @@ export async function uploadFileToSlack(
   filePath: string,
   channelId: string,
   initialComment?: string,
-  threadTs?: string
+  threadTs?: string,
+  replyBroadcast?: boolean
 ): Promise<FileUploadResponse> {
   const request: FileUploadRequest = {
     file_path: filePath,
     channel_id: channelId,
     initial_comment: initialComment,
     thread_ts: threadTs,
+    reply_broadcast: replyBroadcast,
   };
 
   return await invoke('upload_file_to_slack', { request });
@@ -72,7 +76,8 @@ export async function uploadClipboardImage(
   filename: string,
   channelId: string,
   initialComment?: string,
-  threadTs?: string
+  threadTs?: string,
+  replyBroadcast?: boolean
 ): Promise<FileUploadResponse> {
   const request: UploadDataRequest = {
     data,
@@ -80,6 +85,7 @@ export async function uploadClipboardImage(
     channel_id: channelId,
     initial_comment: initialComment,
     thread_ts: threadTs,
+    reply_broadcast: replyBroadcast,
   };
 
   return await invoke('upload_clipboard_image', { request });
@@ -184,6 +190,7 @@ export interface BatchUploadRequest {
   channel_id: string;
   initial_comment?: string;
   thread_ts?: string;
+  reply_broadcast?: boolean;
 }
 
 /**

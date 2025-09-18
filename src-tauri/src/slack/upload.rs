@@ -72,6 +72,53 @@ impl FileUploader {
         Ok(Self { client, token })
     }
 
+    /// Post a message to broadcast file upload to channel
+    async fn post_broadcast_message(
+        &self,
+        channel_id: &str,
+        thread_ts: &str,
+        message: &str,
+    ) -> Result<()> {
+        let url = format!("{}/chat.postMessage", SLACK_API_BASE);
+
+        let params = serde_json::json!({
+            "channel": channel_id,
+            "text": message,
+            "thread_ts": thread_ts,
+            "reply_broadcast": true
+        });
+
+        debug!("Posting broadcast message for file upload to channel: {}", channel_id);
+
+        let response = self
+            .client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.token))
+            .header("Content-Type", "application/json")
+            .json(&params)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await?;
+            error!("Failed to post broadcast message. Status: {}, Response: {}", status, text);
+            return Err(anyhow!("Failed to post broadcast message: {}", text));
+        }
+
+        let result: serde_json::Value = response.json().await?;
+
+        if !result["ok"].as_bool().unwrap_or(false) {
+            return Err(anyhow!(
+                "Failed to post broadcast message: {}",
+                result["error"].as_str().unwrap_or("Unknown error")
+            ));
+        }
+
+        debug!("Broadcast message posted successfully");
+        Ok(())
+    }
+
     /// Step 1: Get upload URL from Slack
     async fn get_upload_url(
         &self,
@@ -149,6 +196,7 @@ impl FileUploader {
         channel_id: &str,
         initial_comment: Option<String>,
         thread_ts: Option<String>,
+        reply_broadcast: Option<bool>,
     ) -> Result<SlackFile> {
         let url = format!("{}/files.completeUploadExternal", SLACK_API_BASE);
 
@@ -160,12 +208,14 @@ impl FileUploader {
             "channel_id": channel_id,
         });
 
-        if let Some(comment) = initial_comment {
+        if let Some(ref comment) = initial_comment {
             params["initial_comment"] = serde_json::json!(comment);
         }
 
-        if let Some(ts) = thread_ts {
+        if let Some(ref ts) = thread_ts {
             params["thread_ts"] = serde_json::json!(ts);
+            // NOTE: reply_broadcast is NOT supported by files.completeUploadExternal
+            // We'll need to handle this with a separate chat.postMessage call
         }
 
         info!("Completing upload for file ID: {} to channel: {}", file_id, channel_id);
@@ -197,6 +247,30 @@ impl FileUploader {
         let files = result.files.ok_or_else(|| anyhow!("No files in response"))?;
         let file = files.into_iter().next().ok_or_else(|| anyhow!("No file in response"))?;
 
+        // If reply_broadcast is true and we're in a thread, post a broadcast message
+        if let Some(ref ts) = thread_ts {
+            if let Some(broadcast) = reply_broadcast {
+                if broadcast {
+                    // Create a message with file information
+                    let message = if let Some(comment) = &initial_comment {
+                        if !comment.is_empty() {
+                            format!("{}", comment)
+                        } else {
+                            format!("Shared file: {}", file.name)
+                        }
+                    } else {
+                        format!("Shared file: {}", file.name)
+                    };
+
+                    // Post the broadcast message
+                    if let Err(e) = self.post_broadcast_message(channel_id, &ts, &message).await {
+                        error!("Failed to post broadcast message: {}", e);
+                        // Don't fail the whole upload, just log the error
+                    }
+                }
+            }
+        }
+
         debug!("Upload completed successfully: {}", file.id);
         Ok(file)
     }
@@ -208,6 +282,7 @@ impl FileUploader {
         channel_id: &str,
         initial_comment: Option<String>,
         thread_ts: Option<String>,
+        reply_broadcast: Option<bool>,
     ) -> Result<Vec<SlackFile>> {
         let url = format!("{}/files.completeUploadExternal", SLACK_API_BASE);
 
@@ -227,12 +302,14 @@ impl FileUploader {
             "channel_id": channel_id,
         });
 
-        if let Some(comment) = initial_comment {
+        if let Some(ref comment) = initial_comment {
             params["initial_comment"] = serde_json::json!(comment);
         }
 
-        if let Some(ts) = thread_ts {
+        if let Some(ref ts) = thread_ts {
             params["thread_ts"] = serde_json::json!(ts);
+            // NOTE: reply_broadcast is NOT supported by files.completeUploadExternal
+            // We'll need to handle this with a separate chat.postMessage call
         }
 
         info!("Completing batch upload for {} files to channel: {}", file_infos.len(), channel_id);
@@ -263,6 +340,35 @@ impl FileUploader {
 
         let files = result.files.ok_or_else(|| anyhow!("No files in response"))?;
 
+        // If reply_broadcast is true and we're in a thread, post a broadcast message
+        if let Some(ref ts) = thread_ts {
+            if let Some(broadcast) = reply_broadcast {
+                if broadcast {
+                    // Create a message with file information
+                    let file_names: Vec<String> = files
+                        .iter()
+                        .map(|f| f.name.clone())
+                        .collect();
+
+                    let message = if let Some(comment) = &initial_comment {
+                        if !comment.is_empty() {
+                            format!("{}", comment)
+                        } else {
+                            format!("Shared {} file(s): {}", files.len(), file_names.join(", "))
+                        }
+                    } else {
+                        format!("Shared {} file(s): {}", files.len(), file_names.join(", "))
+                    };
+
+                    // Post the broadcast message
+                    if let Err(e) = self.post_broadcast_message(channel_id, &ts, &message).await {
+                        error!("Failed to post broadcast message: {}", e);
+                        // Don't fail the whole upload, just log the error
+                    }
+                }
+            }
+        }
+
         debug!("Batch upload completed successfully: {} files", files.len());
         Ok(files)
     }
@@ -274,6 +380,7 @@ impl FileUploader {
         channel_id: &str,
         initial_comment: Option<String>,
         thread_ts: Option<String>,
+        reply_broadcast: Option<bool>,
     ) -> Result<FileUploadResponse> {
         // Read the file
         let path = Path::new(file_path);
@@ -302,6 +409,7 @@ impl FileUploader {
                 channel_id,
                 initial_comment,
                 thread_ts,
+                reply_broadcast,
             )
             .await?;
 
@@ -320,6 +428,7 @@ impl FileUploader {
         channel_id: &str,
         initial_comment: Option<String>,
         thread_ts: Option<String>,
+        reply_broadcast: Option<bool>,
     ) -> Result<FileUploadResponse> {
         let file_size = data.len();
 
@@ -339,6 +448,7 @@ impl FileUploader {
                 channel_id,
                 initial_comment,
                 thread_ts,
+                reply_broadcast,
             )
             .await?;
 
@@ -356,6 +466,7 @@ impl FileUploader {
         channel_id: &str,
         initial_comment: Option<String>,
         thread_ts: Option<String>,
+        reply_broadcast: Option<bool>,
     ) -> Result<FileUploadResponse> {
         if files.is_empty() {
             return Err(anyhow!("No files to upload"));
@@ -394,6 +505,7 @@ impl FileUploader {
                 channel_id,
                 initial_comment,
                 thread_ts,
+                reply_broadcast,
             )
             .await?;
 
@@ -411,6 +523,7 @@ impl FileUploader {
         channel_id: &str,
         initial_comment: Option<String>,
         thread_ts: Option<String>,
+        reply_broadcast: Option<bool>,
     ) -> Result<Vec<SlackFile>> {
         if data_items.is_empty() {
             return Err(anyhow!("No data to upload"));
@@ -432,6 +545,7 @@ impl FileUploader {
             channel_id,
             initial_comment,
             thread_ts,
+            reply_broadcast,
         )
         .await
     }
