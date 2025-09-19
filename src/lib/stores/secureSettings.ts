@@ -97,12 +97,14 @@ export function updateTheme(theme: 'light' | 'dark' | 'auto') {
 // Apply theme to document
 function applyTheme(theme: 'light' | 'dark' | 'auto') {
   const root = document.documentElement;
-  
+
   if (theme === 'auto') {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     root.classList.toggle('dark', prefersDark);
+    root.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
   } else {
     root.classList.toggle('dark', theme === 'dark');
+    root.setAttribute('data-theme', theme);
   }
 }
 
