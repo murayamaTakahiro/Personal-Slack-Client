@@ -17,10 +17,11 @@
   export let threadTs: string = '';
   export let messagePreview: string = '';
   export let continuousMode: boolean = false; // New property for continuous posting mode
+  export let initialText: string = ''; // New property for pre-filled text (e.g., quoted messages)
 
   const dispatch = createEventDispatcher();
-  
-  let text = '';
+
+  let text = initialText; // Initialize with provided text
   let posting = false;
   let error: string | null = null;
   let mentionTextarea: MentionTextarea;
@@ -35,7 +36,7 @@
   
   // Reset state and focus when component mounts (dialog opens)
   onMount(async () => {
-    text = '';
+    text = initialText || ''; // Use initialText if provided, otherwise empty
     error = null;
     posting = false;
     alsoSendToChannel = false; // Reset checkbox state

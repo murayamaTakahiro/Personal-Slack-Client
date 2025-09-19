@@ -99,6 +99,7 @@ export class KeyboardService {
     const shortcut = this.shortcuts[shortcutKey];
     if (shortcut) {
       this.handlers.set(shortcutKey, handler);
+      console.log('🔍 DEBUG: Registered keyboard handler:', shortcutKey, 'with shortcut:', shortcut);
     } else {
       console.warn('No shortcut found for key:', shortcutKey);
     }
@@ -132,8 +133,8 @@ export class KeyboardService {
       return false;
     }
 
-    // Only log for specific keys to reduce noise
-    if (['r', 'p', 't', '1', '2', '3', '/'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || (event.key === '/' && event.ctrlKey)) {
+    // Log for navigation keys and important keys to debug
+    if (['r', 'p', 't', '1', '2', '3', '/', 'j', 'k', 'e', 'ArrowUp', 'ArrowDown'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || (event.key === '/' && event.ctrlKey)) {
       console.log('🔍 DEBUG: KeyboardService handling key event', {
         key: event.key,
         ctrlKey: event.ctrlKey,
@@ -141,7 +142,8 @@ export class KeyboardService {
         altKey: event.altKey,
         enabled: this.enabled,
         handlerCount: this.handlers.size,
-        registeredKeys: Array.from(this.handlers.keys())
+        registeredKeys: Array.from(this.handlers.keys()),
+        target: event.target?.tagName
       });
     }
 
@@ -222,12 +224,13 @@ export class KeyboardService {
       }
     }
 
-    // Check if thread view has focus - if so, let it handle its own navigation
+    // Check if thread view has focus AND is the active element - if so, let it handle its own navigation
     const threadViewElement = document.querySelector('.thread-view');
-    if (threadViewElement && threadViewElement.contains(target)) {
-      // Thread view handles these keys internally
+    if (threadViewElement && (threadViewElement === target || threadViewElement === document.activeElement)) {
+      // Only block navigation if the thread view itself is focused, not just containing the target
       const navigationKeys = ['ArrowUp', 'ArrowDown', 'j', 'k', 'J', 'K', 'h', 'H', 'e', 'E', 'Home', 'End'];
       if (navigationKeys.includes(event.key)) {
+        console.log('🔍 DEBUG: Thread view is focused, handling navigation key:', event.key);
         return false;
       }
     }
@@ -237,13 +240,14 @@ export class KeyboardService {
       const shortcut = this.shortcuts[shortcutKey as keyof KeyboardShortcuts];
       
       if (shortcut && this.matchesShortcut(event, shortcut)) {
-        // Only log for relevant keys to reduce noise
-        if (['r', 'p', 't', '1', '2', '3', '/'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || (event.key === '/' && event.ctrlKey) || ['openReactionPicker', 'postMessage', 'replyInThread', 'openUrls', 'focusThread', 'focusResults', 'focusSearchBar', 'toggleSavedSearches'].includes(shortcutKey)) {
+        // Log for navigation and relevant keys to reduce noise
+        if (['r', 'p', 't', '1', '2', '3', '/', 'j', 'k', 'e', 'ArrowUp', 'ArrowDown'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || (event.key === '/' && event.ctrlKey) || ['openReactionPicker', 'postMessage', 'replyInThread', 'openUrls', 'focusThread', 'focusResults', 'focusSearchBar', 'toggleSavedSearches', 'nextResult', 'prevResult', 'jumpToLast'].includes(shortcutKey)) {
           console.log('🔍 DEBUG: Handler matched', {
             shortcutKey,
             shortcut,
             isInInput,
-            allowInInput: handler.allowInInput
+            allowInInput: handler.allowInInput,
+            key: event.key
           });
         }
         

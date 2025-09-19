@@ -530,9 +530,14 @@
   });
 
   function handleGlobalKeydown(event: KeyboardEvent) {
-    // Add debug log for all Ctrl key events
-    if (event.ctrlKey) {
-      console.log('[App] Ctrl key event detected:', event.key, 'PostDialog open:', postDialogOpen);
+    // Add debug log for all navigation key events
+    if (['j', 'k', 'ArrowUp', 'ArrowDown', 'e'].includes(event.key) || event.ctrlKey) {
+      console.log('[App] Global keydown event detected:', {
+        key: event.key,
+        ctrlKey: event.ctrlKey,
+        target: event.target?.tagName,
+        postDialogOpen
+      });
     }
 
     try {

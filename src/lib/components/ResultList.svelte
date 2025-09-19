@@ -33,6 +33,7 @@
   let showPostDialog = false;
   let postMode: 'channel' | 'thread' = 'channel';
   let continuousMode = false;
+  let postInitialText = ''; // For pre-filled text (e.g., quoted messages)
   
   // Progressive loading state
   const INITIAL_LOAD = 50;
@@ -92,6 +93,12 @@
   }
   
   export function focusList() {
+    console.log('🔍 DEBUG: focusList called', {
+      messagesLength: messages.length,
+      focusedIndex,
+      listContainer: !!listContainer
+    });
+
     if (messages.length > 0) {
       // Only reset to first item if no item is currently focused
       if (focusedIndex === -1) {
@@ -101,6 +108,7 @@
       // Focus the list container to enable keyboard navigation
       if (listContainer) {
         listContainer.focus();
+        console.log('🔍 DEBUG: List container focused, activeElement is now:', document.activeElement?.tagName);
       }
 
       // Update focus and scroll
@@ -331,10 +339,11 @@
     });
   }
   
-  function openPostDialog(mode: 'channel' | 'thread', isContinuous: boolean = false) {
+  function openPostDialog(mode: 'channel' | 'thread', isContinuous: boolean = false, initialText: string = '') {
     if (focusedIndex >= 0 && focusedIndex < messages.length) {
       postMode = mode;
       continuousMode = isContinuous;
+      postInitialText = initialText;
       showPostDialog = true;
       isPostDialogOpen.set(true);  // Update global store
     }
@@ -520,28 +529,42 @@
     // Next Result
     keyboardService.registerHandler('nextResult', {
       action: () => {
+        console.log('🔍 DEBUG: nextResult handler called', {
+          lightboxOpen: $lightboxOpen,
+          messagesLength: messages.length,
+          activeElement: document.activeElement?.tagName,
+          listContainer: !!listContainer,
+          containsActive: listContainer?.contains(document.activeElement),
+          isListActive: document.activeElement === listContainer
+        });
+
         // Check if lightbox is open - if so, don't handle navigation
         if ($lightboxOpen) {
+          console.log('🔍 DEBUG: Lightbox open, skipping navigation');
           return; // Let lightbox handle navigation
         }
 
         // Check if saved search dropdown is open
         const savedSearchDropdownOpen = document.querySelector('.saved-search-dropdown');
         if (savedSearchDropdownOpen) {
+          console.log('🔍 DEBUG: Saved search dropdown open, skipping navigation');
           return; // Let SavedSearchManager handle navigation
         }
 
         // Check if thread view has focus - if so, don't handle
         const threadViewElement = document.querySelector('.thread-view');
         if (threadViewElement && threadViewElement.contains(document.activeElement)) {
+          console.log('🔍 DEBUG: Thread view has focus, skipping navigation');
           return; // Let thread view handle its own navigation
         }
 
         // Also check if the result list actually has focus
         if (!listContainer || (!listContainer.contains(document.activeElement) && document.activeElement !== listContainer)) {
+          console.log('🔍 DEBUG: Result list not focused, skipping navigation');
           return; // Don't handle if focus is elsewhere
         }
 
+        console.log('🔍 DEBUG: Executing nextResult navigation');
         if (messages.length > 0) {
           handleKeyNavigation('down');
         }
@@ -552,28 +575,42 @@
     // Previous Result
     keyboardService.registerHandler('prevResult', {
       action: () => {
+        console.log('🔍 DEBUG: prevResult handler called', {
+          lightboxOpen: $lightboxOpen,
+          messagesLength: messages.length,
+          activeElement: document.activeElement?.tagName,
+          listContainer: !!listContainer,
+          containsActive: listContainer?.contains(document.activeElement),
+          isListActive: document.activeElement === listContainer
+        });
+
         // Check if lightbox is open - if so, don't handle navigation
         if ($lightboxOpen) {
+          console.log('🔍 DEBUG: Lightbox open, skipping navigation');
           return; // Let lightbox handle navigation
         }
 
         // Check if saved search dropdown is open
         const savedSearchDropdownOpen = document.querySelector('.saved-search-dropdown');
         if (savedSearchDropdownOpen) {
+          console.log('🔍 DEBUG: Saved search dropdown open, skipping navigation');
           return; // Let SavedSearchManager handle navigation
         }
 
         // Check if thread view has focus - if so, don't handle
         const threadViewElement = document.querySelector('.thread-view');
         if (threadViewElement && threadViewElement.contains(document.activeElement)) {
+          console.log('🔍 DEBUG: Thread view has focus, skipping navigation');
           return; // Let thread view handle its own navigation
         }
 
         // Also check if the result list actually has focus
         if (!listContainer || (!listContainer.contains(document.activeElement) && document.activeElement !== listContainer)) {
+          console.log('🔍 DEBUG: Result list not focused, skipping navigation');
           return; // Don't handle if focus is elsewhere
         }
 
+        console.log('🔍 DEBUG: Executing prevResult navigation');
         if (messages.length > 0) {
           handleKeyNavigation('up');
         }
@@ -670,27 +707,51 @@
       allowInInput: false
     });
     
-    // Jump to Last (E key)
+    // Quote Message (E key) - Changed from Jump to Last
     keyboardService.registerHandler('jumpToLast', {
       action: () => {
-        // Check if lightbox is open - if so, don't handle navigation
+        console.log('🔍 DEBUG: jumpToLast (E key) handler called', {
+          lightboxOpen: $lightboxOpen,
+          focusedIndex,
+          messagesLength: messages.length,
+          activeElement: document.activeElement?.tagName,
+          listContainer: !!listContainer,
+          showPostDialog
+        });
+
+        // Check if lightbox is open - if so, don't handle
         if ($lightboxOpen) {
+          console.log('🔍 DEBUG: Lightbox open, skipping E key action');
           return; // Let lightbox handle navigation
         }
 
         // Check if thread view has focus - if so, don't handle
         const threadViewElement = document.querySelector('.thread-view');
         if (threadViewElement && threadViewElement.contains(document.activeElement)) {
+          console.log('🔍 DEBUG: Thread view has focus, skipping E key action');
           return; // Let thread view handle its own navigation
         }
 
         // Also check if the result list actually has focus
         if (!listContainer || (!listContainer.contains(document.activeElement) && document.activeElement !== listContainer)) {
+          console.log('🔍 DEBUG: Result list not focused, skipping E key action');
           return; // Don't handle if focus is elsewhere
         }
 
-        if (messages.length > 0) {
-          jumpToLast();
+        // Don't handle if post dialog is open
+        if (showPostDialog) {
+          console.log('🔍 DEBUG: Post dialog open, skipping E key action');
+          return;
+        }
+
+        console.log('🔍 DEBUG: Executing E key quote action');
+        // Quote the focused message
+        if (focusedIndex >= 0 && focusedIndex < messages.length) {
+          const message = messages[focusedIndex];
+          const decodedText = decodeSlackText(message.text);
+          // Quote the message text by adding "> " to the beginning of each line
+          const quotedText = decodedText.split('\n').map(line => `> ${line}`).join('\n');
+          openPostDialog('channel', false, quotedText);
         }
       },
       allowInInput: false
@@ -860,6 +921,7 @@
       channelName={messages[focusedIndex].channelName || messages[focusedIndex].channel}
       threadTs={postMode === 'thread' ? messages[focusedIndex].ts : ''}
       messagePreview={postMode === 'thread' ? decodeSlackText(messages[focusedIndex].text).slice(0, 100) : ''}
+      initialText={postInitialText}
       on:success={handlePostSuccess}
       on:cancel={handlePostCancel}
     />

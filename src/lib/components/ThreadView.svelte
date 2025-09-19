@@ -10,16 +10,22 @@
   import LoadingSpinner from './LoadingSpinner.svelte';
   import SkeletonLoader from './SkeletonLoader.svelte';
   import MessageItem from './MessageItem.svelte';
+  import PostDialog from './PostDialog.svelte';
   import { logger } from '../services/logger';
   import { lightboxOpen } from '../stores/filePreview';
-  
+  import { isPostDialogOpen } from '../stores/postDialog';
+
   export let message: Message | null = null;
-  
+
   let thread: ThreadMessages | null = null;
   let loading = false;
   let error: string | null = null;
   let selectedIndex = -1;
   let threadViewElement: HTMLDivElement;
+
+  // Post dialog state
+  let showPostDialog = false;
+  let postInitialText = '';
   
   $: if (message) {
     console.log('[ThreadView] Message changed:', {
@@ -212,13 +218,47 @@
   
   function getAllMessages(): Array<{message: Message, index: number}> {
     if (!thread) return [];
-    
+
     const messages = [];
     messages.push({ message: thread.parent, index: 0 });
     thread.replies.forEach((reply, i) => {
       messages.push({ message: reply, index: i + 1 });
     });
     return messages;
+  }
+
+  function openThreadReplyDialog(initialText: string = '') {
+    if (!thread) return;
+    postInitialText = initialText;
+    showPostDialog = true;
+    isPostDialogOpen.set(true);
+  }
+
+  function handlePostSuccess() {
+    showPostDialog = false;
+    isPostDialogOpen.set(false);
+    // Reload thread to show new reply
+    if (message) {
+      const tsToUse = message.threadTs || message.ts;
+      loadThread(message.channel, tsToUse);
+    }
+    // Refocus the thread view
+    requestAnimationFrame(() => {
+      if (threadViewElement) {
+        threadViewElement.focus();
+      }
+    });
+  }
+
+  function handlePostCancel() {
+    showPostDialog = false;
+    isPostDialogOpen.set(false);
+    // Refocus the thread view
+    requestAnimationFrame(() => {
+      if (threadViewElement) {
+        threadViewElement.focus();
+      }
+    });
   }
   
   function handleKeyDown(event: KeyboardEvent) {
@@ -298,14 +338,27 @@
         }
         break;
       case 'End':
-      case 'e':
-      case 'E':
         event.preventDefault();
         if (totalMessages > 0) {
           selectedIndex = totalMessages - 1;
           focusMessage(selectedIndex);
           // Show feedback to user
           showInfo('Jumped to last message in thread', `Message ${totalMessages} of ${totalMessages}`);
+        }
+        break;
+      case 'e':
+      case 'E':
+        event.preventDefault();
+        // Don't handle if post dialog is open
+        if (showPostDialog) return;
+
+        // Quote the selected message
+        if (selectedIndex >= 0 && selectedIndex < totalMessages) {
+          const selectedMsg = messages[selectedIndex].message;
+          const decodedText = decodeSlackText(selectedMsg.text);
+          // Quote the message text by adding "> " to the beginning of each line
+          const quotedText = decodedText.split('\n').map(line => `> ${line}`).join('\n');
+          openThreadReplyDialog(quotedText);
         }
         break;
     }
@@ -472,6 +525,20 @@
         />
       </div>
     </div>
+  {/if}
+
+  {#if showPostDialog && thread}
+    <PostDialog
+      mode="thread"
+      continuousMode={false}
+      channelId={thread.parent.channel}
+      channelName={thread.parent.channelName || thread.parent.channel}
+      threadTs={thread.parent.threadTs || thread.parent.ts}
+      messagePreview={decodeSlackText(thread.parent.text).slice(0, 100)}
+      initialText={postInitialText}
+      on:success={handlePostSuccess}
+      on:cancel={handlePostCancel}
+    />
   {/if}
 </div>
 
