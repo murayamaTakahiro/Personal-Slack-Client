@@ -100,6 +100,7 @@ export interface KeyboardShortcuts {
   applySelectedChannels?: string | string[];
   jumpToFirst: string | string[];
   jumpToLast: string | string[];
+  quoteMessage?: string | string[];
   postMessage?: string | string[];
   postMessageContinuous?: string | string[];
   replyInThread?: string | string[];

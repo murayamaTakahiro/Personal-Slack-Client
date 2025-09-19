@@ -240,14 +240,14 @@ export class KeyboardService {
     for (const [shortcutKey, handler] of this.handlers.entries()) {
       const shortcut = this.shortcuts[shortcutKey as keyof KeyboardShortcuts];
 
-      // Special debug for navigation keys
-      if (['nextResult', 'prevResult', 'jumpToLast'].includes(shortcutKey) && ['j', 'k', 'e', 'ArrowUp', 'ArrowDown'].includes(event.key.toLowerCase())) {
+      // Special debug for navigation and quote keys
+      if (['nextResult', 'prevResult', 'jumpToLast', 'quoteMessage'].includes(shortcutKey) && ['j', 'k', 'e', 'q', 'ArrowUp', 'ArrowDown'].includes(event.key.toLowerCase())) {
         console.log('🔍 DEBUG: Checking handler', shortcutKey, 'for key', event.key, 'with shortcut', shortcut);
       }
 
       if (shortcut && this.matchesShortcut(event, shortcut)) {
         // Log for navigation and relevant keys to reduce noise
-        if (['r', 'p', 't', '1', '2', '3', '/', 'j', 'k', 'e', 'ArrowUp', 'ArrowDown'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || (event.key === '/' && event.ctrlKey) || ['openReactionPicker', 'postMessage', 'replyInThread', 'openUrls', 'focusThread', 'focusResults', 'focusSearchBar', 'toggleSavedSearches', 'nextResult', 'prevResult', 'jumpToLast'].includes(shortcutKey)) {
+        if (['r', 'p', 't', 'q', '1', '2', '3', '/', 'j', 'k', 'e', 'ArrowUp', 'ArrowDown'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || (event.key === '/' && event.ctrlKey) || ['openReactionPicker', 'postMessage', 'replyInThread', 'quoteMessage', 'openUrls', 'focusThread', 'focusResults', 'focusSearchBar', 'toggleSavedSearches', 'nextResult', 'prevResult', 'jumpToLast'].includes(shortcutKey)) {
           console.log('🔍 DEBUG: Handler MATCHED!', {
             shortcutKey,
             shortcut,
@@ -259,7 +259,7 @@ export class KeyboardService {
         
         // Skip if in input field and handler doesn't allow it
         if (isInInput && !handler.allowInInput) {
-          if (['r', 'p', 't'].includes(event.key.toLowerCase())) {
+          if (['r', 'p', 't', 'q'].includes(event.key.toLowerCase())) {
             console.log('🔍 DEBUG: Skipping handler - in input and not allowed');
           }
           continue;

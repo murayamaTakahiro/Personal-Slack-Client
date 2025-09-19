@@ -24,6 +24,7 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   applySelectedChannels: 'Ctrl+Shift+A',
   jumpToFirst: 'h',
   jumpToLast: 'e',
+  quoteMessage: 'q',
   postMessage: 'p',
   postMessageContinuous: 'Shift+P',
   replyInThread: 't',

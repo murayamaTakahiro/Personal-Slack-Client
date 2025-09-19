@@ -349,10 +349,21 @@
       case 'e':
       case 'E':
         event.preventDefault();
+        // Jump to last message (restore original E key behavior)
+        if (totalMessages > 0) {
+          selectedIndex = totalMessages - 1;
+          focusMessage(selectedIndex);
+          // Show feedback to user
+          showInfo('Jumped to last message in thread', `Message ${totalMessages} of ${totalMessages}`);
+        }
+        break;
+      case 'q':
+      case 'Q':
+        event.preventDefault();
         // Don't handle if post dialog is open
         if (showPostDialog) return;
 
-        // Quote the selected message
+        // Quote the selected message (new Q key behavior)
         if (selectedIndex >= 0 && selectedIndex < totalMessages) {
           const selectedMsg = messages[selectedIndex].message;
           const decodedText = decodeSlackText(selectedMsg.text);

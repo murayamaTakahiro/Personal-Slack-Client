@@ -707,44 +707,62 @@
       allowInInput: false
     });
     
-    // Quote Message (E key) - Changed from Jump to Last
+    // Jump to Last Message (E key)
     keyboardService.registerHandler('jumpToLast', {
       action: () => {
-        console.log('🔍 DEBUG: jumpToLast (E key) handler called', {
-          lightboxOpen: $lightboxOpen,
-          focusedIndex,
-          messagesLength: messages.length,
-          activeElement: document.activeElement?.tagName,
-          listContainer: !!listContainer,
-          showPostDialog
-        });
-
         // Check if lightbox is open - if so, don't handle
         if ($lightboxOpen) {
-          console.log('🔍 DEBUG: Lightbox open, skipping E key action');
           return; // Let lightbox handle navigation
         }
 
         // Check if thread view has focus - if so, don't handle
         const threadViewElement = document.querySelector('.thread-view');
         if (threadViewElement && threadViewElement.contains(document.activeElement)) {
-          console.log('🔍 DEBUG: Thread view has focus, skipping E key action');
           return; // Let thread view handle its own navigation
         }
 
         // Also check if the result list actually has focus
         if (!listContainer || (!listContainer.contains(document.activeElement) && document.activeElement !== listContainer)) {
-          console.log('🔍 DEBUG: Result list not focused, skipping E key action');
           return; // Don't handle if focus is elsewhere
         }
 
         // Don't handle if post dialog is open
         if (showPostDialog) {
-          console.log('🔍 DEBUG: Post dialog open, skipping E key action');
           return;
         }
 
-        console.log('🔍 DEBUG: Executing E key quote action');
+        // Jump to last message
+        if (messages.length > 0) {
+          jumpToLast();
+        }
+      },
+      allowInInput: false
+    });
+
+    // Quote Message (Q key)
+    keyboardService.registerHandler('quoteMessage', {
+      action: () => {
+        // Check if lightbox is open - if so, don't handle
+        if ($lightboxOpen) {
+          return; // Let lightbox handle navigation
+        }
+
+        // Check if thread view has focus - if so, don't handle
+        const threadViewElement = document.querySelector('.thread-view');
+        if (threadViewElement && threadViewElement.contains(document.activeElement)) {
+          return; // Let thread view handle its own navigation
+        }
+
+        // Also check if the result list actually has focus
+        if (!listContainer || (!listContainer.contains(document.activeElement) && document.activeElement !== listContainer)) {
+          return; // Don't handle if focus is elsewhere
+        }
+
+        // Don't handle if post dialog is open
+        if (showPostDialog) {
+          return;
+        }
+
         // Quote the focused message
         if (focusedIndex >= 0 && focusedIndex < messages.length) {
           const message = messages[focusedIndex];
@@ -795,6 +813,7 @@
       keyboardService.unregisterHandler('replyInThreadContinuous');
       keyboardService.unregisterHandler('jumpToFirst');
       keyboardService.unregisterHandler('jumpToLast');
+      keyboardService.unregisterHandler('quoteMessage');
       keyboardService.unregisterHandler('openUrls');
     }
   });
