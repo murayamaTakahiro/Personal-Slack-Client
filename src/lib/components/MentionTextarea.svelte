@@ -83,7 +83,17 @@
       }
     }
 
-    // Pass other keyboard events to parent
+    // Handle Enter key separately to prevent bubbling to SearchBar
+    if (event.key === 'Enter' && !event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
+      // Regular Enter key press - just allow default behavior (new line)
+      // Stop both propagation methods to ensure it doesn't bubble up
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      // Don't dispatch to parent - let the textarea handle it naturally
+      return;
+    }
+
+    // Pass other keyboard events to parent (including Ctrl+Enter)
     dispatch('keydown', event);
   }
   

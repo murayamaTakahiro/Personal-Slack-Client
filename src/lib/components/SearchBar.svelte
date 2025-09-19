@@ -11,6 +11,7 @@
   import { realtimeStore } from '../stores/realtime';
   import { channelStore } from '../stores/channels';
   import { getThreadFromUrl } from '../api/slack';
+  import { isPostDialogOpen } from '../stores/postDialog';
   
   export let channels: [string, string][] = [];
   export let showAdvanced = true;
@@ -180,6 +181,12 @@
   }
   
   function handleKeydown(e: KeyboardEvent) {
+    // IMPORTANT: Don't handle Enter key if PostDialog is open
+    // This prevents search from being triggered while typing in PostDialog
+    if (e.key === 'Enter' && $isPostDialogOpen) {
+      return;
+    }
+
     if (e.key === 'Enter' && !$searchLoading) {
       handleSearch();
     }
@@ -277,6 +284,10 @@
         }
       }
     } else if (e.key === 'Enter' && !$searchLoading) {
+      // Don't handle Enter key if PostDialog is open
+      if ($isPostDialogOpen) {
+        return;
+      }
       handleSearch();
     }
     
@@ -331,6 +342,10 @@
 
   function handleUrlKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter' && !urlLoading) {
+      // Don't handle Enter key if PostDialog is open
+      if ($isPostDialogOpen) {
+        return;
+      }
       handleUrlPaste();
     }
   }

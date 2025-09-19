@@ -530,6 +530,20 @@
   });
 
   function handleGlobalKeydown(event: KeyboardEvent) {
+    // Handle Enter key to prevent it from reaching SearchBar when PostDialog is open
+    if (event.key === 'Enter') {
+      // If PostDialog is open and Enter is pressed in a textarea, stop it from reaching SearchBar
+      if (postDialogOpen) {
+        const target = event.target as HTMLElement;
+        if (target && target.tagName === 'TEXTAREA') {
+          // Don't prevent default (we want the line break), but stop propagation
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+          return;
+        }
+      }
+    }
+
     // Add debug log for all navigation key events
     if (['j', 'k', 'ArrowUp', 'ArrowDown', 'e'].includes(event.key) || event.ctrlKey) {
       console.log('[App] Global keydown event detected:', {

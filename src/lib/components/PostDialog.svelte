@@ -186,6 +186,16 @@
       event.stopPropagation();
       handleSelectFiles();
     }
+    // Stop regular Enter key from bubbling up to parent components (like SearchBar)
+    else if (event.key === 'Enter' && !event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
+      // Check if the target is the textarea
+      const target = event.target as HTMLElement;
+      if (target && target.tagName === 'TEXTAREA') {
+        // Allow default behavior (new line) but stop propagation
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+      }
+    }
     // Note: Escape and Tab are handled by the focus trap
   }
   
