@@ -238,17 +238,90 @@
         pdfData = { url };
       }
       
-      // Load the PDF document
-      console.log('[PdfRenderer] Creating PDF document...');
-      const loadingTask = pdfjsLib.getDocument(pdfData);
+      // Load the PDF document with CMap configuration for Japanese text support
+      console.log('[PdfRenderer] Creating PDF document with CMap configuration...');
+      const documentInitParameters = typeof pdfData === 'string' ?
+        {
+          url: pdfData,
+          cMapUrl: '/cmaps/',
+          cMapPacked: true,
+          enableXfa: true,
+          standardFontDataUrl: '/standard_fonts/', // Optional standard fonts
+          useSystemFonts: false, // Force use of PDF fonts and CMaps
+          disableFontFace: false, // Allow custom fonts
+          fontExtraProperties: true // Enable additional font properties
+        } :
+        typeof pdfData === 'object' && 'url' in pdfData ?
+        {
+          ...pdfData,
+          cMapUrl: '/cmaps/',
+          cMapPacked: true,
+          enableXfa: true,
+          standardFontDataUrl: '/standard_fonts/',
+          useSystemFonts: false,
+          disableFontFace: false,
+          fontExtraProperties: true
+        } :
+        {
+          data: pdfData,
+          cMapUrl: '/cmaps/',
+          cMapPacked: true,
+          enableXfa: true,
+          standardFontDataUrl: '/standard_fonts/',
+          useSystemFonts: false,
+          disableFontFace: false,
+          fontExtraProperties: true
+        };
+
+      console.log('[PdfRenderer] Document parameters:', {
+        hasCMapUrl: !!documentInitParameters.cMapUrl,
+        cMapPacked: documentInitParameters.cMapPacked,
+        enableXfa: documentInitParameters.enableXfa,
+        dataType: typeof pdfData
+      });
+
+      const loadingTask = pdfjsLib.getDocument(documentInitParameters);
       
       loadingTask.onProgress = (progress: any) => {
         console.log(`[PdfRenderer] Loading progress: ${progress.loaded}/${progress.total}`);
       };
+
+      // Add error handling for CMap loading issues
+      loadingTask.onUnsupportedFeature = (featureId: string) => {
+        console.warn(`[PdfRenderer] Unsupported feature detected: ${featureId}`);
+        if (featureId.includes('cMap') || featureId.includes('font')) {
+          console.warn('[PdfRenderer] This may affect Japanese text rendering');
+        }
+      };
       
-      pdfDoc = await loadingTask.promise;
-      totalPages = pdfDoc.numPages;
-      console.log('[PdfRenderer] PDF document created successfully, pages:', totalPages);
+      try {
+        pdfDoc = await loadingTask.promise;
+        totalPages = pdfDoc.numPages;
+        console.log('[PdfRenderer] PDF document created successfully, pages:', totalPages);
+        console.log('[PdfRenderer] Document fingerprint:', pdfDoc.fingerprint || 'N/A');
+      } catch (documentError: any) {
+        // Check if this is a CMap-related error and try fallback
+        if (documentError?.message?.includes('cMap') || documentError?.message?.includes('CMap')) {
+          console.warn('[PdfRenderer] CMap loading failed, attempting fallback without CMaps...');
+
+          // Retry without CMap configuration as fallback
+          const fallbackParameters = typeof pdfData === 'string' ?
+            { url: pdfData } :
+            typeof pdfData === 'object' && 'url' in pdfData ?
+            { ...pdfData } :
+            { data: pdfData };
+
+          console.log('[PdfRenderer] Retrying document load without CMap configuration...');
+          const fallbackTask = pdfjsLib.getDocument(fallbackParameters);
+          pdfDoc = await fallbackTask.promise;
+          totalPages = pdfDoc.numPages;
+          console.log('[PdfRenderer] PDF document loaded successfully with fallback (no CMaps), pages:', totalPages);
+          console.warn('[PdfRenderer] Japanese text may not display correctly without CMap support');
+        } else {
+          // Re-throw other document loading errors
+          throw documentError;
+        }
+      }
       
       // Calculate initial scale to fit viewport if enabled
       if (fitToViewport && !initialScaleCalculated && (maxWidth || maxHeight)) {
@@ -453,18 +526,7 @@
       
       console.log(`[PdfRenderer] Canvas style dimensions set: ${viewport.width}x${viewport.height}px`);
       
-      // Scale the context to account for device pixel ratio
-      context.scale(devicePixelRatio, devicePixelRatio);
-      
       console.log(`[PdfRenderer] Canvas dimensions set: actual=${canvas.width}x${canvas.height}, display=${viewport.width}x${viewport.height}, dpr=${devicePixelRatio}`);
-      
-      // Verify canvas dimensions were actually set
-      if (canvas.width !== viewport.width || canvas.height !== viewport.height) {
-        console.error('[PdfRenderer] Canvas dimensions mismatch!', {
-          expected: { width: viewport.width, height: viewport.height },
-          actual: { width: canvas.width, height: canvas.height }
-        });
-      }
       
       // Clear canvas and add test rectangle to verify canvas is working
       context.clearRect(0, 0, canvas.width, canvas.height);
@@ -476,11 +538,19 @@
       
       // Create render context with high DPI support
       console.log('[PdfRenderer] Creating render context...');
-      
+
+      // Scale the context to account for device pixel ratio
+      // This is the correct way to handle high DPI displays
+      context.save(); // Save the context state
+      context.scale(devicePixelRatio, devicePixelRatio);
+
       // Use the original viewport for rendering - the context scaling handles high DPI
       const renderContext = {
         canvasContext: context,
-        viewport: viewport
+        viewport: viewport,
+        enableWebGL: false, // Disable WebGL to avoid font rendering issues
+        renderInteractiveForms: false, // Disable forms to improve stability
+        optionalContentConfigPromise: null // Handle optional content properly
       };
       console.log('[PdfRenderer] Render context created:', {
         viewport: { width: viewport.width, height: viewport.height },
@@ -498,6 +568,32 @@
       console.log('[PdfRenderer] Starting page.render()...');
       
       try {
+        // Log detailed page information for debugging
+        console.log('[PdfRenderer] Page analysis:', {
+          pageNumber: pageNum,
+          hasFont: page.commonObjs?.has ? 'Available' : 'Not available',
+          pageInfo: {
+            rotate: page.rotate,
+            ref: page.ref ? `${page.ref.num}R` : 'N/A',
+            userUnit: page.userUnit || 1,
+            view: page.view
+          }
+        });
+
+        // Check for fonts and resources
+        try {
+          const annotations = await page.getAnnotations();
+          const operators = await page.getOperatorList();
+          console.log('[PdfRenderer] Page resources:', {
+            annotationsCount: annotations.length,
+            operatorsCount: operators.fnArray.length,
+            hasFontOperators: operators.fnArray.some((op: number) => op >= 11 && op <= 16), // Font-related operators
+            hasTextOperators: operators.fnArray.some((op: number) => [37, 38, 39, 40].includes(op)) // Text operators
+          });
+        } catch (resourceError) {
+          console.warn('[PdfRenderer] Could not analyze page resources:', resourceError);
+        }
+
         // Create render task
         const renderTask = page.render(renderContext);
         console.log('[PdfRenderer] Render task created');
@@ -519,11 +615,14 @@
         }
         
         console.log(`[PdfRenderer] Page ${pageNum} rendered successfully!`);
-        
+
+        // Restore the context state after rendering
+        context.restore();
+
         // Update last rendered values
         lastRenderedPage = pageNum;
         lastRenderedScale = renderScale;
-        
+
         // Verify canvas has content (only if canvas still exists)
         if (canvas && context) {
           try {
@@ -536,16 +635,29 @@
         }
         
       } catch (renderError: any) {
+        // Restore context state on error
+        context.restore();
+
         // Check if this is a cancellation error
         if (renderError?.name === 'RenderingCancelledException') {
           console.log('[PdfRenderer] Render was cancelled, this is expected behavior');
           currentRenderTask = null;
           return;
         }
-        
+
         console.error('[PdfRenderer] Render error:', renderError);
         console.error('[PdfRenderer] Error name:', renderError?.name);
         console.error('[PdfRenderer] Error message:', renderError?.message);
+
+        // Specific logging for CMap and font issues
+        if (renderError?.message?.includes('cMap') || renderError?.message?.includes('CMap')) {
+          console.error('[PdfRenderer] CMap loading error detected - this affects Japanese text rendering');
+          console.error('[PdfRenderer] Check that /cmaps/ directory is accessible and contains required CMap files');
+        }
+        if (renderError?.message?.includes('font') || renderError?.message?.includes('Font')) {
+          console.error('[PdfRenderer] Font loading error detected - this may affect text rendering');
+        }
+
         throw renderError;
       }
       
