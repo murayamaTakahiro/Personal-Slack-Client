@@ -768,7 +768,8 @@
           const message = messages[focusedIndex];
           const decodedText = decodeSlackText(message.text);
           // Quote the message text by adding "> " to the beginning of each line
-          const quotedText = decodedText.split('\n').map(line => `> ${line}`).join('\n');
+          // Add a newline at the end so the cursor is positioned on a new line
+          const quotedText = decodedText.split('\n').map(line => `> ${line}`).join('\n') + '\n';
           openPostDialog('channel', false, quotedText);
         }
       },

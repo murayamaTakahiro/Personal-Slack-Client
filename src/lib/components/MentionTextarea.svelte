@@ -119,6 +119,16 @@
     }
   }
 
+  // Focus and set cursor to end of text
+  export function focusAtEnd() {
+    if (textarea) {
+      textarea.focus();
+      // Set cursor to the end of the text
+      const length = textarea.value.length;
+      textarea.setSelectionRange(length, length);
+    }
+  }
+
   // Expose textarea element for focus trap
   export function getTextarea() {
     return textarea;

@@ -59,11 +59,10 @@
       });
     }
 
-    // Focus the textarea after DOM updates
+    // Focus the textarea after DOM updates and position cursor at end
     setTimeout(() => {
       if (mentionTextarea) {
-        mentionTextarea.focus();
-        mentionTextarea.select();
+        mentionTextarea.focusAtEnd();
       }
     }, 50);
 
@@ -127,9 +126,7 @@
         // Use setTimeout to ensure DOM updates are complete
         setTimeout(() => {
           if (mentionTextarea) {
-            mentionTextarea.focus();
-            // Also trigger a select to ensure the cursor is visible
-            mentionTextarea.select();
+            mentionTextarea.focusAtEnd();
           }
         }, 50);
       } else {
