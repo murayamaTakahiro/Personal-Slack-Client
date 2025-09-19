@@ -136,6 +136,8 @@ export interface KeyboardShortcuts {
   lightboxZoomOut?: string | string[];
   lightboxZoomReset?: string | string[];
   lightboxClose?: string | string[];
+  // File download shortcuts
+  downloadAllAttachments?: string | string[];
 }
 
 export interface MentionHistory {

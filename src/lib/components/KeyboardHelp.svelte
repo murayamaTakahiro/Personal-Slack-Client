@@ -292,6 +292,26 @@
         ]
       },
       {
+        name: 'Files',
+        shortcuts: [
+          {
+            key: 'openLightbox',
+            description: 'Open File Preview/Lightbox',
+            shortcut: shortcuts.openLightbox || 'i'
+          },
+          {
+            key: 'downloadAllAttachments',
+            description: 'Download All Attachments',
+            shortcut: shortcuts.downloadAllAttachments || 'd'
+          },
+          {
+            key: 'uploadFiles',
+            description: 'Upload Files',
+            shortcut: shortcuts.uploadFiles || 'Ctrl+U'
+          }
+        ]
+      },
+      {
         name: 'View',
         shortcuts: [
           {

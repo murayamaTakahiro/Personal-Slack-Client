@@ -59,7 +59,10 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   lightboxZoomIn: ['+', '='],
   lightboxZoomOut: '-',
   lightboxZoomReset: '0',
-  lightboxClose: 'Escape'
+  lightboxClose: 'Escape',
+  // File shortcuts
+  downloadAllAttachments: 'd',
+  uploadFiles: 'Ctrl+U'
 };
 
 // Default settings

@@ -14,8 +14,10 @@
   import { decodeSlackText } from '../utils/htmlEntities';
   import { derived, writable } from 'svelte/store';
   import { currentUserId } from '../stores/currentUser';
-  import { filePreviewStore } from '../stores/filePreview';
+  import { filePreviewStore, lightboxOpen } from '../stores/filePreview';
   import { processFileMetadata } from '../services/fileService';
+  import { downloadFilesInBatch } from '../api/files';
+  import { settings, getDownloadFolder } from '../stores/settings';
 
   export let message: Message;
   export let selected = false;
@@ -304,17 +306,88 @@
     }
   }
 
+  async function handleDownloadAllAttachments() {
+    // Check if lightbox is open - if so, don't handle here
+    const isLightboxOpen = $lightboxOpen;
+    if (isLightboxOpen) {
+      return; // Let lightbox handle its own D key
+    }
+
+    if (!selected || !message.files || message.files.length === 0) return;
+
+    const totalFiles = message.files.length;
+
+    // Show batch download started notification
+    showInfo(
+      'Batch download started',
+      `Downloading ${totalFiles} file${totalFiles !== 1 ? 's' : ''}...`,
+      3000
+    );
+
+    try {
+      const downloadFolder = getDownloadFolder();
+      const filesToDownload = message.files.map(f => ({
+        url: f.url_private_download || f.url_private,
+        fileName: f.name
+      }));
+
+      const result = await downloadFilesInBatch(filesToDownload, {
+        savePath: downloadFolder,
+        showDialog: !downloadFolder
+      });
+
+      if (result.success) {
+        const downloadedCount = result.paths?.length || 0;
+        const location = downloadFolder || 'Downloads folder';
+
+        // Show success with details
+        showSuccess(
+          'Batch download complete',
+          `${downloadedCount} of ${totalFiles} files saved to ${location}`,
+          3000
+        );
+
+        // List file names if reasonable number
+        if (downloadedCount > 0 && downloadedCount <= 5) {
+          const fileNames = message.files.slice(0, downloadedCount).map(f => f.name).join(', ');
+          showInfo('Downloaded files', fileNames, 5000);
+        }
+      } else if (result.error && !result.error.includes('cancelled')) {
+        showError(
+          'Batch download failed',
+          `Failed to download files: ${result.error}`,
+          5000
+        );
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Batch download failed';
+      showError(
+        'Batch download failed',
+        `Failed to download files: ${errorMessage}`,
+        5000
+      );
+    }
+  }
+
   function registerKeyboardHandlers() {
     const keyboardService = getKeyboardService();
-    
+
     if (!keyboardService) {
       return;
     }
-    
+
     // Always proceed with registration to ensure handlers are active
     // handlersRegistered flag will be set at the end
-    
+
     try {
+      // Register 'd' key for downloading all attachments
+      keyboardService.registerHandler('downloadAllAttachments', {
+        action: () => {
+          handleDownloadAllAttachments();
+        },
+        allowInInput: false
+      });
+
       // Register 'i' key for opening image/file lightbox
       keyboardService.registerHandler('openLightbox', {
         action: () => {
@@ -354,15 +427,16 @@
 
   function unregisterKeyboardHandlers() {
     const keyboardService = getKeyboardService();
-    
+
     if (!keyboardService) {
       handlersRegistered = false; // Reset state even if service unavailable
       return;
     }
-    
+
     try {
       // Always attempt to unregister, even if handlersRegistered is false
       // This handles cases where state might be inconsistent
+      keyboardService.unregisterHandler('downloadAllAttachments');
       keyboardService.unregisterHandler('openLightbox');
       keyboardService.unregisterHandler('openReactionPicker');
       for (let i = 1; i <= 9; i++) {
