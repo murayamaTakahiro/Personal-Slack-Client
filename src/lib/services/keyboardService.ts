@@ -148,16 +148,33 @@ export class KeyboardService {
       const allowedKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Escape'];
       const isNumberKey = event.key >= '1' && event.key <= '9';
       const isAllowed = allowedKeys.includes(event.key) || isNumberKey;
-      
+
       // Block all other shortcuts (including 't', 'p', 'r', etc.)
       if (!isAllowed) {
         console.log('🔍 DEBUG: Reaction picker is open, blocking keyboard shortcut:', event.key);
         return false;
       }
-      
+
       // Let the picker handle its own keys
       console.log('🔍 DEBUG: Reaction picker is open, allowing key for picker:', event.key);
       return false;
+    }
+
+    // Check if saved search dropdown is open - if so, let it handle navigation keys
+    const savedSearchDropdown = document.querySelector('.saved-search-dropdown');
+    if (savedSearchDropdown) {
+      // These keys are handled by the SavedSearchManager component
+      const dropdownHandledKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Escape', 'Tab'];
+      if (dropdownHandledKeys.includes(event.key)) {
+        console.log('🔍 DEBUG: Saved search dropdown is open, letting it handle key:', event.key);
+        return false;
+      }
+
+      // Also block j/k navigation when saved search is open
+      if (event.key === 'j' || event.key === 'k') {
+        console.log('🔍 DEBUG: Saved search dropdown is open, blocking j/k navigation');
+        return false;
+      }
     }
 
     // Check if thread view has focus - if so, let it handle its own navigation

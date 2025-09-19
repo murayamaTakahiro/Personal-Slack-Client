@@ -15,6 +15,7 @@
   import { confirm, confirmationStore } from '../stores/confirmation';
   import { get } from 'svelte/store';
   import { cleanupDuplicateSavedSearches } from '../utils/cleanupSavedSearches';
+  import { savedSearchOpen } from '../stores/savedSearchOpen';
 
   const dispatch = createEventDispatcher();
 
@@ -27,6 +28,8 @@
   let editingName = '';
   let hoveredId: string | null = null;
   let selectedIndex = -1;
+  let dropdownElement: HTMLDivElement;
+  let searchFilterInput: HTMLInputElement;
 
   $: filteredSearches = getFilteredSearches($savedSearchesStore, activeTab, searchFilter);
 
@@ -263,27 +266,42 @@
     const confirmState = get(confirmationStore);
     if (confirmState.isOpen) return;
 
+    // Check if the dropdown contains the event target - ensures we only handle events from within the dropdown
+    if (dropdownElement && !dropdownElement.contains(event.target as Node)) {
+      return;
+    }
+
+    // Handle navigation keys
     switch (event.key) {
       case 'ArrowDown':
         event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         selectedIndex = Math.min(selectedIndex + 1, filteredSearches.length - 1);
+        scrollToSelected();
         break;
       case 'ArrowUp':
         event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         selectedIndex = Math.max(selectedIndex - 1, 0);
+        scrollToSelected();
         break;
       case 'Enter':
         event.preventDefault();
+        event.stopPropagation();
         if (selectedIndex >= 0 && selectedIndex < filteredSearches.length) {
           loadSearch(filteredSearches[selectedIndex]);
         }
         break;
       case 'Escape':
         event.preventDefault();
+        event.stopPropagation();
         close();
         break;
       case 'Tab':
         event.preventDefault();
+        event.stopPropagation();
         // Cycle through tabs
         const tabs = ['recent', 'favorites', 'frequent', 'all'];
         const currentIndex = tabs.indexOf(activeTab);
@@ -293,10 +311,20 @@
     }
   }
 
+  function scrollToSelected() {
+    if (selectedIndex >= 0 && dropdownElement) {
+      const items = dropdownElement.querySelectorAll('.search-item');
+      if (items[selectedIndex]) {
+        items[selectedIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    }
+  }
+
   function close() {
     isOpen = false;
     selectedIndex = -1;
     searchFilter = '';
+    savedSearchOpen.set(false);
     dispatch('close');
   }
 
@@ -332,11 +360,6 @@
   }
 
   onMount(() => {
-    // Only add event listener if the component is open
-    if (isOpen) {
-      document.addEventListener('keydown', handleKeydown);
-    }
-
     // Register keyboard shortcuts
     const keyboardService = getKeyboardService();
     if (keyboardService) {
@@ -345,11 +368,18 @@
         allowInInput: true
       });
     }
+
+    // If already open on mount, set focus
+    if (isOpen && searchFilterInput) {
+      setTimeout(() => {
+        searchFilterInput?.focus();
+      }, 100);
+    }
   });
 
   onDestroy(() => {
     // Clean up event listeners
-    document.removeEventListener('keydown', handleKeydown);
+    document.removeEventListener('keydown', handleKeydown, true);
 
     // Clean up keyboard shortcuts
     const keyboardService = getKeyboardService();
@@ -363,13 +393,25 @@
     selectedIndex = -1;
   });
 
-  // Watch for isOpen changes to manage event listeners
+  // Watch for isOpen changes to manage event listeners and focus
   $: {
     if (typeof window !== 'undefined') {
       if (isOpen) {
-        document.addEventListener('keydown', handleKeydown);
+        // Update the global store to indicate the saved search is open
+        savedSearchOpen.set(true);
+        // Use capture phase to intercept events before they bubble
+        document.addEventListener('keydown', handleKeydown, true);
+        // Set focus to the dropdown after a short delay to ensure it's rendered
+        setTimeout(() => {
+          if (searchFilterInput) {
+            searchFilterInput.focus();
+          } else if (dropdownElement) {
+            dropdownElement.focus();
+          }
+        }, 100);
       } else {
-        document.removeEventListener('keydown', handleKeydown);
+        savedSearchOpen.set(false);
+        document.removeEventListener('keydown', handleKeydown, true);
       }
     }
   }
@@ -382,10 +424,13 @@
     transition:fade={{ duration: 150 }}
   />
   
-  <div 
+  <div
     class="saved-search-dropdown"
+    bind:this={dropdownElement}
     style="top: {position.top}px; left: {position.left}px;"
     transition:slide={{ duration: 200 }}
+    tabindex="-1"
+    on:keydown={handleKeydown}
   >
     <div class="dropdown-header">
       <h3>Saved Searches</h3>
@@ -407,8 +452,16 @@
       <input
         type="text"
         placeholder="Filter searches..."
+        bind:this={searchFilterInput}
         bind:value={searchFilter}
         class="search-filter"
+        on:keydown={(e) => {
+          // Don't propagate arrow keys from the filter input
+          if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            handleKeydown(e);
+          }
+        }}
       />
     </div>
 
@@ -564,6 +617,12 @@
     display: flex;
     flex-direction: column;
     z-index: 1000;
+    outline: none;
+  }
+
+  .saved-search-dropdown:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
   }
 
   .dropdown-header {

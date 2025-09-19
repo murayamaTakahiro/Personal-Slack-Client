@@ -16,6 +16,7 @@
   import LoadingSpinner from './LoadingSpinner.svelte';
   import SkeletonLoader from './SkeletonLoader.svelte';
   import { logger } from '../services/logger';
+  import { savedSearchOpen } from '../stores/savedSearchOpen';
   
   export let messages: Message[] = [];
   export let loading = false;
@@ -518,6 +519,12 @@
     // Next Result
     keyboardService.registerHandler('nextResult', {
       action: () => {
+        // Check if saved search dropdown is open
+        const savedSearchDropdownOpen = document.querySelector('.saved-search-dropdown');
+        if (savedSearchDropdownOpen) {
+          return; // Let SavedSearchManager handle navigation
+        }
+
         // Check if thread view has focus - if so, don't handle
         const threadViewElement = document.querySelector('.thread-view');
         if (threadViewElement && threadViewElement.contains(document.activeElement)) {
@@ -539,6 +546,12 @@
     // Previous Result
     keyboardService.registerHandler('prevResult', {
       action: () => {
+        // Check if saved search dropdown is open
+        const savedSearchDropdownOpen = document.querySelector('.saved-search-dropdown');
+        if (savedSearchDropdownOpen) {
+          return; // Let SavedSearchManager handle navigation
+        }
+
         // Check if thread view has focus - if so, don't handle
         const threadViewElement = document.querySelector('.thread-view');
         if (threadViewElement && threadViewElement.contains(document.activeElement)) {

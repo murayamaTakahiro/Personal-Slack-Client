@@ -222,10 +222,16 @@
   
   function handleKeyDown(event: KeyboardEvent) {
     if (!thread) return;
-    
+
+    // Check if saved search dropdown is open - if so, don't handle navigation
+    const savedSearchDropdown = document.querySelector('.saved-search-dropdown');
+    if (savedSearchDropdown) {
+      return; // Let SavedSearchManager handle navigation
+    }
+
     const messages = getAllMessages();
     const totalMessages = messages.length;
-    
+
     // Check for Alt+Enter to open URLs
     if (event.key === 'Enter' && event.altKey) {
       event.preventDefault();
