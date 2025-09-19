@@ -65,12 +65,15 @@
   }
 
   function handleKeydown(event: KeyboardEvent) {
-    // Prevent default behavior for navigation keys and stop propagation to prevent message list from capturing them
-    const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'j', 'k', 'h', 'l', 'PageUp', 'PageDown', 'Home', 'End', 'd', 'D'];
+    // Block ALL keyboard events from propagating to background components
+    // when lightbox is open - we handle everything here
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    // Prevent default behavior for navigation keys
+    const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'j', 'k', 'h', 'l', 'J', 'K', 'H', 'L', 'PageUp', 'PageDown', 'Home', 'End', 'd', 'D'];
     if (navigationKeys.includes(event.key)) {
       event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
     }
     
     // Handle PDF-specific navigation for arrow keys only (not h/l)

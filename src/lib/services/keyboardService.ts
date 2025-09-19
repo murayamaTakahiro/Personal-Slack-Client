@@ -1,4 +1,6 @@
 import type { KeyboardShortcuts } from '../types/slack';
+import { get } from 'svelte/store';
+import { lightboxOpen } from '../stores/filePreview';
 
 export interface KeyboardHandler {
   action: () => void | Promise<void>;
@@ -121,6 +123,14 @@ export class KeyboardService {
    */
   handleKeyboardEvent(event: KeyboardEvent): boolean {
     if (!this.enabled) return false;
+
+    // Check if lightbox is open - if so, let it handle all navigation keys
+    if (get(lightboxOpen)) {
+      // Block all keyboard shortcuts when lightbox is open
+      // The lightbox component handles its own keyboard events
+      console.log('🔍 DEBUG: Lightbox is open, blocking keyboard shortcuts');
+      return false;
+    }
 
     // Only log for specific keys to reduce noise
     if (['r', 'p', 't', '1', '2', '3', '/'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || (event.key === '/' && event.ctrlKey)) {

@@ -11,6 +11,7 @@
   import SkeletonLoader from './SkeletonLoader.svelte';
   import MessageItem from './MessageItem.svelte';
   import { logger } from '../services/logger';
+  import { lightboxOpen } from '../stores/filePreview';
   
   export let message: Message | null = null;
   
@@ -222,6 +223,11 @@
   
   function handleKeyDown(event: KeyboardEvent) {
     if (!thread) return;
+
+    // Check if lightbox is open - if so, don't handle navigation
+    if ($lightboxOpen) {
+      return; // Let lightbox handle navigation
+    }
 
     // Check if saved search dropdown is open - if so, don't handle navigation
     const savedSearchDropdown = document.querySelector('.saved-search-dropdown');
