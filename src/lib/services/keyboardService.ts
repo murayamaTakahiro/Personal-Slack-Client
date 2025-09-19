@@ -187,6 +187,41 @@ export class KeyboardService {
       }
     }
 
+    // Check if channel dropdown is open - if so, let it handle navigation keys
+    const channelDropdown = document.querySelector('.channel-dropdown');
+    if (channelDropdown) {
+      // These keys are handled by the ChannelSelector component
+      const dropdownHandledKeys = ['ArrowUp', 'ArrowDown', 'Enter', 'Escape', 'Tab'];
+      // Also allow 'f' and 'F' for toggling favorites in channel dropdown
+      if (dropdownHandledKeys.includes(event.key) || event.key.toLowerCase() === 'f') {
+        console.log('🔍 DEBUG: Channel dropdown is open, letting it handle key:', event.key);
+        return false;
+      }
+
+      // Also block j/k navigation when channel dropdown is open
+      if (event.key === 'j' || event.key === 'k') {
+        console.log('🔍 DEBUG: Channel dropdown is open, blocking j/k navigation');
+        return false;
+      }
+    }
+
+    // Check if user dropdown is open - if so, let it handle navigation keys
+    const userDropdown = document.querySelector('.user-dropdown');
+    if (userDropdown) {
+      // These keys are handled by the UserSelector component
+      const dropdownHandledKeys = ['ArrowUp', 'ArrowDown', 'Enter', 'Escape', 'Tab'];
+      if (dropdownHandledKeys.includes(event.key)) {
+        console.log('🔍 DEBUG: User dropdown is open, letting it handle key:', event.key);
+        return false;
+      }
+
+      // Also block j/k navigation when user dropdown is open
+      if (event.key === 'j' || event.key === 'k') {
+        console.log('🔍 DEBUG: User dropdown is open, blocking j/k navigation');
+        return false;
+      }
+    }
+
     // Check if thread view has focus - if so, let it handle its own navigation
     const threadViewElement = document.querySelector('.thread-view');
     if (threadViewElement && threadViewElement.contains(target)) {
