@@ -256,6 +256,12 @@
   
   function jumpToFirst() {
     if (messages.length === 0) return;
+
+    // Check if the result list has focus or contains the active element
+    if (!listContainer || (!listContainer.contains(document.activeElement) && document.activeElement !== listContainer)) {
+      return; // Don't handle if focus is elsewhere
+    }
+
     focusedIndex = 0;
 
     // Show a toast with message preview
@@ -285,6 +291,12 @@
   
   function jumpToLast() {
     if (messages.length === 0) return;
+
+    // Check if the result list has focus or contains the active element
+    if (!listContainer || (!listContainer.contains(document.activeElement) && document.activeElement !== listContainer)) {
+      return; // Don't handle if focus is elsewhere
+    }
+
     focusedIndex = messages.length - 1;
 
     // Ensure all messages are loaded before jumping to the last one
@@ -506,6 +518,17 @@
     // Next Result
     keyboardService.registerHandler('nextResult', {
       action: () => {
+        // Check if thread view has focus - if so, don't handle
+        const threadViewElement = document.querySelector('.thread-view');
+        if (threadViewElement && threadViewElement.contains(document.activeElement)) {
+          return; // Let thread view handle its own navigation
+        }
+
+        // Also check if the result list actually has focus
+        if (!listContainer || (!listContainer.contains(document.activeElement) && document.activeElement !== listContainer)) {
+          return; // Don't handle if focus is elsewhere
+        }
+
         if (messages.length > 0) {
           handleKeyNavigation('down');
         }
@@ -516,6 +539,17 @@
     // Previous Result
     keyboardService.registerHandler('prevResult', {
       action: () => {
+        // Check if thread view has focus - if so, don't handle
+        const threadViewElement = document.querySelector('.thread-view');
+        if (threadViewElement && threadViewElement.contains(document.activeElement)) {
+          return; // Let thread view handle its own navigation
+        }
+
+        // Also check if the result list actually has focus
+        if (!listContainer || (!listContainer.contains(document.activeElement) && document.activeElement !== listContainer)) {
+          return; // Don't handle if focus is elsewhere
+        }
+
         if (messages.length > 0) {
           handleKeyNavigation('up');
         }
@@ -586,9 +620,20 @@
       allowInInput: false
     });
     
-    // Jump to First (Home key)
+    // Jump to First (H key)
     keyboardService.registerHandler('jumpToFirst', {
       action: () => {
+        // Check if thread view has focus - if so, don't handle
+        const threadViewElement = document.querySelector('.thread-view');
+        if (threadViewElement && threadViewElement.contains(document.activeElement)) {
+          return; // Let thread view handle its own navigation
+        }
+
+        // Also check if the result list actually has focus
+        if (!listContainer || (!listContainer.contains(document.activeElement) && document.activeElement !== listContainer)) {
+          return; // Don't handle if focus is elsewhere
+        }
+
         if (messages.length > 0) {
           jumpToFirst();
         }
@@ -596,9 +641,20 @@
       allowInInput: false
     });
     
-    // Jump to Last (End key)
+    // Jump to Last (E key)
     keyboardService.registerHandler('jumpToLast', {
       action: () => {
+        // Check if thread view has focus - if so, don't handle
+        const threadViewElement = document.querySelector('.thread-view');
+        if (threadViewElement && threadViewElement.contains(document.activeElement)) {
+          return; // Let thread view handle its own navigation
+        }
+
+        // Also check if the result list actually has focus
+        if (!listContainer || (!listContainer.contains(document.activeElement) && document.activeElement !== listContainer)) {
+          return; // Don't handle if focus is elsewhere
+        }
+
         if (messages.length > 0) {
           jumpToLast();
         }

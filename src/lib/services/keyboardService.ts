@@ -164,7 +164,7 @@ export class KeyboardService {
     const threadViewElement = document.querySelector('.thread-view');
     if (threadViewElement && threadViewElement.contains(target)) {
       // Thread view handles these keys internally
-      const navigationKeys = ['ArrowUp', 'ArrowDown', 'j', 'k', 'J', 'K'];
+      const navigationKeys = ['ArrowUp', 'ArrowDown', 'j', 'k', 'J', 'K', 'h', 'H', 'e', 'E', 'Home', 'End'];
       if (navigationKeys.includes(event.key)) {
         return false;
       }

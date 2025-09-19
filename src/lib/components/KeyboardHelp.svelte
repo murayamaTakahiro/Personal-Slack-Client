@@ -59,14 +59,14 @@
             description: 'Open Selected Result',
             shortcut: shortcuts.openResult || 'Enter'
           },
-          { 
-            key: 'jumpToFirst', 
-            description: 'Jump to First Result',
+          {
+            key: 'jumpToFirst',
+            description: 'Jump to First (Results/Thread)',
             shortcut: shortcuts.jumpToFirst || 'h'
           },
-          { 
-            key: 'jumpToLast', 
-            description: 'Jump to Last Result',
+          {
+            key: 'jumpToLast',
+            description: 'Jump to Last (Results/Thread)',
             shortcut: shortcuts.jumpToLast || 'e'
           }
         ]

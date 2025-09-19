@@ -275,17 +275,25 @@
         }
         break;
       case 'Home':
+      case 'h':
+      case 'H':
         event.preventDefault();
         if (totalMessages > 0) {
           selectedIndex = 0;
           focusMessage(selectedIndex);
+          // Show feedback to user
+          showInfo('Jumped to first message in thread', `Message 1 of ${totalMessages}`);
         }
         break;
       case 'End':
+      case 'e':
+      case 'E':
         event.preventDefault();
         if (totalMessages > 0) {
           selectedIndex = totalMessages - 1;
           focusMessage(selectedIndex);
+          // Show feedback to user
+          showInfo('Jumped to last message in thread', `Message ${totalMessages} of ${totalMessages}`);
         }
         break;
     }
@@ -376,7 +384,7 @@
     <div class="thread-header">
       <div>
         <h3>Thread in #{decodeSlackText(thread.parent.channelName)}</h3>
-        <span class="keyboard-hint">Use ↑↓ to navigate, Enter to open in Slack, Alt+Enter to open URLs</span>
+        <span class="keyboard-hint">Use ↑↓/J/K to navigate, H/E for first/last, Enter to open in Slack, Alt+Enter to open URLs</span>
       </div>
       <button
         class="btn-open-thread"
@@ -428,7 +436,7 @@
       <div class="thread-header">
         <div>
           <h3>Message in #{decodeSlackText(message.channelName)}</h3>
-          <span class="keyboard-hint">Press Enter to open in Slack</span>
+          <span class="keyboard-hint">Press Enter to open in Slack, Alt+Enter to open URLs</span>
         </div>
         <button
           class="btn-open-thread"
