@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount, tick } from 'svelte';
+  import { createEventDispatcher, onMount, onDestroy, tick } from 'svelte';
   import { postToChannel, postThreadReply } from '../api/slack';
   import MentionTextarea from './MentionTextarea.svelte';
   import { mentionService } from '../services/mentionService';
@@ -9,6 +9,7 @@
   import FileUploadManager from './upload/FileUploadManager.svelte';
   import { getClipboardImage } from '../api/upload';
   import { open } from '@tauri-apps/plugin-dialog';
+  import { createFocusTrap } from '../utils/focusTrap';
   
   export let mode: 'channel' | 'thread';
   export let channelId: string;
@@ -29,6 +30,8 @@
   let showSuccessMessage = false; // Show success feedback
   let fileUploadManager: FileUploadManager;
   let isDragging = false; // For drag and drop visual feedback
+  let dialogElement: HTMLElement; // Reference to the dialog element
+  let destroyFocusTrap: (() => void) | null = null; // Focus trap cleanup function
   
   // Reset state and focus when component mounts (dialog opens)
   onMount(async () => {
@@ -45,6 +48,16 @@
       userMap.set(user.id, user);
     });
 
+    // Set up focus trap for the dialog
+    await tick(); // Wait for DOM to be ready
+    if (dialogElement) {
+      destroyFocusTrap = createFocusTrap({
+        element: dialogElement,
+        onEscape: handleCancel,
+        initialFocus: mentionTextarea?.getTextarea ? mentionTextarea.getTextarea() : null
+      });
+    }
+
     // Focus the textarea after DOM updates
     setTimeout(() => {
       if (mentionTextarea) {
@@ -53,24 +66,15 @@
       }
     }, 50);
 
-    // Handle Ctrl+U for file upload
-    const keydownHandler = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.key.toLowerCase() === 'u') {
-        console.log('[PostDialog] Handling Ctrl+U for file upload');
-        event.preventDefault();
-        event.stopPropagation();
-        handleSelectFiles();
-      }
-    };
+    // Note: Ctrl+U is now handled by the focus trap and dialog keydown handler
+  });
 
-    // Add listener in normal bubble phase (not capture)
-    document.addEventListener('keydown', keydownHandler, false);
-
-    // Cleanup on unmount
-    return () => {
-      console.log('[PostDialog] Cleaning up keydown handler');
-      document.removeEventListener('keydown', keydownHandler, false);
-    };
+  // Cleanup when component unmounts
+  onDestroy(() => {
+    if (destroyFocusTrap) {
+      destroyFocusTrap();
+      destroyFocusTrap = null;
+    }
   });
   
   async function handlePost() {
@@ -154,9 +158,10 @@
   }
 
   function handleKeyboardEvent(keyEvent: KeyboardEvent) {
-    if (keyEvent.key === 'Escape') {
-      handleCancel();
-    } else if (keyEvent.ctrlKey && keyEvent.key === 'Enter') {
+    // Note: Escape is now handled by the focus trap
+    if (keyEvent.ctrlKey && keyEvent.key === 'Enter') {
+      keyEvent.preventDefault();
+      keyEvent.stopPropagation();
       handlePost();
     } else if (keyEvent.ctrlKey && keyEvent.key.toLowerCase() === 'u') {
       // Ctrl+U to open file picker
@@ -168,16 +173,19 @@
 
   // Global keydown handler for the dialog
   function handleDialogKeydown(event: KeyboardEvent) {
-    // Stop propagation for all shortcuts to prevent global handlers
-    if (event.key === 'Escape' || (event.ctrlKey && (event.key === 'Enter' || event.key.toLowerCase() === 'u'))) {
-      event.stopPropagation();
-    }
-
-    // Handle Ctrl+U specifically
-    if (event.ctrlKey && event.key.toLowerCase() === 'u') {
+    // Handle Ctrl+Enter for send
+    if (event.ctrlKey && event.key === 'Enter') {
       event.preventDefault();
+      event.stopPropagation();
+      handlePost();
+    }
+    // Handle Ctrl+U for file upload
+    else if (event.ctrlKey && event.key.toLowerCase() === 'u') {
+      event.preventDefault();
+      event.stopPropagation();
       handleSelectFiles();
     }
+    // Note: Escape and Tab are handled by the focus trap
   }
   
   function handleInput(event: CustomEvent<{ value: string }>) {
@@ -241,7 +249,7 @@
 </script>
 
 <div class="post-dialog-overlay" on:click={handleCancel}>
-  <div class="post-dialog" on:click|stopPropagation on:keydown={handleDialogKeydown}>
+  <div class="post-dialog" bind:this={dialogElement} tabindex="-1" on:click|stopPropagation on:keydown={handleDialogKeydown}>
     <div class="dialog-header">
       <h3>
         {mode === 'channel' ? 'Post to Channel' : 'Reply to Thread'}

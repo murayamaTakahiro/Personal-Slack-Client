@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus Trap Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .button-container {
+            margin-bottom: 20px;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.open {
+            display: flex;
+        }
+        .modal {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 400px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .modal h2 {
+            margin-top: 0;
+        }
+        .modal input, .modal textarea, .modal button {
+            margin: 5px 0;
+            padding: 5px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .modal button {
+            width: auto;
+            margin-right: 10px;
+        }
+        .test-results {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+        .test-results h3 {
+            margin-top: 0;
+        }
+        .log-entry {
+            font-family: monospace;
+            font-size: 12px;
+            padding: 2px 0;
+        }
+        .log-entry.success {
+            color: green;
+        }
+        .log-entry.error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Focus Trap Test</h1>
+
+    <div class="button-container">
+        <button id="openModal">Open Test Modal</button>
+        <button id="clearLog">Clear Log</button>
+        <input type="text" placeholder="This should not be focusable when modal is open">
+    </div>
+
+    <div id="modalOverlay" class="modal-overlay">
+        <div id="modal" class="modal" tabindex="-1">
+            <h2>Test Modal</h2>
+            <p>Press Tab to navigate, Escape to close</p>
+
+            <label>
+                Input 1:
+                <input type="text" id="input1" placeholder="First input">
+            </label>
+
+            <label>
+                Input 2:
+                <input type="text" id="input2" placeholder="Second input">
+            </label>
+
+            <label>
+                Textarea:
+                <textarea id="textarea" rows="3" placeholder="Enter text"></textarea>
+            </label>
+
+            <div>
+                <button id="modalButton1">Button 1</button>
+                <button id="modalButton2">Button 2</button>
+                <button id="modalCancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-results">
+        <h3>Test Log:</h3>
+        <div id="log"></div>
+    </div>
+
+    <script type="module">
+        // Import focus trap utility - in real app this would be through module system
+        class FocusTrap {
+            constructor(options) {
+                this.element = options.element;
+                this.returnFocusTo = options.returnFocusTo || null;
+                this.onEscape = options.onEscape;
+                this.previouslyFocusedElement = document.activeElement;
+
+                this.updateFocusableElements();
+
+                if (options.initialFocus) {
+                    options.initialFocus.focus();
+                } else if (this.firstFocusableElement) {
+                    this.firstFocusableElement.focus();
+                }
+
+                this.handleKeyDown = this.handleKeyDown.bind(this);
+                this.handleFocusIn = this.handleFocusIn.bind(this);
+
+                document.addEventListener('keydown', this.handleKeyDown, true);
+                document.addEventListener('focusin', this.handleFocusIn, true);
+
+                addLog('Focus trap activated', 'success');
+            }
+
+            updateFocusableElements() {
+                const focusableSelectors = [
+                    'a[href]',
+                    'button:not([disabled])',
+                    'input:not([disabled]):not([type="hidden"])',
+                    'textarea:not([disabled])',
+                    'select:not([disabled])',
+                    '[tabindex]:not([tabindex="-1"])',
+                    '[contenteditable="true"]'
+                ].join(',');
+
+                const elements = this.element.querySelectorAll(focusableSelectors);
+                this.focusableElements = Array.from(elements).filter(el => {
+                    const style = window.getComputedStyle(el);
+                    return style.display !== 'none' && style.visibility !== 'hidden';
+                });
+
+                this.firstFocusableElement = this.focusableElements[0] || null;
+                this.lastFocusableElement = this.focusableElements[this.focusableElements.length - 1] || null;
+
+                addLog(`Found ${this.focusableElements.length} focusable elements`);
+            }
+
+            handleKeyDown(event) {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    event.stopImmediatePropagation();
+
+                    addLog('Escape key pressed', 'success');
+
+                    if (this.onEscape) {
+                        this.onEscape();
+                    }
+                    return;
+                }
+
+                if (event.key === 'Tab') {
+                    this.updateFocusableElements();
+
+                    if (this.focusableElements.length === 0) {
+                        event.preventDefault();
+                        addLog('Tab pressed - no focusable elements', 'error');
+                        return;
+                    }
+
+                    const activeElement = document.activeElement;
+                    const currentIndex = this.focusableElements.indexOf(activeElement);
+
+                    if (event.shiftKey) {
+                        if (currentIndex <= 0) {
+                            event.preventDefault();
+                            this.lastFocusableElement?.focus();
+                            addLog('Shift+Tab - wrapped to last element', 'success');
+                        }
+                    } else {
+                        if (currentIndex === this.focusableElements.length - 1 || currentIndex === -1) {
+                            event.preventDefault();
+                            this.firstFocusableElement?.focus();
+                            addLog('Tab - wrapped to first element', 'success');
+                        }
+                    }
+                }
+            }
+
+            handleFocusIn(event) {
+                const target = event.target;
+
+                if (!this.element.contains(target)) {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    addLog('Focus escaped - redirecting back', 'error');
+
+                    if (this.firstFocusableElement) {
+                        this.firstFocusableElement.focus();
+                    } else {
+                        this.element.focus();
+                    }
+                }
+            }
+
+            destroy() {
+                document.removeEventListener('keydown', this.handleKeyDown, true);
+                document.removeEventListener('focusin', this.handleFocusIn, true);
+
+                const elementToFocus = this.returnFocusTo || this.previouslyFocusedElement;
+                if (elementToFocus && document.body.contains(elementToFocus)) {
+                    setTimeout(() => {
+                        elementToFocus.focus();
+                        addLog('Focus returned to trigger element', 'success');
+                    }, 0);
+                }
+
+                addLog('Focus trap destroyed', 'success');
+            }
+        }
+
+        // Test implementation
+        let focusTrap = null;
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modal = document.getElementById('modal');
+        const openButton = document.getElementById('openModal');
+        const cancelButton = document.getElementById('modalCancel');
+        const clearButton = document.getElementById('clearLog');
+        const logContainer = document.getElementById('log');
+
+        function addLog(message, type = '') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function openModal() {
+            modalOverlay.classList.add('open');
+
+            focusTrap = new FocusTrap({
+                element: modal,
+                returnFocusTo: openButton,
+                onEscape: closeModal,
+                initialFocus: document.getElementById('input1')
+            });
+
+            addLog('Modal opened');
+        }
+
+        function closeModal() {
+            if (focusTrap) {
+                focusTrap.destroy();
+                focusTrap = null;
+            }
+
+            modalOverlay.classList.remove('open');
+            addLog('Modal closed');
+        }
+
+        openButton.addEventListener('click', openModal);
+        cancelButton.addEventListener('click', closeModal);
+        clearButton.addEventListener('click', () => {
+            logContainer.innerHTML = '';
+            addLog('Log cleared');
+        });
+
+        // Click outside to close
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) {
+                closeModal();
+            }
+        });
+
+        addLog('Test page loaded - click "Open Test Modal" to begin');
+    </script>
+</body>
+</html>

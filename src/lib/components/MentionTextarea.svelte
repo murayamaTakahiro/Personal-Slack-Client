@@ -71,15 +71,18 @@
       if (['ArrowDown', 'ArrowUp', 'Tab', 'Enter', 'Escape'].includes(event.key)) {
         // Autocomplete will handle these keys
         if (event.key === 'Escape') {
+          // Only stop propagation if autocomplete is open
+          // This allows the focus trap to handle Escape when autocomplete is closed
           event.stopPropagation();
           showAutocomplete = false;
           mentionContext = null;
+          return; // Don't dispatch to parent
         }
         // Don't pass arrow keys, Tab, or Enter to parent when autocomplete is open
         return;
       }
     }
-    
+
     // Pass other keyboard events to parent
     dispatch('keydown', event);
   }
@@ -104,6 +107,11 @@
       textarea.select();
       textarea.focus();
     }
+  }
+
+  // Expose textarea element for focus trap
+  export function getTextarea() {
+    return textarea;
   }
 </script>
 
