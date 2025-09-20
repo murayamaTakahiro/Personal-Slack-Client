@@ -12,6 +12,8 @@
   import { channelStore } from '../stores/channels';
   import { getThreadFromUrl } from '../api/slack';
   import { isPostDialogOpen } from '../stores/postDialog';
+  import UrlHistoryManager from './UrlHistoryManager.svelte';
+  import { urlHistoryStore } from '../stores/urlHistory';
   
   export let channels: [string, string][] = [];
   export let showAdvanced = true;
@@ -35,6 +37,8 @@
   let showSavedSearches = false;
   let savedSearchButton: HTMLButtonElement;
   let savedSearchKey = 0; // Key to force component recreation
+  let showUrlHistory = false;
+  let urlHistoryButton: HTMLButtonElement;
   
   // Keep local filter values in sync with searchParams store
   // This ensures filters persist when dialogs are opened/closed or focus changes
@@ -131,13 +135,17 @@
   
   async function handleUrlPaste() {
     if (!urlInput.trim()) return;
-    
+
     urlLoading = true;
     searchError.set(null);
-    
+
     try {
       const thread = await getThreadFromUrl(urlInput);
       selectedMessage.set(thread.parent);
+
+      // Save URL to history
+      await urlHistoryStore.saveUrl(urlInput);
+
       urlInput = '';
     } catch (err) {
       let errorMessage = 'Failed to load thread from URL';
@@ -195,6 +203,34 @@
   // Store the last valid date values to restore if needed
   let lastValidFromDate = '';
   let lastValidToDate = '';
+
+  function toggleUrlHistory() {
+    showUrlHistory = !showUrlHistory;
+    if (showUrlHistory) {
+      showSavedSearches = false;
+      // The UrlHistoryManager component will handle focus in its onMount
+    } else {
+      // Return focus to the button when closing
+      if (urlHistoryButton) {
+        urlHistoryButton.focus();
+      }
+    }
+  }
+
+  function handleUrlSelect(event: CustomEvent<{ url: string }>) {
+    urlInput = event.detail.url;
+    showUrlHistory = false;
+    // Automatically load the selected URL
+    handleUrlPaste();
+  }
+
+  function closeUrlHistory() {
+    showUrlHistory = false;
+    // Return focus to the button when closing
+    if (urlHistoryButton) {
+      urlHistoryButton.focus();
+    }
+  }
   
   // Helper function to get the maximum day for a given month/year
   function getMaxDayInMonth(year: number, month: number): number {
@@ -620,23 +656,48 @@
         <div class="input-group">
           <label>
             Thread URL:
-            <div class="url-input-wrapper">
-              <input
-                type="text"
-                bind:this={urlInputElement}
-                bind:value={urlInput}
-                placeholder="Paste a Slack thread URL to view..."
-                on:keydown={handleUrlKeydown}
-                disabled={urlLoading}
-                class="url-input"
-              />
-              <button
-                on:click={handleUrlPaste}
-                disabled={!urlInput.trim() || urlLoading}
-                class="btn-secondary"
-              >
-                {urlLoading ? 'Loading...' : 'Load Thread'}
-              </button>
+            <div class="url-input-container">
+              <div class="url-input-wrapper">
+                <input
+                  type="text"
+                  bind:this={urlInputElement}
+                  bind:value={urlInput}
+                  placeholder="Paste a Slack thread URL to view..."
+                  on:keydown={handleUrlKeydown}
+                  disabled={urlLoading}
+                  class="url-input"
+                />
+                <button
+                  bind:this={urlHistoryButton}
+                  on:click={toggleUrlHistory}
+                  class="btn-url-history {showUrlHistory ? 'active' : ''}"
+                  title="URL History"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  {#if $urlHistoryStore.length > 0}
+                    <span class="history-count">{$urlHistoryStore.length}</span>
+                  {/if}
+                </button>
+                <button
+                  on:click={handleUrlPaste}
+                  disabled={!urlInput.trim() || urlLoading}
+                  class="btn-secondary"
+                >
+                  {urlLoading ? 'Loading...' : 'Load Thread'}
+                </button>
+              </div>
+              {#if showUrlHistory}
+                <UrlHistoryManager
+                  on:select={handleUrlSelect}
+                  on:close={closeUrlHistory}
+                  onLoadUrl={handleUrlPaste}
+                  hideSearchInput={true}
+                  triggerElement={urlHistoryButton}
+                />
+              {/if}
             </div>
           </label>
         </div>
@@ -791,6 +852,7 @@
       />
     {/key}
   {/if}
+
 </div>
 
 <style>
@@ -897,13 +959,52 @@
     opacity: 0.6;
   }
   
+  .url-input-container {
+    position: relative;
+  }
+
   .url-input-wrapper {
     display: flex;
     gap: 0.5rem;
   }
-  
+
   .url-input {
     flex: 1;
+  }
+
+  .btn-url-history {
+    padding: 0.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .btn-url-history:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary);
+  }
+
+  .btn-url-history.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  .btn-url-history .history-count {
+    padding: 1px 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 500;
+    min-width: 16px;
+    text-align: center;
   }
   
   
