@@ -11,6 +11,7 @@
   import EmojiImage from './EmojiImage.svelte';
   import FileAttachments from './files/FileAttachments.svelte';
   import { parseMessageWithEmojis, parseEmoji } from '../utils/emojiParser';
+  import { parseMessageWithMarkdown } from '../utils/markdownParser';
   import { decodeSlackText } from '../utils/htmlEntities';
   import { derived, writable } from 'svelte/store';
   import { currentUserId } from '../stores/currentUser';
@@ -43,7 +44,8 @@
     // First decode and parse, then truncate at segment level to preserve URL integrity
     const decodedText = decodeSlackText(message.text);
     const parsedSegments = parseMessageWithEmojis(decodedText);
-    const truncatedSegments = truncateSegments(parsedSegments, 200);
+    const markdownSegments = parseMessageWithMarkdown(parsedSegments);
+    const truncatedSegments = truncateSegments(markdownSegments, 200);
     
     // Create a key for comparison
     const segmentsKey = JSON.stringify(truncatedSegments);
@@ -567,7 +569,13 @@
   
   <div class="message-content">
     {#each $messageSegments as segment}
-      {#if segment.type === 'mention'}
+      {#if segment.type === 'blockquote'}
+        <blockquote class="slack-blockquote">{segment.content}</blockquote>
+      {:else if segment.type === 'code-block'}
+        <pre class="slack-code-block"><code class:has-language={segment.language} data-language={segment.language}>{segment.content}</code></pre>
+      {:else if segment.type === 'inline-code'}
+        <code class="slack-inline-code">{segment.content}</code>
+      {:else if segment.type === 'mention'}
         <span class="mention">{segment.content}</span>
       {:else if segment.type === 'url'}
         <a href={segment.url || segment.content} target="_blank" rel="noopener noreferrer" class="url-link">
@@ -872,5 +880,90 @@
   
   .emoji-unicode {
     font-size: 1.1em;
+  }
+
+  /* Slack-style markdown elements */
+  .slack-blockquote {
+    display: block;
+    margin: 0.5rem 0;
+    padding: 0.25rem 0.75rem;
+    border-left: 4px solid #ddd;
+    background: rgba(0, 0, 0, 0.02);
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .message-item.selected .slack-blockquote {
+    background: rgba(0, 0, 0, 0.04);
+    border-left-color: #bbb;
+  }
+
+  .slack-code-block {
+    display: block;
+    margin: 0.5rem 0;
+    padding: 0.75rem;
+    background: #1d1f21;
+    border-radius: 4px;
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
+  .slack-code-block code {
+    display: block;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: #f8f8f2;
+    white-space: pre;
+    word-break: normal;
+    word-wrap: normal;
+    tab-size: 2;
+  }
+
+  .slack-code-block code.has-language::before {
+    content: attr(data-language);
+    display: block;
+    font-size: 0.75rem;
+    color: #999;
+    margin-bottom: 0.5rem;
+    text-transform: lowercase;
+    font-style: italic;
+  }
+
+  .slack-inline-code {
+    display: inline;
+    padding: 0.125rem 0.375rem;
+    background: #f7f7f9;
+    border: 1px solid #e1e1e8;
+    border-radius: 3px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    font-size: 0.8125rem;
+    color: #e01e5a;
+    white-space: nowrap;
+  }
+
+  .message-item.selected .slack-inline-code {
+    background: #eef0f3;
+    border-color: #d1d1db;
+  }
+
+  /* Dark theme adjustments */
+  @media (prefers-color-scheme: dark) {
+    .slack-blockquote {
+      border-left-color: #4a5568;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .slack-inline-code {
+      background: #2d3142;
+      border-color: #3d4257;
+      color: #ff8fab;
+    }
+
+    .message-item.selected .slack-inline-code {
+      background: #363a4f;
+      border-color: #4a5066;
+    }
   }
 </style>
