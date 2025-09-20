@@ -81,8 +81,14 @@ function extractCodeBlock(lines: string[], startIndex: number): (MarkdownSegment
   // Check if this is inline triple backticks (has content after closing ```)
   // e.g., ```code block``` all on one line
   if (firstLine.length > 3 && firstLine.endsWith('```') && firstLine.length > 6) {
-    // This is inline triple backticks, not a code block
-    return null;
+    // This is inline triple backticks - extract content between the backticks
+    const content = firstLine.slice(3, -3).trim();
+    return {
+      type: 'code-block',
+      content,
+      language: undefined,
+      endIndex: startIndex  // It ends on the same line
+    };
   }
 
   // Extract language identifier if present
@@ -146,59 +152,42 @@ function extractBlockquote(lines: string[], startIndex: number): MarkdownSegment
 function processInlineCode(text: string): MarkdownSegment[] {
   const segments: MarkdownSegment[] = [];
 
-  // First, handle inline triple backticks (```content```)
-  // These should be treated as inline code blocks
-  const inlineTripleBacktickRegex = /```([^`]+?)```/g;
+  // First check for inline triple backticks ```content```
+  const tripleBacktickRegex = /```([^`]+?)```/g;
   let lastIndex = 0;
-  let hasInlineTripleBackticks = false;
-  let processedText = text;
-  const inlineTripleSegments: {start: number, end: number, content: string}[] = [];
+  let match;
 
-  // Find all inline triple backticks first
-  let tripleMatch;
-  while ((tripleMatch = inlineTripleBacktickRegex.exec(text)) !== null) {
-    hasInlineTripleBackticks = true;
-    inlineTripleSegments.push({
-      start: tripleMatch.index,
-      end: tripleMatch.index + tripleMatch[0].length,
-      content: tripleMatch[1]
+  while ((match = tripleBacktickRegex.exec(text)) !== null) {
+    // Add text before the code block
+    if (match.index > lastIndex) {
+      const beforeText = text.substring(lastIndex, match.index);
+      if (beforeText) {
+        // Process for single backticks
+        const beforeSegments = processInlineCodeSingle(beforeText);
+        segments.push(...beforeSegments);
+      }
+    }
+
+    // Add the code block
+    segments.push({
+      type: 'code-block',
+      content: match[1]
     });
+
+    lastIndex = match.index + match[0].length;
   }
 
-  // If we have inline triple backticks, process them
-  if (hasInlineTripleBackticks) {
-    lastIndex = 0;
-    for (const segment of inlineTripleSegments) {
-      // Add text before this inline code block
-      if (segment.start > lastIndex) {
-        const beforeText = text.substring(lastIndex, segment.start);
-        if (beforeText) {
-          // Process this text for single backticks
-          const subSegments = processInlineCodeSingle(beforeText);
-          segments.push(...subSegments);
-        }
-      }
-
-      // Add the inline code block
-      segments.push({
-        type: 'inline-code',
-        content: segment.content
-      });
-
-      lastIndex = segment.end;
+  // Process any remaining text
+  if (lastIndex < text.length) {
+    const remainingText = text.substring(lastIndex);
+    if (remainingText) {
+      const remainingSegments = processInlineCodeSingle(remainingText);
+      segments.push(...remainingSegments);
     }
+  }
 
-    // Add any remaining text
-    if (lastIndex < text.length) {
-      const remainingText = text.substring(lastIndex);
-      if (remainingText) {
-        // Process remaining text for single backticks
-        const subSegments = processInlineCodeSingle(remainingText);
-        segments.push(...subSegments);
-      }
-    }
-  } else {
-    // No inline triple backticks, just process single backticks
+  // If no triple backticks were found, just process single backticks
+  if (segments.length === 0) {
     return processInlineCodeSingle(text);
   }
 
@@ -216,6 +205,32 @@ function processInlineCodeSingle(text: string): MarkdownSegment[] {
   let match;
 
   while ((match = inlineCodeRegex.exec(text)) !== null) {
+    const matchStart = match.index;
+    const matchEnd = match.index + match[0].length;
+    const content = match[1];
+
+    // Check for problematic patterns:
+    // 1. If content is only spaces, skip it (likely part of spaced backticks pattern)
+    // 2. If this is part of a "` `something` `" pattern, skip it
+
+    // Check if content is only spaces
+    if (content.trim().length === 0) {
+      // This could be part of a spaced backticks pattern like ` ` or ` `code` `
+      // Don't treat as inline code
+      continue;
+    }
+
+    // Check if we're in a spaced backticks pattern: ` `code` `
+    // This would manifest as the match being 'code' at index 2 in the string "` `code` `"
+    // We need to check if there's a backtick-space pattern before and after
+    const hasBefore = matchStart >= 2 && text.substring(matchStart - 2, matchStart) === '` ';
+    const hasAfter = matchEnd + 1 < text.length && text.substring(matchEnd, matchEnd + 2) === ' `';
+
+    if (hasBefore && hasAfter) {
+      // This is the 'code' part in ` `code` `, don't treat as inline code
+      continue;
+    }
+
     // Add text before the inline code
     if (match.index > lastIndex) {
       const beforeText = text.substring(lastIndex, match.index);

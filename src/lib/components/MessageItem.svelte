@@ -828,10 +828,6 @@
 
   .slack-inline-code {
     display: inline;
-    padding: 0.125rem 0.375rem;
-    background: #f7f7f9;
-    border: 1px solid #e1e1e8;
-    border-radius: 3px;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
     font-size: 0.8125rem;
     color: #e01e5a;
@@ -839,8 +835,7 @@
   }
 
   .message-item.selected .slack-inline-code {
-    background: #eef0f3;
-    border-color: #d1d1db;
+    /* No special styling for selected state */
   }
 
   /* Dark theme adjustments */
@@ -851,14 +846,11 @@
     }
 
     .slack-inline-code {
-      background: #2d3142;
-      border-color: #3d4257;
       color: #ff8fab;
     }
 
     .message-item.selected .slack-inline-code {
-      background: #363a4f;
-      border-color: #4a5066;
+      /* No special styling for selected state */
     }
   }
 </style>

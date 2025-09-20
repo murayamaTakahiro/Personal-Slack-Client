@@ -13,7 +13,7 @@
   import { parseMessageWithEmojis, parseEmoji } from '../utils/emojiParser';
   import { parseMessageWithMarkdown } from '../utils/markdownParser';
   import { decodeSlackText } from '../utils/htmlEntities';
-  import { derived, writable } from 'svelte/store';
+  import { writable } from 'svelte/store';
   import { currentUserId } from '../stores/currentUser';
   import { filePreviewStore, lightboxOpen } from '../stores/filePreview';
   import { processFileMetadata } from '../services/fileService';
@@ -35,28 +35,13 @@
   let messageItemElement: HTMLElement;
   let lastFocusedFileIndex = 0; // Track which file was last focused for keyboard navigation
 
-  // Memoized text processing - only recomputes when message text changes
-  const processedText = writable('');
-  const messageSegments = writable([]);
-  
-  // Process text only when message changes
-  $: {
-    // First decode and parse, then truncate at segment level to preserve URL integrity
-    const decodedText = decodeSlackText(message.text);
-    const parsedSegments = parseMessageWithEmojis(decodedText);
-    const markdownSegments = parseMessageWithMarkdown(parsedSegments);
-    const truncatedSegments = truncateSegments(markdownSegments, 200);
-    
-    // Create a key for comparison
-    const segmentsKey = JSON.stringify(truncatedSegments);
-    const currentKey = JSON.stringify($messageSegments);
-    
-    if (segmentsKey !== currentKey) {
-      messageSegments.set(truncatedSegments);
-      // Update processedText for display
-      processedText.set(truncatedSegments.map(s => s.content).join(''));
-    }
-  }
+  // Process text using reactive statements like MessageItem does
+  $: decodedText = decodeSlackText(message.text);
+  $: parsedSegments = parseMessageWithEmojis(decodedText);
+  $: markdownSegments = parseMessageWithMarkdown(parsedSegments);
+  $: messageSegments = truncateSegments(markdownSegments, 200);
+  $: processedText = messageSegments.map(s => s.content).join('');
+
 
   // Memoized user and channel names - only decode once
   const decodedUserName = writable('');
@@ -568,7 +553,7 @@
   {/if}
   
   <div class="message-content">
-    {#each $messageSegments as segment}
+    {#each messageSegments as segment}
       {#if segment.type === 'blockquote'}
         <blockquote class="slack-blockquote">{segment.content}</blockquote>
       {:else if segment.type === 'code-block'}
@@ -933,10 +918,6 @@
 
   .slack-inline-code {
     display: inline;
-    padding: 0.125rem 0.375rem;
-    background: #f7f7f9;
-    border: 1px solid #e1e1e8;
-    border-radius: 3px;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
     font-size: 0.8125rem;
     color: #e01e5a;
@@ -944,8 +925,7 @@
   }
 
   .message-item.selected .slack-inline-code {
-    background: #eef0f3;
-    border-color: #d1d1db;
+    /* No special styling for selected state */
   }
 
   /* Dark theme adjustments */
@@ -956,14 +936,11 @@
     }
 
     .slack-inline-code {
-      background: #2d3142;
-      border-color: #3d4257;
       color: #ff8fab;
     }
 
     .message-item.selected .slack-inline-code {
-      background: #363a4f;
-      border-color: #4a5066;
+      /* No special styling for selected state */
     }
   }
 </style>
