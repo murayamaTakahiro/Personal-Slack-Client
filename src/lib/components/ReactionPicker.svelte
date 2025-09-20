@@ -68,41 +68,42 @@
   function handleTabKey(event: KeyboardEvent, isShift: boolean) {
     event.preventDefault();
     event.stopPropagation();
-    
-    // Update focusable elements in case DOM changed
-    updateFocusableElements();
-    
-    if (focusableElements.length === 0) {
-      return;
-    }
-    
-    // Get current focus index
+
+    if (!pickerElement) return;
+
     const currentElement = document.activeElement as HTMLElement;
-    currentFocusIndex = focusableElements.indexOf(currentElement);
-    
+    const isInSearchInput = currentElement === searchInput || currentElement?.classList.contains('search-input');
+    const isInEmojiButton = currentElement?.classList.contains('emoji-button');
+
     if (isShift) {
-      // Move backwards
-      currentFocusIndex--;
-      if (currentFocusIndex < 0) {
-        currentFocusIndex = focusableElements.length - 1; // Wrap to last
+      // Shift+Tab: Move backwards between sections
+      if (isInSearchInput) {
+        // From search input -> go to selected emoji button or first if none selected
+        const allEmojis = pickerElement.querySelectorAll('.emoji-button:not([disabled])');
+        const targetEmoji = allEmojis[selectedIndex] || allEmojis[0];
+        if (targetEmoji) {
+          (targetEmoji as HTMLButtonElement).focus();
+        }
+      } else if (isInEmojiButton) {
+        // From emoji button -> go to search input
+        if (searchInput) {
+          searchInput.focus();
+        }
       }
     } else {
-      // Move forwards
-      currentFocusIndex++;
-      if (currentFocusIndex >= focusableElements.length) {
-        currentFocusIndex = 0; // Wrap to first
-      }
-    }
-    
-    // Focus the new element
-    const nextElement = focusableElements[currentFocusIndex];
-    if (nextElement) {
-      nextElement.focus();
-      
-      // If we focused an emoji button, update selectedIndex
-      const buttonIndex = emojiButtons.indexOf(nextElement as HTMLButtonElement);
-      if (buttonIndex !== -1) {
-        selectedIndex = buttonIndex;
+      // Tab: Move forwards between sections
+      if (isInSearchInput) {
+        // From search input -> go to selected emoji button or first if none selected
+        const allEmojis = pickerElement.querySelectorAll('.emoji-button:not([disabled])');
+        const targetEmoji = allEmojis[selectedIndex] || allEmojis[0];
+        if (targetEmoji) {
+          (targetEmoji as HTMLButtonElement).focus();
+        }
+      } else if (isInEmojiButton) {
+        // From emoji button -> go to search input
+        if (searchInput) {
+          searchInput.focus();
+        }
       }
     }
   }
@@ -152,6 +153,22 @@
   // Keep selectedIndex within bounds when filtered results change
   $: if (selectedIndex >= filteredEmojis.length) {
     selectedIndex = Math.max(0, filteredEmojis.length - 1);
+  }
+
+  // Focus the selected emoji button when selectedIndex changes (for HJKL navigation)
+  $: if (pickerElement && selectedIndex >= 0) {
+    // Use requestAnimationFrame to ensure DOM is updated
+    requestAnimationFrame(() => {
+      const currentFocus = document.activeElement;
+      // Only focus if current focus is already an emoji button (not search input)
+      if (currentFocus?.classList.contains('emoji-button')) {
+        const allEmojis = pickerElement.querySelectorAll('.emoji-button:not([disabled])');
+        const targetEmoji = allEmojis[selectedIndex] as HTMLButtonElement;
+        if (targetEmoji && targetEmoji !== currentFocus) {
+          targetEmoji.focus();
+        }
+      }
+    });
   }
   
   // Auto-scroll and focus selected emoji
@@ -247,6 +264,51 @@
         event.stopImmediatePropagation();
         selectedIndex = Math.min(filteredEmojis.length - 1, selectedIndex + 1);
         break;
+      // Add HJKL navigation support
+      case 'h':
+      case 'H':
+        // Don't handle if in search input
+        if (event.target === searchInput) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        selectedIndex = Math.max(0, selectedIndex - 1);
+        break;
+      case 'j':
+      case 'J':
+        // Don't handle if in search input
+        if (event.target === searchInput) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        if (selectedIndex + 6 < filteredEmojis.length) {
+          selectedIndex += 6; // Move down one row (6 columns)
+        } else {
+          selectedIndex = filteredEmojis.length - 1; // Go to last item
+        }
+        break;
+      case 'k':
+      case 'K':
+        // Don't handle if in search input
+        if (event.target === searchInput) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        if (selectedIndex > 5) {
+          selectedIndex -= 6; // Move up one row (6 columns)
+        } else {
+          selectedIndex = 0; // Stay at top
+        }
+        break;
+      case 'l':
+      case 'L':
+        // Don't handle if in search input
+        if (event.target === searchInput) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        selectedIndex = Math.min(filteredEmojis.length - 1, selectedIndex + 1);
+        break;
       case '1':
       case '2':
       case '3':
@@ -324,7 +386,7 @@
       on:input={() => selectedIndex = 0}
     />
     <div class="navigation-hint" id="picker-hint">
-      Use ↑↓←→ or Tab to navigate, Enter to select, Esc to close
+      Use ↑↓←→ or HJKL to navigate emojis, Tab to switch sections, Enter to select, Esc to close
     </div>
   </div>
   
