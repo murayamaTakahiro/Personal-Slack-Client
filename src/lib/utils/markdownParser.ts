@@ -39,8 +39,8 @@ function processTextForMarkdown(text: string): MarkdownSegment[] {
   while (i < lines.length) {
     const line = lines[i];
 
-    // Check for code block start
-    if (line.startsWith('```')) {
+    // Check for code block start (only if triple backticks are on their own line)
+    if (line.trim().startsWith('```')) {
       const codeBlock = extractCodeBlock(lines, i);
       if (codeBlock) {
         segments.push(codeBlock);
@@ -73,15 +73,22 @@ function processTextForMarkdown(text: string): MarkdownSegment[] {
 }
 
 function extractCodeBlock(lines: string[], startIndex: number): (MarkdownSegment & { endIndex: number }) | null {
-  const firstLine = lines[startIndex];
+  const firstLine = lines[startIndex].trim();
   if (!firstLine.startsWith('```')) {
+    return null;
+  }
+
+  // Check if this is inline triple backticks (has content after closing ```)
+  // e.g., ```code block``` all on one line
+  if (firstLine.length > 3 && firstLine.endsWith('```') && firstLine.length > 6) {
+    // This is inline triple backticks, not a code block
     return null;
   }
 
   // Extract language identifier if present
   const language = firstLine.slice(3).trim() || undefined;
 
-  // Find closing ```
+  // Find closing ``` (must be on its own line)
   let endIndex = -1;
   for (let i = startIndex + 1; i < lines.length; i++) {
     if (lines[i].trim() === '```') {
@@ -139,8 +146,70 @@ function extractBlockquote(lines: string[], startIndex: number): MarkdownSegment
 function processInlineCode(text: string): MarkdownSegment[] {
   const segments: MarkdownSegment[] = [];
 
+  // First, handle inline triple backticks (```content```)
+  // These should be treated as inline code blocks
+  const inlineTripleBacktickRegex = /```([^`]+?)```/g;
+  let lastIndex = 0;
+  let hasInlineTripleBackticks = false;
+  let processedText = text;
+  const inlineTripleSegments: {start: number, end: number, content: string}[] = [];
+
+  // Find all inline triple backticks first
+  let tripleMatch;
+  while ((tripleMatch = inlineTripleBacktickRegex.exec(text)) !== null) {
+    hasInlineTripleBackticks = true;
+    inlineTripleSegments.push({
+      start: tripleMatch.index,
+      end: tripleMatch.index + tripleMatch[0].length,
+      content: tripleMatch[1]
+    });
+  }
+
+  // If we have inline triple backticks, process them
+  if (hasInlineTripleBackticks) {
+    lastIndex = 0;
+    for (const segment of inlineTripleSegments) {
+      // Add text before this inline code block
+      if (segment.start > lastIndex) {
+        const beforeText = text.substring(lastIndex, segment.start);
+        if (beforeText) {
+          // Process this text for single backticks
+          const subSegments = processInlineCodeSingle(beforeText);
+          segments.push(...subSegments);
+        }
+      }
+
+      // Add the inline code block
+      segments.push({
+        type: 'inline-code',
+        content: segment.content
+      });
+
+      lastIndex = segment.end;
+    }
+
+    // Add any remaining text
+    if (lastIndex < text.length) {
+      const remainingText = text.substring(lastIndex);
+      if (remainingText) {
+        // Process remaining text for single backticks
+        const subSegments = processInlineCodeSingle(remainingText);
+        segments.push(...subSegments);
+      }
+    }
+  } else {
+    // No inline triple backticks, just process single backticks
+    return processInlineCodeSingle(text);
+  }
+
+  return segments;
+}
+
+// Helper function to process single backticks
+function processInlineCodeSingle(text: string): MarkdownSegment[] {
+  const segments: MarkdownSegment[] = [];
+
   // Regular expression to match inline code (single backticks)
-  // Matches `code` but not ``` (which is handled separately)
   const inlineCodeRegex = /`([^`]+)`/g;
 
   let lastIndex = 0;
