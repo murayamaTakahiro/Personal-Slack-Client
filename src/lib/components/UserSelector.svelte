@@ -24,8 +24,8 @@
   let loading = false;
   let inputElement: HTMLInputElement;
   let dropdownElement: HTMLDivElement;
-  let editingAlias: string | null = null;
-  let aliasInput = '';
+  let editingUserId: string | null = null;
+  let editingAlias = '';
   let unsubscribeSettings: (() => void) | null = null;
   let highlightedIndex = -1;
   
@@ -34,6 +34,11 @@
     // Initial load
     userFavorites = userService.getUserFavorites();
     recentUsers = userService.getRecentUsers();
+
+    // Set initial highlight if dropdown is open
+    if (showDropdown && getAllVisibleUsers().length > 0) {
+      highlightedIndex = 0;
+    }
 
     // Listen for workspace switch events
     const handleWorkspaceSwitch = () => {
@@ -161,28 +166,52 @@
     showToast(message, 'success');
   }
   
-  function startEditAlias(favorite: UserFavorite, event: MouseEvent) {
-    event.stopPropagation();
-    editingAlias = favorite.id;
-    aliasInput = favorite.alias || '';
+  function startEditingAlias(userId: string, currentAlias: string = '') {
+    editingUserId = userId;
+    editingAlias = currentAlias;
   }
-  
-  function saveAlias(favorite: UserFavorite, event: MouseEvent) {
-    event.stopPropagation();
-    
-    if (aliasInput.trim()) {
-      userService.updateUserAlias(favorite.id, aliasInput.trim());
-      userFavorites = userService.getUserFavorites();
+
+  async function saveAlias() {
+    if (editingUserId) {
+      if (editingAlias.trim()) {
+        userService.updateUserAlias(editingUserId, editingAlias.trim());
+        userFavorites = userService.getUserFavorites();
+      }
+      editingUserId = null;
+      editingAlias = '';
+      // Refocus the dropdown after saving
+      setTimeout(() => {
+        dropdownElement?.focus();
+      }, 10);
     }
-    
-    editingAlias = null;
-    aliasInput = '';
   }
-  
-  function cancelEditAlias(event: MouseEvent) {
+
+  function cancelEditingAlias() {
+    editingUserId = null;
+    editingAlias = '';
+  }
+
+  function handleAliasKeydown(event: KeyboardEvent) {
+    // Stop all propagation immediately
     event.stopPropagation();
-    editingAlias = null;
-    aliasInput = '';
+    event.stopImmediatePropagation();
+
+    if (event.ctrlKey && event.key === 'Enter') {
+      event.preventDefault();
+      saveAlias();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelEditingAlias();
+      // Refocus the dropdown after canceling
+      setTimeout(() => {
+        dropdownElement?.focus();
+      }, 10);
+    }
+    // Allow normal text input including j, k, etc.
+    // Only block navigation keys
+    else if (['ArrowUp', 'ArrowDown', 'Tab'].includes(event.key)) {
+      event.preventDefault();
+    }
   }
   
   export function clearSelection() {
@@ -242,6 +271,11 @@
   }
   
   function handleKeydown(e: KeyboardEvent) {
+    // If we're editing an alias, don't handle any navigation keys
+    if (editingUserId) {
+      return;
+    }
+
     if (!showDropdown && e.key === 'ArrowDown') {
       showDropdown = true;
       return;
@@ -262,24 +296,44 @@
 
     switch (e.key) {
       case 'ArrowDown':
+      case 'j':
+      case 'J':
         e.preventDefault();
+        e.stopPropagation();
         highlightedIndex = (highlightedIndex + 1) % totalItems;
         scrollToHighlighted();
         break;
 
       case 'ArrowUp':
+      case 'k':
+      case 'K':
         e.preventDefault();
+        e.stopPropagation();
         highlightedIndex = highlightedIndex <= 0 ? totalItems - 1 : highlightedIndex - 1;
         scrollToHighlighted();
         break;
 
       case 'Enter':
+      case ' ':
         e.preventDefault();
         e.stopPropagation();  // Stop Enter from bubbling up and triggering search
         if (highlightedIndex >= 0 && highlightedIndex < totalItems) {
           const user = allUsers[highlightedIndex];
           if (user) {
             selectUser(user);
+          }
+        }
+        break;
+
+      case 'e':
+      case 'E':
+        // Edit alias for highlighted user (only for favorites)
+        if (highlightedIndex >= 0 && highlightedIndex < userFavorites.length) {
+          e.preventDefault();
+          e.stopPropagation();
+          const favorite = userFavorites[highlightedIndex];
+          if (favorite) {
+            startEditingAlias(favorite.id, favorite.alias || '');
           }
         }
         break;
@@ -298,8 +352,16 @@
         break;
 
       case 'Escape':
+        e.preventDefault();
+        e.stopPropagation();
         showDropdown = false;
         highlightedIndex = -1;
+        // Return focus to input element
+        if (inputElement) {
+          setTimeout(() => {
+            inputElement.focus();
+          }, 10);
+        }
         break;
 
       case 'Tab':
@@ -336,11 +398,28 @@
     }
   }
 
-  // Global keyboard shortcuts (removed - no keyboard shortcut for toggle mode)
-
   onMount(() => {
+    // Global keyboard handler that always works
+    function handleGlobalKeydown(event: KeyboardEvent) {
+      // Don't handle anything if we're editing an alias
+      if (editingUserId) {
+        return;
+      }
+
+      // Only handle if dropdown is visible and the target is within our component
+      if (showDropdown &&
+          (event.target && (dropdownElement?.contains(event.target as Node) ||
+                           inputElement?.contains(event.target as Node)))) {
+        handleKeydown(event);
+      }
+    }
+
+    // Always add the global keydown listener with capture
+    document.addEventListener('keydown', handleGlobalKeydown, true);
     document.addEventListener('click', handleClickOutside);
+
     return () => {
+      document.removeEventListener('keydown', handleGlobalKeydown, true);
       document.removeEventListener('click', handleClickOutside);
     };
   });
@@ -464,10 +543,10 @@
   {/if}
 
   {#if showDropdown}
-    <div bind:this={dropdownElement} class="user-dropdown">
+    <div bind:this={dropdownElement} class="user-dropdown" tabindex="0" on:keydown|stopPropagation={handleKeydown}>
       {#if showDropdown}
         <div class="dropdown-help">
-          <span class="help-text">↑↓ Navigate • Enter Select • f Toggle Favorite</span>
+          <span class="help-text">↑↓ Navigate • Enter/Space Select • e Edit Alias (Ctrl+Enter to save) • f Toggle Favorite</span>
         </div>
       {/if}
 
@@ -488,19 +567,38 @@
                   on:click|stopPropagation={() => userSelectionStore.toggleUserSelection(favorite.id, favorite)}
                 />
               {/if}
-              <span class="user-name">
-                {#if favorite.alias}
-                  <strong>{favorite.alias}</strong>
-                  <span class="user-detail">({favorite.displayName || favorite.realName || favorite.name})</span>
+              <div class="user-info">
+                {#if editingUserId === favorite.id}
+                  <input
+                    type="text"
+                    bind:value={editingAlias}
+                    on:keydown={handleAliasKeydown}
+                    on:blur={saveAlias}
+                    on:click|stopPropagation
+                    class="alias-input"
+                    placeholder="Enter alias... (Ctrl+Enter to save)"
+                    autofocus
+                  />
                 {:else}
-                  {favorite.displayName || favorite.realName || favorite.name}
+                  <span class="user-name">
+                    {#if favorite.alias}
+                      <strong>{favorite.alias}</strong>
+                      <span class="user-detail">({favorite.displayName || favorite.realName || favorite.name})</span>
+                    {:else}
+                      {favorite.displayName || favorite.realName || favorite.name}
+                    {/if}
+                  </span>
                 {/if}
-              </span>
+              </div>
               <button
-                on:click={(e) => startEditAlias(favorite, e)}
+                on:click|stopPropagation={(e) => {
+                  e.preventDefault();
+                  startEditingAlias(favorite.id, favorite.alias || '');
+                }}
                 class="edit-btn"
-                title="Edit alias"
+                title="Edit alias (e)"
                 tabindex="-1"
+                style="opacity: 0.3;"
               >
                 ✏️
               </button>
@@ -596,39 +694,6 @@
         </div>
       {/if}
 
-      {#if editingAlias}
-        <div class="alias-edit-modal">
-          <input
-            type="text"
-            bind:value={aliasInput}
-            on:keydown={(e) => {
-              if (e.key === 'Enter') {
-                const fav = userFavorites.find(f => f.id === editingAlias);
-                if (fav) saveAlias(fav, e);
-              }
-              if (e.key === 'Escape') cancelEditAlias(e);
-            }}
-            placeholder="Enter alias"
-            class="alias-input"
-            autofocus
-          />
-          <button
-            on:click={(e) => {
-              const fav = userFavorites.find(f => f.id === editingAlias);
-              if (fav) saveAlias(fav, e);
-            }}
-            class="alias-save-btn"
-          >
-            Save
-          </button>
-          <button
-            on:click={cancelEditAlias}
-            class="alias-cancel-btn"
-          >
-            Cancel
-          </button>
-        </div>
-      {/if}
 
       {#if mode === 'multi' && selectedUsers.length > 0}
         <div class="dropdown-footer">
@@ -829,6 +894,11 @@
     z-index: 1000;
   }
 
+  .user-dropdown:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
   .dropdown-help {
     padding: 0.5rem 0.75rem;
     background: var(--bg-secondary);
@@ -866,6 +936,7 @@
     padding: 0.5rem 0.75rem;
     cursor: pointer;
     transition: background 0.1s;
+    position: relative;
   }
 
   .user-item input[type="checkbox"] {
@@ -896,8 +967,15 @@
     flex-shrink: 0;
   }
 
-  .user-name {
+  .user-info {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+  }
+
+  .user-name {
     font-size: 0.875rem;
     color: var(--text-primary);
   }
@@ -947,57 +1025,20 @@
     font-size: 0.875rem;
   }
 
-  .alias-edit-modal {
-    position: fixed;
-    bottom: 1rem;
-    right: 1rem;
+.alias-input {
+    width: 100%;
+    padding: 0.25rem 0.5rem;
     background: var(--bg-primary);
-    border: 1px solid var(--border);
+    border: 1px solid var(--primary);
     border-radius: 4px;
-    padding: 0.75rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    z-index: 1001;
-  }
-
-  .alias-input {
-    padding: 0.5rem;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--bg-primary);
     color: var(--text-primary);
     font-size: 0.875rem;
-    width: 200px;
   }
 
-  .alias-save-btn,
-  .alias-cancel-btn {
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 4px;
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .alias-save-btn {
-    background: var(--primary);
-    color: white;
-  }
-
-  .alias-save-btn:hover {
-    background: var(--primary-hover);
-  }
-
-  .alias-cancel-btn {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-  }
-
-  .alias-cancel-btn:hover {
-    background: var(--bg-hover);
+  .alias-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
   }
 
   .user-dropdown::-webkit-scrollbar {
