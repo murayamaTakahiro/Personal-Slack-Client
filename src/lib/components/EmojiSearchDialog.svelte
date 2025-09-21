@@ -374,10 +374,74 @@
     const currentElement = document.activeElement as HTMLElement;
     const dialogElement = document.querySelector('.emoji-search-dialog') as HTMLElement;
     if (!dialogElement) return;
-    
+
+    // Check if focus is in emoji grid (any emoji button)
+    const isInGrid = currentElement?.classList.contains('emoji-result');
+
+    // Special handling for emoji grid - Tab moves between sections, not individual emojis
+    if (isInGrid) {
+      if (!isShiftTab) {
+        // Tab from emoji grid -> go to search input (cycle back to top)
+        if (activeTab === 'search') {
+          const searchInput = dialogElement.querySelector('.search-input') as HTMLElement;
+          if (searchInput) {
+            searchInput.focus();
+            return;
+          }
+        } else if (activeTab === 'browse') {
+          // In browse tab, go to categories first
+          const categoryButtons = dialogElement.querySelector('.category-buttons') as HTMLElement;
+          if (categoryButtons) {
+            const activeCategory = categoryButtons.querySelector('.category-button.active') as HTMLElement;
+            if (activeCategory) {
+              activeCategory.focus();
+            } else {
+              const firstCategory = categoryButtons.querySelector('.category-button') as HTMLElement;
+              if (firstCategory) firstCategory.focus();
+            }
+            return;
+          }
+        }
+        // Fallback to close button if nothing else available
+        const closeButton = dialogElement.querySelector('.close-button') as HTMLElement;
+        if (closeButton) {
+          closeButton.focus();
+          return;
+        }
+      } else {
+        // Shift+Tab from emoji grid -> go to search input or previous section
+        if (activeTab === 'search') {
+          const searchInput = dialogElement.querySelector('.search-input') as HTMLElement;
+          if (searchInput) {
+            searchInput.focus();
+            return;
+          }
+        } else if (activeTab === 'browse') {
+          // Try to focus category buttons first
+          const categoryButtons = dialogElement.querySelector('.category-buttons') as HTMLElement;
+          if (categoryButtons) {
+            const activeCategory = categoryButtons.querySelector('.category-button.active') as HTMLElement;
+            if (activeCategory) {
+              activeCategory.focus();
+            } else {
+              const firstCategory = categoryButtons.querySelector('.category-button') as HTMLElement;
+              if (firstCategory) firstCategory.focus();
+            }
+            return;
+          }
+        }
+        // Fallback to close button
+        const closeButton = dialogElement.querySelector('.close-button') as HTMLElement;
+        if (closeButton) {
+          closeButton.focus();
+        }
+      }
+      return;
+    }
+
     // Define the navigation order for different tabs
     const navigationOrder = getNavigationOrder();
-    
+
     // Find current index in navigation order
     let currentIndex = -1;
     for (let i = 0; i < navigationOrder.length; i++) {
@@ -386,21 +450,17 @@
         break;
       }
     }
-    
+
     // If current element is not in navigation order, try to find the section it's in
     if (currentIndex === -1) {
-      const isInGrid = currentElement?.classList.contains('emoji-result');
       const isInTab = currentElement?.classList.contains('tab');
       const isInCategory = currentElement?.classList.contains('category-button');
       const isInSuggestion = currentElement?.classList.contains('suggestion');
       const isInExample = currentElement?.classList.contains('example-search');
       const isInHelp = currentElement?.classList.contains('help-button');
-      
+
       // Map grid/other elements to their section in navigation order
-      if (isInGrid) {
-        const grid = dialogElement.querySelector('.emoji-grid') as HTMLElement;
-        currentIndex = navigationOrder.indexOf(grid);
-      } else if (isInTab) {
+      if (isInTab) {
         // Don't navigate with Tab from tab buttons - they're for Ctrl+Tab
         return;
       } else if (isInCategory) {
@@ -412,7 +472,7 @@
         currentIndex = navigationOrder.indexOf(searchInput);
       }
     }
-    
+
     // Calculate next index with wrapping
     let nextIndex: number;
     if (isShiftTab) {
@@ -420,35 +480,39 @@
     } else {
       nextIndex = currentIndex >= navigationOrder.length - 1 ? 0 : currentIndex + 1;
     }
-    
+
     // Focus next element
     const nextElement = navigationOrder[nextIndex];
     if (nextElement) {
-      // Special handling for sections
-      if (nextElement.classList.contains('emoji-grid')) {
-        // Focus selected emoji in grid
-        const selectedEmoji = nextElement.querySelector('.emoji-result.selected') as HTMLElement;
-        if (selectedEmoji) {
-          selectedEmoji.focus();
-        } else {
-          const firstEmoji = nextElement.querySelector('.emoji-result') as HTMLElement;
-          if (firstEmoji) {
-            firstEmoji.focus();
-            selectedIndex = 0;
-          }
-        }
-      } else if (nextElement.classList.contains('category-buttons')) {
-        // Focus active or first category
-        const activeCategory = nextElement.querySelector('.category-button.active') as HTMLElement;
-        if (activeCategory) {
-          activeCategory.focus();
-        } else {
-          const firstCategory = nextElement.querySelector('.category-button') as HTMLElement;
-          if (firstCategory) firstCategory.focus();
-        }
+      focusNavigationElement(nextElement);
+    }
+  }
+
+  function focusNavigationElement(element: HTMLElement) {
+    // Special handling for sections
+    if (element.classList.contains('emoji-grid')) {
+      // Focus selected emoji in grid
+      const selectedEmoji = element.querySelector('.emoji-result.selected') as HTMLElement;
+      if (selectedEmoji) {
+        selectedEmoji.focus();
       } else {
-        nextElement.focus();
+        const firstEmoji = element.querySelector('.emoji-result') as HTMLElement;
+        if (firstEmoji) {
+          firstEmoji.focus();
+          selectedIndex = 0;
+        }
       }
+    } else if (element.classList.contains('category-buttons')) {
+      // Focus active or first category
+      const activeCategory = element.querySelector('.category-button.active') as HTMLElement;
+      if (activeCategory) {
+        activeCategory.focus();
+      } else {
+        const firstCategory = element.querySelector('.category-button') as HTMLElement;
+        if (firstCategory) firstCategory.focus();
+      }
+    } else {
+      element.focus();
     }
   }
   

@@ -22,11 +22,6 @@
   let containerDiv: HTMLDivElement;
   let isZoomed = false;
   let zoomLevel = 1;
-  let isDragging = false;
-  let dragStartX = 0;
-  let dragStartY = 0;
-  let translateX = 0;
-  let translateY = 0;
   let isDownloading = false;
   let downloadError: string | null = null;
   let isLoadingFullImage = false;
@@ -396,11 +391,6 @@
   function setZoom(level: number) {
     zoomLevel = level;
     isZoomed = level > 1;
-    
-    if (level === 1) {
-      translateX = 0;
-      translateY = 0;
-    }
   }
 
   function zoomIn() {
@@ -423,25 +413,6 @@
     }
   }
 
-  function handleMouseDown(event: MouseEvent) {
-    if (!isZoomed || !isImage) return;
-    
-    isDragging = true;
-    dragStartX = event.clientX - translateX;
-    dragStartY = event.clientY - translateY;
-    event.preventDefault();
-  }
-
-  function handleMouseMove(event: MouseEvent) {
-    if (!isDragging) return;
-    
-    translateX = event.clientX - dragStartX;
-    translateY = event.clientY - dragStartY;
-  }
-
-  function handleMouseUp() {
-    isDragging = false;
-  }
 
   async function downloadFullFile(showDialog = false) {
     if (isDownloading) return;
@@ -673,10 +644,8 @@
   onMount(async () => {
     // Use capture phase to intercept keyboard events before they reach message list
     document.addEventListener('keydown', handleKeydown, true);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
     document.body.style.overflow = 'hidden';
-    
+
     // Load full image if it's an image file
     if (isImage) {
       await loadFullImage();
@@ -689,8 +658,6 @@
 
   onDestroy(() => {
     document.removeEventListener('keydown', handleKeydown, true);
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
     document.body.style.overflow = '';
   });
 </script>
@@ -835,11 +802,9 @@
     <!-- Content -->
     <div class="lightbox-content">
       {#if isImage}
-        <div 
+        <div
           class="image-wrapper"
           class:zoomed={isZoomed}
-          class:dragging={isDragging}
-          on:mousedown={handleMouseDown}
           on:dblclick={toggleZoom}
         >
           {#if isLoadingFullImage}
@@ -854,7 +819,7 @@
             alt={file.file.name}
             class="lightbox-image"
             class:loading={isLoadingFullImage}
-            style="transform: scale({zoomLevel}) translate({translateX / zoomLevel}px, {translateY / zoomLevel}px)"
+            style="transform: scale({zoomLevel})"
             on:load={handleImageLoad}
             on:error={handleImageError}
           />
@@ -1149,19 +1114,26 @@
   }
 
   .image-wrapper.zoomed {
-    cursor: move;
-  }
-
-  .image-wrapper.dragging {
-    cursor: grabbing;
+    align-items: flex-start;
+    justify-content: flex-start;
+    cursor: zoom-out;
   }
 
   .lightbox-image {
+    width: auto;
+    height: auto;
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
     transition: transform 0.2s ease, opacity 0.3s ease;
     user-select: none;
+    transform-origin: top left;
+  }
+
+  .image-wrapper.zoomed .lightbox-image {
+    max-width: none;
+    max-height: none;
+    object-fit: none;
   }
   
   .lightbox-image.loading {

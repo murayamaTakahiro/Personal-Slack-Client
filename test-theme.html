@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theme Test</title>
+    <script>
+        // Test if theme is applied correctly
+        function checkTheme() {
+            const root = document.documentElement;
+            const hasDarkClass = root.classList.contains('dark');
+            const dataTheme = root.getAttribute('data-theme');
+
+            console.log('Dark class applied:', hasDarkClass);
+            console.log('Data-theme attribute:', dataTheme);
+
+            // Display the results
+            document.getElementById('darkClass').textContent = hasDarkClass ? 'Yes' : 'No';
+            document.getElementById('dataTheme').textContent = dataTheme || 'Not set';
+
+            // Test CSS variables
+            const styles = getComputedStyle(document.documentElement);
+            const textColor = styles.getPropertyValue('--color-text-primary');
+            document.getElementById('textColor').textContent = textColor || 'Not defined';
+        }
+
+        // Simulate theme switching
+        function setDarkTheme() {
+            document.documentElement.classList.add('dark');
+            document.documentElement.setAttribute('data-theme', 'dark');
+            checkTheme();
+        }
+
+        function setLightTheme() {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.setAttribute('data-theme', 'light');
+            checkTheme();
+        }
+
+        window.onload = checkTheme;
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+
+        :global([data-theme="dark"]) {
+            --color-text-primary: #d1d2d3;
+            --color-text-secondary: #ababad;
+        }
+
+        :global([data-theme="light"]) {
+            --color-text-primary: #1d1c1d;
+            --color-text-secondary: #616061;
+        }
+
+        .test-text {
+            color: var(--color-text-primary);
+        }
+
+        .info {
+            margin: 20px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+        }
+
+        button {
+            margin: 5px;
+            padding: 10px 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Theme Application Test</h1>
+
+    <div class="info">
+        <h2>Current Theme Status:</h2>
+        <p><strong>Has 'dark' class:</strong> <span id="darkClass">Checking...</span></p>
+        <p><strong>data-theme attribute:</strong> <span id="dataTheme">Checking...</span></p>
+        <p><strong>--color-text-primary:</strong> <span id="textColor">Checking...</span></p>
+    </div>
+
+    <div>
+        <button onclick="setDarkTheme()">Apply Dark Theme</button>
+        <button onclick="setLightTheme()">Apply Light Theme</button>
+    </div>
+
+    <div class="test-text">
+        <p>This text should change color based on the theme.</p>
+    </div>
+</body>
+</html>

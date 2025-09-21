@@ -38,6 +38,7 @@
   import EmojiSettings from './lib/components/EmojiSettings.svelte';
   import EmojiSearchDialog from './lib/components/EmojiSearchDialog.svelte';
   import { savedSearchesStore } from './lib/stores/savedSearches';
+  import { urlHistoryStore } from './lib/stores/urlHistory';
   import RealtimeSettings from './lib/components/RealtimeSettings.svelte';
   import PerformanceSettings from './lib/components/PerformanceSettings.svelte';
   import PerformanceDashboard from './lib/components/PerformanceDashboard.svelte';
@@ -201,7 +202,19 @@
           resolve(null);
         }, 2000)) // Reduced timeout
       ]),
-      
+
+      // Initialize URL history store with timeout
+      Promise.race([
+        urlHistoryStore.initialize().catch(error => {
+          console.warn('[App] URL history initialization failed:', error);
+          return null; // Don't let this break the app
+        }),
+        new Promise(resolve => setTimeout(() => {
+          console.warn('[App] URL history initialization timed out');
+          resolve(null);
+        }, 2000)) // Reduced timeout
+      ]),
+
       // Initialize zoom store with timeout
       Promise.race([
         zoomStore.initialize().catch(error => {
@@ -1074,6 +1087,11 @@
           logger.debug('[App] Re-initializing saved searches for workspace switch...');
           await savedSearchesStore.initialize();
           logger.debug('[App] Saved searches re-initialized');
+
+          // Re-initialize URL history for the new workspace
+          logger.debug('[App] Re-initializing URL history for workspace switch...');
+          await urlHistoryStore.initialize();
+          logger.debug('[App] URL history re-initialized');
           
           // Force UI update by reassigning channels
           channels = [...channels];
