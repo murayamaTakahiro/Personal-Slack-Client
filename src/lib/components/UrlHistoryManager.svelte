@@ -19,6 +19,8 @@
   let highlightedIndex = 0; // Start with first item highlighted
   let inputElement: HTMLInputElement;
   let dropdownElement: HTMLDivElement;
+  let editingUrlId: string | null = null;
+  let editingAlias = '';
 
   // Filter URLs based on search input
   $: filteredUrls = searchInput
@@ -64,6 +66,11 @@
 
     // Global keyboard handler that always works
     function handleGlobalKeydown(event: KeyboardEvent) {
+      // Don't handle anything if we're editing an alias
+      if (editingUrlId) {
+        return;
+      }
+
       // Only handle if dropdown is visible and either:
       // - We're hiding search input (dropdown mode)
       // - The target is within our component
@@ -102,6 +109,11 @@
   }
 
   function handleInputKeydown(event: KeyboardEvent) {
+    // If we're editing an alias, don't handle any navigation keys
+    if (editingUrlId) {
+      return;
+    }
+
     const totalItems = flatUrlList.length;
 
     switch (event.key) {
@@ -134,11 +146,25 @@
         }
         break;
 
+      case 'e':
+      case 'E':
+        // Edit alias for highlighted URL
+        if (highlightedIndex >= 0 && highlightedIndex < totalItems) {
+          event.preventDefault();
+          event.stopPropagation(); // Prevent global 'e' key handler
+          const url = flatUrlList[highlightedIndex];
+          if (url) {
+            startEditingAlias(url.id, url.alias || '');
+          }
+        }
+        break;
+
       case 'f':
       case 'F':
         // Toggle favorite for highlighted URL
         if (highlightedIndex >= 0 && highlightedIndex < totalItems) {
           event.preventDefault();
+          event.stopPropagation();
           const url = flatUrlList[highlightedIndex];
           if (url) {
             toggleFavorite(url.id, event as any);
@@ -214,10 +240,57 @@
 
   function close() {
     showDropdown = false;
+    editingUrlId = null;
+    editingAlias = '';
     if (onClose) {
       onClose();
     }
     dispatch('close');
+  }
+
+  function startEditingAlias(urlId: string, currentAlias: string = '') {
+    editingUrlId = urlId;
+    editingAlias = currentAlias;
+  }
+
+  async function saveAlias() {
+    if (editingUrlId) {
+      await urlHistoryStore.updateAlias(editingUrlId, editingAlias);
+      editingUrlId = null;
+      editingAlias = '';
+      // Refocus the dropdown after saving
+      setTimeout(() => {
+        dropdownElement?.focus();
+      }, 10);
+    }
+  }
+
+  function cancelEditingAlias() {
+    editingUrlId = null;
+    editingAlias = '';
+  }
+
+  function handleAliasKeydown(event: KeyboardEvent) {
+    // Stop all propagation immediately
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    if (event.ctrlKey && event.key === 'Enter') {
+      event.preventDefault();
+      saveAlias();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelEditingAlias();
+      // Refocus the dropdown after canceling
+      setTimeout(() => {
+        dropdownElement?.focus();
+      }, 10);
+    }
+    // Allow normal text input including j, k, etc.
+    // Only block navigation keys
+    else if (['ArrowUp', 'ArrowDown', 'Tab'].includes(event.key)) {
+      event.preventDefault();
+    }
   }
 
   function formatDate(date: Date | string): string {
@@ -253,6 +326,11 @@
   }
 
   function getUrlShortDisplay(url: SavedUrl): string {
+    // If alias exists, use it
+    if (url.alias) {
+      return url.alias;
+    }
+
     // Extract meaningful parts from URL for compact display
     const match = url.url.match(/https:\/\/([^.]+)\.slack\.com\/archives\/([^\/]+)(?:\/p(\d+))?/);
     if (match) {
@@ -335,7 +413,7 @@
          on:keydown|stopPropagation={handleInputKeydown}>
       {#if flatUrlList.length > 0}
         <div class="dropdown-help">
-          <span class="help-text">↑↓ Navigate • Enter/Space Select • f Toggle Favorite</span>
+          <span class="help-text">↑↓ Navigate • Enter/Space Select • e Edit Alias (Ctrl+Enter to save) • f Toggle Favorite</span>
         </div>
       {/if}
 
@@ -349,10 +427,35 @@
               on:click={() => selectUrl(url)}
             >
               <div class="url-info">
-                <span class="url-name">{getUrlShortDisplay(url)}</span>
-                <span class="url-full" title={url.url}>{url.url}</span>
+                {#if editingUrlId === url.id}
+                  <input
+                    type="text"
+                    bind:value={editingAlias}
+                    on:keydown={handleAliasKeydown}
+                    on:blur={saveAlias}
+                    on:click|stopPropagation
+                    class="alias-input"
+                    placeholder="Enter alias... (Ctrl+Enter to save)"
+                    autofocus
+                  />
+                {:else}
+                  <span class="url-name">{getUrlShortDisplay(url)}</span>
+                  <span class="url-full" title={url.url}>{url.url}</span>
+                {/if}
               </div>
               <span class="url-meta">{formatDate(url.lastUsed || url.timestamp)}</span>
+              <button
+                on:click|stopPropagation={(e) => {
+                  e.preventDefault();
+                  startEditingAlias(url.id, url.alias || '');
+                }}
+                class="edit-btn"
+                title="Edit alias (e)"
+                tabindex="-1"
+                style="opacity: 0.3;"
+              >
+                ✏️
+              </button>
               <button
                 on:click={(e) => toggleFavorite(url.id, e)}
                 class="favorite-btn active"
@@ -377,10 +480,35 @@
               on:click={() => selectUrl(url)}
             >
               <div class="url-info">
-                <span class="url-name">{getUrlShortDisplay(url)}</span>
-                <span class="url-full" title={url.url}>{url.url}</span>
+                {#if editingUrlId === url.id}
+                  <input
+                    type="text"
+                    bind:value={editingAlias}
+                    on:keydown={handleAliasKeydown}
+                    on:blur={saveAlias}
+                    on:click|stopPropagation
+                    class="alias-input"
+                    placeholder="Enter alias... (Ctrl+Enter to save)"
+                    autofocus
+                  />
+                {:else}
+                  <span class="url-name">{getUrlShortDisplay(url)}</span>
+                  <span class="url-full" title={url.url}>{url.url}</span>
+                {/if}
               </div>
               <span class="url-meta">{formatDate(url.lastUsed || url.timestamp)}</span>
+              <button
+                on:click|stopPropagation={(e) => {
+                  e.preventDefault();
+                  startEditingAlias(url.id, url.alias || '');
+                }}
+                class="edit-btn"
+                title="Edit alias (e)"
+                tabindex="-1"
+                style="opacity: 0.3;"
+              >
+                ✏️
+              </button>
               <button
                 on:click={(e) => toggleFavorite(url.id, e)}
                 class="favorite-btn"
@@ -405,10 +533,35 @@
               on:click={() => selectUrl(url)}
             >
               <div class="url-info">
-                <span class="url-name">{getUrlShortDisplay(url)}</span>
-                <span class="url-full" title={url.url}>{url.url}</span>
+                {#if editingUrlId === url.id}
+                  <input
+                    type="text"
+                    bind:value={editingAlias}
+                    on:keydown={handleAliasKeydown}
+                    on:blur={saveAlias}
+                    on:click|stopPropagation
+                    class="alias-input"
+                    placeholder="Enter alias... (Ctrl+Enter to save)"
+                    autofocus
+                  />
+                {:else}
+                  <span class="url-name">{getUrlShortDisplay(url)}</span>
+                  <span class="url-full" title={url.url}>{url.url}</span>
+                {/if}
               </div>
               <span class="url-meta">{formatDate(url.lastUsed || url.timestamp)}</span>
+              <button
+                on:click|stopPropagation={(e) => {
+                  e.preventDefault();
+                  startEditingAlias(url.id, url.alias || '');
+                }}
+                class="edit-btn"
+                title="Edit alias (e)"
+                tabindex="-1"
+                style="opacity: 0.3;"
+              >
+                ✏️
+              </button>
               <button
                 on:click={(e) => toggleFavorite(url.id, e)}
                 class="favorite-btn"
@@ -599,7 +752,8 @@
     color: var(--text-secondary);
   }
 
-  .favorite-btn {
+  .favorite-btn,
+  .edit-btn {
     padding: 0.25rem;
     background: transparent;
     border: none;
@@ -609,13 +763,30 @@
     opacity: 0.5;
   }
 
-  .favorite-btn:hover {
+  .favorite-btn:hover,
+  .edit-btn:hover {
     opacity: 1;
   }
 
   .favorite-btn.active {
     opacity: 1;
     color: gold;
+  }
+
+  .alias-input {
+    width: 100%;
+    padding: 0.25rem 0.5rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--primary);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+  }
+
+  .alias-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
   }
 
   .empty-state {

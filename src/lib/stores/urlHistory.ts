@@ -6,6 +6,7 @@ export interface SavedUrl {
   id: string;
   url: string;
   title?: string;
+  alias?: string; // User-defined alias for the URL
   timestamp: Date;
   usageCount: number;
   lastUsed?: Date;
@@ -202,11 +203,17 @@ function createUrlHistoryStore() {
     return urls.find(u => u.id === id);
   };
 
+  // Update alias for a URL
+  const updateAlias = async (id: string, alias: string) => {
+    await updateUrl(id, { alias: alias.trim() || undefined });
+  };
+
   return {
     subscribe,
     initialize,
     saveUrl,
     updateUrl,
+    updateAlias,
     deleteUrl,
     toggleFavorite,
     useUrl,
