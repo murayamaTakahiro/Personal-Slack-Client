@@ -325,6 +325,13 @@
         break;
       case 'Enter':
       case ' ':
+        // Check if the active element is an icon button - if so, let it handle the event
+        const activeEl = document.activeElement;
+        if (activeEl && activeEl.classList.contains('btn-icon')) {
+          // Don't prevent default - let the button handle the click
+          return;
+        }
+        // Otherwise, load the selected search
         event.preventDefault();
         event.stopPropagation();
         if (selectedIndex >= 0 && selectedIndex < filteredSearches.length) {
@@ -667,6 +674,12 @@
               <button
                 class="btn-icon {search.isFavorite ? 'active' : ''}"
                 on:click|stopPropagation|preventDefault={(e) => toggleFavorite(search.id, e)}
+                on:keydown|stopPropagation={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleFavorite(search.id, e);
+                  }
+                }}
                 title="Toggle favorite"
                 tabindex="0"
               >
@@ -674,12 +687,18 @@
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                 </svg>
               </button>
-              
+
               <button
                 class="btn-icon"
                 on:click|stopPropagation={(e) => {
                   e.preventDefault();
                   startEditing(search.id, search.name);
+                }}
+                on:keydown|stopPropagation={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    startEditing(search.id, search.name);
+                  }
                 }}
                 title="Edit name (e)"
                 tabindex="0"
@@ -689,10 +708,16 @@
                   <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
                 </svg>
               </button>
-              
+
               <button
                 class="btn-icon delete"
                 on:click|stopPropagation|preventDefault={(e) => deleteSearch(search.id, e)}
+                on:keydown|stopPropagation={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    deleteSearch(search.id, e);
+                  }
+                }}
                 title="Delete"
                 tabindex="0"
               >
