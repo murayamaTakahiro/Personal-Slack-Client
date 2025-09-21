@@ -360,13 +360,23 @@
         close();
         break;
       case 'Tab':
-        event.preventDefault();
-        event.stopPropagation();
-        // Cycle through tabs
-        const tabs = ['recent', 'favorites', 'frequent', 'all'];
-        const currentIndex = tabs.indexOf(activeTab);
-        activeTab = tabs[(currentIndex + 1) % tabs.length] as typeof activeTab;
-        selectedIndex = 0;
+        // Handle Ctrl+Tab and Ctrl+Shift+Tab for tab switching
+        if (event.ctrlKey) {
+          event.preventDefault();
+          event.stopPropagation();
+          // Cycle through tabs
+          const tabs = ['recent', 'favorites', 'frequent', 'all'];
+          const currentIndex = tabs.indexOf(activeTab);
+          if (event.shiftKey) {
+            // Ctrl+Shift+Tab - go to previous tab
+            activeTab = tabs[(currentIndex - 1 + tabs.length) % tabs.length] as typeof activeTab;
+          } else {
+            // Ctrl+Tab - go to next tab
+            activeTab = tabs[(currentIndex + 1) % tabs.length] as typeof activeTab;
+          }
+          selectedIndex = 0;
+        }
+        // Let normal Tab key work for focus navigation
         break;
     }
   }
@@ -502,11 +512,11 @@
     </div>
 
     <div class="dropdown-help">
-      <span class="help-text">↑↓/j/k Navigate • Enter/Space Select • e Edit Name (Ctrl+Enter to save) • f Toggle Favorite • Tab Switch Tabs</span>
+      <span class="help-text">↑↓/j/k Navigate • Enter/Space Select • e Edit Name (Ctrl+Enter to save) • f Toggle Favorite • Ctrl+Tab/Ctrl+Shift+Tab Switch Tabs</span>
     </div>
 
     <div class="dropdown-actions">
-      <button class="btn-action" on:click={saveCurrentSearch}>
+      <button class="btn-action" on:click={saveCurrentSearch} tabindex="-1">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path d="M12 5v14m-7-7h14"/>
         </svg>
@@ -530,33 +540,37 @@
     </div>
 
     <div class="tabs">
-      <button 
+      <button
         class="tab {activeTab === 'recent' ? 'active' : ''}"
         on:click={() => { activeTab = 'recent'; selectedIndex = 0; }}
+        tabindex="-1"
       >
         Recent
       </button>
-      <button 
+      <button
         class="tab {activeTab === 'favorites' ? 'active' : ''}"
         on:click={() => { activeTab = 'favorites'; selectedIndex = 0; }}
+        tabindex="-1"
       >
         Favorites
       </button>
-      <button 
+      <button
         class="tab {activeTab === 'frequent' ? 'active' : ''}"
         on:click={() => { activeTab = 'frequent'; selectedIndex = 0; }}
+        tabindex="-1"
       >
         Frequent
       </button>
-      <button 
+      <button
         class="tab {activeTab === 'all' ? 'active' : ''}"
         on:click={() => { activeTab = 'all'; selectedIndex = 0; }}
+        tabindex="-1"
       >
         All ({$savedSearchesStore.length})
       </button>
     </div>
 
-    <div class="search-list">
+    <div class="search-list" tabindex="0" on:focus={() => { if (selectedIndex < 0 && filteredSearches.length > 0) selectedIndex = 0; }} on:keydown={handleKeydown}>
       {#if filteredSearches.length === 0}
         <div class="empty-state">
           {#if searchFilter}
@@ -807,6 +821,12 @@
     flex: 1;
     overflow-y: auto;
     padding: 0.5rem;
+    outline: none;
+  }
+
+  .search-list:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
   }
 
   .empty-state {
