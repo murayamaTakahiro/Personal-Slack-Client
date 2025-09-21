@@ -137,23 +137,49 @@
     showToast(`Saved search: ${name}`, 'success');
   }
 
-  function startEditing(search: SavedSearch, event: Event) {
-    event.stopPropagation();
-    editingId = search.id;
-    editingName = search.name;
+  function startEditing(searchId: string, currentName: string = '') {
+    editingId = searchId;
+    editingName = currentName;
   }
 
-  function saveEdit() {
+  async function saveEdit() {
     if (editingId && editingName.trim()) {
-      savedSearchesStore.updateSearch(editingId, { name: editingName.trim() });
+      await savedSearchesStore.updateSearch(editingId, { name: editingName.trim() });
       editingId = null;
       editingName = '';
+      // Refocus the dropdown after saving
+      setTimeout(() => {
+        dropdownElement?.focus();
+      }, 10);
     }
   }
 
   function cancelEdit() {
     editingId = null;
     editingName = '';
+    // Refocus the dropdown after canceling
+    setTimeout(() => {
+      dropdownElement?.focus();
+    }, 10);
+  }
+
+  function handleEditKeydown(event: KeyboardEvent) {
+    // Stop all propagation immediately
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    if (event.ctrlKey && event.key === 'Enter') {
+      event.preventDefault();
+      saveEdit();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelEdit();
+    }
+    // Allow normal text input including j, k, etc.
+    // Only block navigation keys
+    else if (['ArrowUp', 'ArrowDown', 'Tab'].includes(event.key)) {
+      event.preventDefault();
+    }
   }
 
   async function deleteSearch(id: string, event: Event) {
@@ -262,6 +288,11 @@
   function handleKeydown(event: KeyboardEvent) {
     if (!isOpen) return;
 
+    // Don't handle anything if we're editing
+    if (editingId) {
+      return;
+    }
+
     // Don't handle keyboard events if confirmation dialog is open
     const confirmState = get(confirmationStore);
     if (confirmState.isOpen) return;
@@ -274,6 +305,8 @@
     // Handle navigation keys
     switch (event.key) {
       case 'ArrowDown':
+      case 'j':
+      case 'J':
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
@@ -281,6 +314,8 @@
         scrollToSelected();
         break;
       case 'ArrowUp':
+      case 'k':
+      case 'K':
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
@@ -288,10 +323,35 @@
         scrollToSelected();
         break;
       case 'Enter':
+      case ' ':
         event.preventDefault();
         event.stopPropagation();
         if (selectedIndex >= 0 && selectedIndex < filteredSearches.length) {
           loadSearch(filteredSearches[selectedIndex]);
+        }
+        break;
+      case 'e':
+      case 'E':
+        // Edit alias for highlighted search
+        if (selectedIndex >= 0 && selectedIndex < filteredSearches.length) {
+          event.preventDefault();
+          event.stopPropagation();
+          const search = filteredSearches[selectedIndex];
+          if (search) {
+            startEditing(search.id, search.name);
+          }
+        }
+        break;
+      case 'f':
+      case 'F':
+        // Toggle favorite for highlighted search
+        if (selectedIndex >= 0 && selectedIndex < filteredSearches.length) {
+          event.preventDefault();
+          event.stopPropagation();
+          const search = filteredSearches[selectedIndex];
+          if (search) {
+            toggleFavorite(search.id, event);
+          }
         }
         break;
       case 'Escape':
@@ -441,6 +501,10 @@
       </button>
     </div>
 
+    <div class="dropdown-help">
+      <span class="help-text">↑↓/j/k Navigate • Enter/Space Select • e Edit Name (Ctrl+Enter to save) • f Toggle Favorite • Tab Switch Tabs</span>
+    </div>
+
     <div class="dropdown-actions">
       <button class="btn-action" on:click={saveCurrentSearch}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -517,13 +581,11 @@
                 <input
                   type="text"
                   bind:value={editingName}
-                  on:keydown={(e) => {
-                    if (e.key === 'Enter') saveEdit();
-                    if (e.key === 'Escape') cancelEdit();
-                  }}
+                  on:keydown={handleEditKeydown}
                   on:blur={saveEdit}
                   on:click|stopPropagation
                   class="edit-input"
+                  placeholder="Enter name... (Ctrl+Enter to save)"
                   autofocus
                 />
               {:else}
@@ -555,18 +617,21 @@
                 </svg>
               </button>
               
-              {#if !editingId}
-                <button 
-                  class="btn-icon"
-                  on:click={(e) => startEditing(search, e)}
-                  title="Edit name"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                  </svg>
-                </button>
-              {/if}
+              <button
+                class="btn-icon"
+                on:click|stopPropagation={(e) => {
+                  e.preventDefault();
+                  startEditing(search.id, search.name);
+                }}
+                title="Edit name (e)"
+                tabindex="-1"
+                style="opacity: 0.3;"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+              </button>
               
               <button
                 class="btn-icon delete"
@@ -655,6 +720,20 @@
   .btn-close:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
+  }
+
+  .dropdown-help {
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: center;
+  }
+
+  .help-text {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.025em;
   }
 
   .dropdown-actions {
@@ -847,6 +926,12 @@
     background: var(--bg-primary);
     color: var(--text-primary);
     font-size: 0.875rem;
+  }
+
+  .edit-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
   }
 
   .dropdown-footer {
