@@ -30,6 +30,7 @@
   let selectedIndex = -1;
   let dropdownElement: HTMLDivElement;
   let searchFilterInput: HTMLInputElement;
+  let closeButton: HTMLButtonElement;
 
   $: filteredSearches = getFilteredSearches($savedSearchesStore, activeTab, searchFilter);
 
@@ -375,8 +376,50 @@
             activeTab = tabs[(currentIndex + 1) % tabs.length] as typeof activeTab;
           }
           selectedIndex = 0;
+        } else {
+          // Implement focus trap - prevent focus from leaving the dropdown
+          const activeElement = document.activeElement;
+
+          // Only trap Tab if focus would leave the dropdown
+          if (!dropdownElement?.contains(activeElement as Node)) {
+            // Focus is outside dropdown - bring it back
+            event.preventDefault();
+            event.stopPropagation();
+            if (event.shiftKey) {
+              // Shift+Tab - focus last focusable element
+              const focusableElements = dropdownElement?.querySelectorAll(
+                'button:not([tabindex="-1"]), input:not([tabindex="-1"]), [tabindex="0"]'
+              );
+              if (focusableElements && focusableElements.length > 0) {
+                (focusableElements[focusableElements.length - 1] as HTMLElement).focus();
+              }
+            } else {
+              // Tab - focus first focusable element (close button)
+              closeButton?.focus();
+            }
+          } else {
+            // Check if we're at the boundaries of the dropdown
+            const focusableElements = dropdownElement?.querySelectorAll(
+              'button:not([tabindex="-1"]), input:not([tabindex="-1"]), [tabindex="0"]'
+            );
+
+            if (focusableElements && focusableElements.length > 0) {
+              const firstElement = focusableElements[0] as HTMLElement;
+              const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+              if (event.shiftKey && activeElement === firstElement) {
+                // Shift+Tab from first element - wrap to last
+                event.preventDefault();
+                lastElement.focus();
+              } else if (!event.shiftKey && activeElement === lastElement) {
+                // Tab from last element - wrap to first
+                event.preventDefault();
+                firstElement.focus();
+              }
+              // Otherwise, let normal tab behavior work within the dropdown
+            }
+          }
         }
-        // Let normal Tab key work for focus navigation
         break;
     }
   }
@@ -504,7 +547,7 @@
   >
     <div class="dropdown-header">
       <h3>Saved Searches</h3>
-      <button class="btn-close" on:click={close}>
+      <button bind:this={closeButton} class="btn-close" on:click={close}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path d="M18 6L6 18M6 6l12 12"/>
         </svg>
@@ -625,6 +668,7 @@
                 class="btn-icon {search.isFavorite ? 'active' : ''}"
                 on:click|stopPropagation|preventDefault={(e) => toggleFavorite(search.id, e)}
                 title="Toggle favorite"
+                tabindex="0"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill={search.isFavorite ? 'currentColor' : 'none'} stroke="currentColor">
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
@@ -638,8 +682,7 @@
                   startEditing(search.id, search.name);
                 }}
                 title="Edit name (e)"
-                tabindex="-1"
-                style="opacity: 0.3;"
+                tabindex="0"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                   <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
@@ -651,6 +694,7 @@
                 class="btn-icon delete"
                 on:click|stopPropagation|preventDefault={(e) => deleteSearch(search.id, e)}
                 title="Delete"
+                tabindex="0"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                   <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14zM10 11v6M14 11v6"/>
