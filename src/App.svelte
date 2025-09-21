@@ -49,7 +49,7 @@
   import { channelStore } from './lib/stores/channels';
   import userStore from './lib/stores/users';
   import { userService } from './lib/services/userService';
-  import { reactionService, initializeReactionMappings } from './lib/services/reactionService';
+  import { reactionService, initializeReactionMappings, DEFAULT_REACTION_MAPPINGS } from './lib/services/reactionService';
   import { emojiService } from './lib/services/emojiService';
   import { clearAllCaches } from './lib/services/memoization';
   import { searchOptimizer } from './lib/services/searchOptimizer';
@@ -118,6 +118,12 @@
       initializationProgress = 40;
       const currentSettings = await safeInitializeSettings();
       console.log('[App] Settings initialized successfully');
+
+      // Initialize reaction mappings from settings
+      if (currentSettings && currentSettings.reactionMappings) {
+        await initializeReactionMappings(currentSettings.reactionMappings);
+        console.log('[App] Reaction mappings initialized from settings');
+      }
       
       // Initialize UserService after settings are ready - but don't block on it
       initializationStep = 'Initializing user service...';
@@ -256,7 +262,7 @@
         maxResults: 1000,
         theme: 'auto',
         keyboardShortcuts: {},
-        reactionMappings: {},
+        reactionMappings: DEFAULT_REACTION_MAPPINGS,
         debugMode: false,
         downloadFolder: null
       };
@@ -1079,6 +1085,13 @@
           logger.debug('[App] Re-initializing emoji service for workspace switch...');
           await emojiService.refresh(); // Force refresh to get new workspace emojis
           logger.debug('[App] Emoji service re-initialized');
+
+          // Re-initialize reaction mappings from settings
+          const currentSettings = get(settings);
+          if (currentSettings && currentSettings.reactionMappings) {
+            await initializeReactionMappings(currentSettings.reactionMappings);
+            logger.debug('[App] Reaction mappings re-initialized after workspace switch');
+          }
           
           // Load new channels for the switched workspace
           await loadChannels();
