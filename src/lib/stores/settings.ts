@@ -73,7 +73,10 @@ const defaultSettings: AppSettings = {
   keyboardShortcuts: defaultKeyboardShortcuts,
   reactionMappings: DEFAULT_REACTION_MAPPINGS,
   debugMode: false,  // Performance monitor is hidden by default
-  downloadFolder: null  // null means use default Downloads folder
+  downloadFolder: null,  // null means use default Downloads folder
+  experimentalFeatures: {
+    dmChannelsEnabled: false  // DM channels feature is disabled by default (Phase 1)
+  }
 };
 
 // Initialize settings with default values
@@ -232,4 +235,23 @@ function applyTheme(theme: 'light' | 'dark' | 'auto') {
 // Initialize theme on load
 if (typeof window !== 'undefined') {
   applyTheme(initialSettings.theme);
+}
+
+// Experimental features management
+export function isDMChannelsEnabled(): boolean {
+  let enabled = false;
+  settings.subscribe(s => {
+    enabled = s.experimentalFeatures?.dmChannelsEnabled || false;
+  })();
+  return enabled;
+}
+
+export function toggleDMChannels(enabled: boolean) {
+  settings.update(s => ({
+    ...s,
+    experimentalFeatures: {
+      ...s.experimentalFeatures,
+      dmChannelsEnabled: enabled
+    }
+  }));
 }

@@ -328,6 +328,88 @@ impl SlackClient {
         Ok(all_channels)
     }
 
+    /// Get DM channels (direct messages with individual users)
+    /// This is Phase 1: Read-only DM channel discovery
+    /// IMPORTANT: This requires im:read scope in the Slack token
+    pub async fn get_dm_channels(&self) -> Result<Vec<SlackConversation>> {
+        let url = format!("{}/conversations.list", SLACK_API_BASE);
+
+        info!("Fetching DM channels (Phase 1: Read-only)");
+
+        let mut all_dms = Vec::new();
+        let mut cursor: Option<String> = None;
+
+        loop {
+            let mut params = HashMap::new();
+            // CRITICAL: Only fetch "im" type for DM channels, not "mpim" (group DMs)
+            params.insert("types", "im".to_string());
+            params.insert("limit", "200".to_string()); // Smaller limit for DMs to be conservative
+
+            if let Some(ref cursor_value) = cursor {
+                params.insert("cursor", cursor_value.clone());
+            }
+
+            let response = self.client.get(&url).query(&params).send().await?;
+
+            if !response.status().is_success() {
+                let status = response.status();
+                let text = response.text().await?;
+                error!("Failed to get DM channels: {} - {}", status, text);
+
+                if status == 403 {
+                    return Err(anyhow!(
+                        "Permission denied. Your token needs 'im:read' scope to access DM channels."
+                    ));
+                }
+
+                return Err(anyhow!("Failed to get DM channels: {} - {}", status, text));
+            }
+
+            let result: SlackConversationsListResponse = response.json().await?;
+
+            if !result.ok {
+                let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
+
+                // Check for specific permission errors
+                if error_msg.contains("missing_scope") {
+                    return Err(anyhow!(
+                        "Missing required scope. Your token needs 'im:read' permission to access DM channels."
+                    ));
+                }
+
+                return Err(anyhow!("Slack API error: {}", error_msg));
+            }
+
+            if let Some(channels) = result.channels {
+                // Filter to ensure we only get DM channels (is_im = true)
+                let dm_channels: Vec<SlackConversation> = channels
+                    .into_iter()
+                    .filter(|c| c.is_im.unwrap_or(false))
+                    .collect();
+
+                info!("Found {} DM channels in this batch", dm_channels.len());
+                all_dms.extend(dm_channels);
+            }
+
+            // Check if there are more pages
+            if let Some(metadata) = result.response_metadata {
+                if let Some(next) = metadata.next_cursor {
+                    if !next.is_empty() {
+                        cursor = Some(next);
+                        // Rate limiting - be extra conservative with DM fetching
+                        sleep(Duration::from_millis(RATE_LIMIT_DELAY_MS * 2)).await;
+                        continue;
+                    }
+                }
+            }
+
+            break;
+        }
+
+        info!("Successfully fetched {} DM channels total", all_dms.len());
+        Ok(all_dms)
+    }
+
     pub async fn get_users(&self) -> Result<Vec<SlackUserInfo>> {
         let url = format!("{}/users.list", SLACK_API_BASE);
 
@@ -643,6 +725,44 @@ impl SlackClient {
         }
 
         Ok((result.ok, result.user_id))
+    }
+
+    /// Check if the token has specific scopes/permissions
+    /// Returns (is_authorized, scopes_list)
+    pub async fn check_token_scopes(&self) -> Result<(bool, Vec<String>)> {
+        let url = format!("{}/auth.test", SLACK_API_BASE);
+
+        info!("Checking Slack token scopes/permissions");
+
+        let response = self.client.get(&url).send().await?;
+
+        if !response.status().is_success() {
+            error!("Failed to check token scopes with status: {}", response.status());
+            return Ok((false, Vec::new()));
+        }
+
+        // Note: auth.test doesn't return scopes directly
+        // We'll need to use conversations.list with im type to test im:read permission
+        // For now, we'll return a basic check
+        #[derive(Deserialize)]
+        struct AuthTestResponse {
+            ok: bool,
+            #[serde(default)]
+            error: Option<String>,
+        }
+
+        let result: AuthTestResponse = response.json().await?;
+
+        if result.ok {
+            info!("Token is valid, checking im:read scope by attempting to list DMs");
+            // The actual scope check will happen when we try to list DMs
+            // If it fails with missing_scope, we know we don't have im:read
+            Ok((true, Vec::new()))
+        } else {
+            let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
+            error!("Token validation failed: {}", error_msg);
+            Ok((false, Vec::new()))
+        }
     }
 
     pub async fn add_reaction(&self, channel: &str, timestamp: &str, emoji: &str) -> Result<()> {

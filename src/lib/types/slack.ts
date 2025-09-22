@@ -70,6 +70,17 @@ export interface SlackChannel {
   isMpim: boolean;
 }
 
+// Conversation type returned by conversations.list API
+export interface SlackConversation {
+  id: string;
+  name?: string;
+  is_channel?: boolean;
+  is_group?: boolean;
+  is_im?: boolean;
+  is_mpim?: boolean;
+  is_private?: boolean;
+}
+
 export interface KeyboardShortcut {
   key: string;
   ctrl?: boolean;
@@ -160,6 +171,10 @@ export interface AppSettings {
   mentionHistory?: MentionHistory[];
   debugMode?: boolean;
   downloadFolder?: string | null;  // Custom download folder path, null means use default
+  // Feature flags for experimental features
+  experimentalFeatures?: {
+    dmChannelsEnabled?: boolean;  // Enable DM channel discovery (Phase 1: read-only)
+  };
 }
 
 export interface SearchHistory {

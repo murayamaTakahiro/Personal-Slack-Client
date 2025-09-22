@@ -68,6 +68,8 @@
   import UserIdSettings from './lib/components/UserIdSettings.svelte';
   import PerformanceMonitor from './lib/components/PerformanceMonitor.svelte';
   import ConfirmationDialog from './lib/components/ConfirmationDialog.svelte';
+  import ExperimentalSettings from './lib/components/ExperimentalSettings.svelte';
+  import DMChannelsList from './lib/components/DMChannelsList.svelte';
 
   let channels: [string, string][] = [];
   let showSettings = false;
@@ -1598,8 +1600,10 @@
         </div>
         
         <UserIdSettings />
+
+        <ExperimentalSettings />
       </div>
-      
+
       <div class="settings-actions">
         <button class="btn-secondary" on:click={() => showSettings = false}>
           Cancel
@@ -1637,7 +1641,10 @@
         on:search={handleSearch}
       />
     </ErrorBoundary>
-    
+
+    <!-- DM Channels List (Experimental Feature) -->
+    <DMChannelsList />
+
     {#if !token && !$searchError}
       <div class="welcome-message">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

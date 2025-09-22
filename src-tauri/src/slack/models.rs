@@ -196,7 +196,7 @@ pub struct SlackConversationsListResponse {
     pub response_metadata: Option<SlackResponseMetadata>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[allow(dead_code)]
 pub struct SlackConversation {
     pub id: String,

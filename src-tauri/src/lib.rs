@@ -62,6 +62,8 @@ pub fn run() {
             commands::channels::get_favorite_channels,
             commands::channels::save_recent_channels,
             commands::channels::get_recent_channels,
+            commands::channels::get_dm_channels,
+            commands::channels::check_dm_permissions,
             commands::emoji::get_emoji_list,
             commands::post::post_to_channel,
             commands::post::post_thread_reply,
