@@ -551,8 +551,9 @@ pub async fn search_messages(
                 cached_name.clone()
             } else {
                 let name = channel_info.name.clone();
+                // For now, assume regular channels (not DMs) when caching from search results
                 state
-                    .cache_channel(channel_info.id.clone(), name.clone())
+                    .cache_channel(channel_info.id.clone(), name.clone(), false, false)
                     .await;
                 name
             };
@@ -710,41 +711,103 @@ pub async fn get_user_channels(
                             .and_then(|p| p.display_name.clone())
                             .filter(|n| !n.is_empty())
                             .or_else(|| user.profile.as_ref()
-                                .and_then(|p| p.real_name.clone()))
-                            .or_else(|| Some(user.name.clone()))
+                                .and_then(|p| p.real_name.clone())
+                                .filter(|n| !n.is_empty()))
+                            .or_else(|| {
+                                // Try the name field if display_name and real_name are empty
+                                if !user.name.is_empty() {
+                                    Some(user.name.clone())
+                                } else {
+                                    None
+                                }
+                            })
                             .unwrap_or_else(|| user.id.clone());
+
+                        // Log for debugging the murayama/yandt89 issue
+                        if user.id.contains("murayama") || user.name.contains("murayama") ||
+                           user.name.contains("yandt89") || display_name.contains("murayama") {
+                            info!("[DEBUG] User mapping: id={}, name={}, display_name={}",
+                                 user.id, user.name, display_name);
+                        }
+
                         Some((user.id.clone(), display_name))
                     })
                     .collect();
 
-                // Convert DM channels to the same format as regular channels
+                // Convert DM and Group DM channels to the same format as regular channels
                 for dm in dm_channels {
-                    // DMs have a user field that contains the other user's ID
-                    let dm_name = if let Some(ref user_id) = dm.user {
-                        // Look up the user's display name
-                        let display_name = user_map.get(user_id)
-                            .map(|name| format!("@{}", name))
-                            .unwrap_or_else(|| format!("@{}", user_id));
-                        info!("[DEBUG] DM channel {} mapped to user '{}' -> '{}'", dm.id, user_id, display_name);
-                        display_name
+                    let (dm_name, is_im, is_mpim) = if dm.is_mpim.unwrap_or(false) {
+                        // This is a Group DM (MPIM)
+                        // Group DMs don't have a single user field, they have multiple participants
+                        let mut group_name = dm.name.clone()
+                            .or_else(|| dm.name_normalized.clone())
+                            .unwrap_or_else(|| format!("Group-DM-{}", &dm.id[..8.min(dm.id.len())]));
+
+                        // Clean up the mpdm- prefix and resolve user IDs to names
+                        if group_name.starts_with("mpdm-") {
+                            let user_part = &group_name[5..]; // Remove "mpdm-" prefix
+                            // Split by -- to get individual user IDs
+                            let user_ids: Vec<&str> = user_part.split("--").collect();
+                            let mut resolved_names = Vec::new();
+
+                            for uid in user_ids {
+                                // Remove the -1 suffix if present
+                                let clean_uid = uid.trim_end_matches("-1");
+                                // Try to resolve user ID to name
+                                if let Some(user_name) = user_map.get(clean_uid) {
+                                    resolved_names.push(user_name.clone());
+                                } else {
+                                    // If we can't resolve, use the ID as fallback
+                                    resolved_names.push(clean_uid.to_string());
+                                }
+                            }
+
+                            // Create a readable name from resolved users
+                            group_name = resolved_names.join(", ");
+                        }
+
+                        // Prefix with special indicator for Group DMs
+                        let display_name = format!("👥 {}", group_name);
+                        info!("[DEBUG] Group DM channel {} -> '{}'", dm.id, display_name);
+                        (display_name, false, true)
+                    } else if dm.is_im.unwrap_or(false) {
+                        // This is a regular DM
+                        // DMs have a user field that contains the other user's ID
+                        let display_name = if let Some(ref user_id) = dm.user {
+                            // Look up the user's display name
+                            let name = user_map.get(user_id)
+                                .map(|name| format!("@{}", name))
+                                .unwrap_or_else(|| format!("@{}", user_id));
+                            info!("[DEBUG] DM channel {} mapped to user '{}' -> '{}'", dm.id, user_id, name);
+                            name
+                        } else {
+                            // Fallback: use channel ID
+                            info!("[DEBUG] DM channel {} has no user field, using fallback name", dm.id);
+                            format!("DM-{}", dm.id)
+                        };
+                        (display_name, true, false)
                     } else {
-                        // Fallback: use channel ID
-                        info!("[DEBUG] DM channel {} has no user field, using fallback name", dm.id);
-                        format!("DM-{}", dm.id)
+                        // Unknown type - shouldn't happen but handle gracefully
+                        warn!("[DEBUG] Unknown channel type for {}: is_im={:?}, is_mpim={:?}",
+                              dm.id, dm.is_im, dm.is_mpim);
+                        continue;
                     };
 
-                    // Add to channels list with a special DM prefix
+                    // Add to channels list with proper type flags
                     channels.push(crate::slack::models::SlackConversation {
                         id: dm.id.clone(),
                         name: Some(dm_name.clone()),
+                        name_normalized: dm.name_normalized.clone(),
                         is_channel: Some(false),
-                        is_group: Some(false),
-                        is_im: Some(true),
-                        is_mpim: Some(false),
-                        is_private: Some(false),
+                        is_group: Some(is_mpim), // Group DMs are considered "groups" in Slack
+                        is_im: Some(is_im),
+                        is_mpim: Some(is_mpim),
+                        is_private: Some(true), // Both DMs and Group DMs are private
                         user: dm.user,
                     });
-                    info!("[DEBUG] Added DM channel to list: {} -> {}", dm.id, dm_name);
+
+                    let channel_type = if is_mpim { "Group DM" } else { "DM" };
+                    info!("[DEBUG] Added {} channel to list: {} -> {}", channel_type, dm.id, dm_name);
                 }
             }
             Err(e) => {
@@ -760,23 +823,29 @@ pub async fn get_user_channels(
 
     let mut channel_list = Vec::new();
     let mut dm_count = 0;
+    let mut group_dm_count = 0;
     for channel in channels {
         if let Some(name) = channel.name {
             if name.starts_with("@") {
                 dm_count += 1;
+            } else if name.starts_with("👥") {
+                group_dm_count += 1;
             }
             channel_list.push((channel.id.clone(), name.clone()));
-            // Cache the channel
-            state.cache_channel(channel.id, name).await;
+            // Cache the channel with its type information
+            let is_im = channel.is_im.unwrap_or(false);
+            let is_mpim = channel.is_mpim.unwrap_or(false);
+            state.cache_channel(channel.id, name, is_im, is_mpim).await;
         }
     }
 
-    info!("[DEBUG] Returning {} total channels, including {} DM channels", channel_list.len(), dm_count);
-    if dm_count > 0 {
-        info!("[DEBUG] First few DM channels in final list: {:?}",
+    info!("[DEBUG] Returning {} total channels: {} regular DMs, {} Group DMs",
+          channel_list.len(), dm_count, group_dm_count);
+    if dm_count > 0 || group_dm_count > 0 {
+        info!("[DEBUG] Sample DM/Group DM channels: {:?}",
             channel_list.iter()
-                .filter(|(_, name)| name.starts_with("@"))
-                .take(3)
+                .filter(|(_, name)| name.starts_with("@") || name.starts_with("👥"))
+                .take(5)
                 .collect::<Vec<_>>());
     }
 
@@ -1217,10 +1286,35 @@ pub async fn search_messages_fast(
             let search_query = build_search_query(&search_request);
             info!("Fast search with query: {}", search_query);
 
-            // Check if this is a DM channel search (channel ID starts with D)
-            if let Some(ref ch) = channel {
-                if ch.starts_with("D") && ch.len() > 8 {
-                    info!("Detected DM channel search for: {}", ch);
+            // Check if this is a DM or Group DM channel search based on cached channel info
+            let is_dm_search = if let Some(ref ch) = channel {
+                // Get the full channel cache to check channel type
+                let channel_cache_full = state.get_channel_cache_full().await;
+                if let Some(cached_channel) = channel_cache_full.get(ch) {
+                    cached_channel.is_im || cached_channel.is_mpim
+                } else {
+                    // Fallback to ID prefix check for channels not in cache
+                    (ch.starts_with("D") || ch.starts_with("G")) && ch.len() > 8
+                }
+            } else {
+                false
+            };
+
+            if is_dm_search {
+                if let Some(ref ch) = channel {
+                    let channel_cache_full = state.get_channel_cache_full().await;
+                    let channel_type = if let Some(cached_channel) = channel_cache_full.get(ch) {
+                        if cached_channel.is_mpim {
+                            "Group DM"
+                        } else {
+                            "DM"
+                        }
+                    } else if ch.starts_with("G") {
+                        "Group DM"
+                    } else {
+                        "DM"
+                    };
+                    info!("Detected {} channel search for: {}", channel_type, ch);
 
                     // Use the dedicated DM search function
                     let query_str = if query.is_empty() {
@@ -1234,7 +1328,7 @@ pub async fn search_messages_fast(
                         limit.unwrap_or(100),
                     ).await?;
 
-                    info!("DM search returned {} messages", dm_messages.len());
+                    info!("{} search returned {} messages", channel_type, dm_messages.len());
 
                     // Filter by date if specified
                     let filtered_messages: Vec<SlackMessage> = dm_messages.into_iter()
@@ -1269,7 +1363,7 @@ pub async fn search_messages_fast(
 
                     // Skip the normal search flow
                 }
-            } else if search_query == "USE_CONVERSATIONS_HISTORY" {
+            } else if !is_dm_search && search_query == "USE_CONVERSATIONS_HISTORY" {
                 // Use conversations.history for better private channel support
                 info!("Using conversations.history for channel + user search");
 

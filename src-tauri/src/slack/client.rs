@@ -258,8 +258,8 @@ impl SlackClient {
 
     // Helper function to resolve channel name to ID
     pub async fn resolve_channel_id(&self, channel_name: &str) -> Result<String> {
-        // If it already looks like a channel ID (starts with C or G), return as-is
-        if channel_name.starts_with('C') || channel_name.starts_with('G') {
+        // If it already looks like a channel ID (starts with C, D, or G), return as-is
+        if channel_name.starts_with('C') || channel_name.starts_with('D') || channel_name.starts_with('G') {
             return Ok(channel_name.to_string());
         }
 
@@ -328,12 +328,12 @@ impl SlackClient {
         Ok(all_channels)
     }
 
-    /// Get DM channels (direct messages with individual users)
-    /// This is Phase 1: Read-only DM channel discovery
-    /// IMPORTANT: This requires im:read scope in the Slack token
-    /// Search for messages within a single DM channel using conversations.history
-    /// IMPORTANT: This uses conversations.history NOT search.messages for DMs
-    /// Phase 2 implementation - conservative approach
+    /// Get DM channels (direct messages with individual users and groups)
+    /// This is Phase 1-4: Read-only DM and MPIM channel discovery
+    /// IMPORTANT: This requires im:read and mpim:read scopes in the Slack token
+    /// Search for messages within a single DM or Group DM channel using conversations.history
+    /// IMPORTANT: This uses conversations.history NOT search.messages for DMs/MPIMs
+    /// Phase 2-4 implementation - conservative approach
     pub async fn search_dm_messages(
         &self,
         dm_id: &str,
@@ -342,16 +342,25 @@ impl SlackClient {
     ) -> Result<Vec<SlackMessage>> {
         let url = format!("{}/conversations.history", SLACK_API_BASE);
 
+        // Determine if it's a DM or Group DM
+        let channel_type = if dm_id.starts_with("D") {
+            "DM"
+        } else if dm_id.starts_with("G") {
+            "Group DM"
+        } else {
+            "Unknown"
+        };
+
         info!(
-            "Searching DM channel {} with query: {:?}, limit: {}",
-            dm_id, query, limit
+            "Searching {} channel {} with query: {:?}, limit: {}",
+            channel_type, dm_id, query, limit
         );
 
         let mut params = HashMap::new();
         params.insert("channel", dm_id.to_string());
         params.insert("limit", limit.min(100).to_string()); // Cap at 100 for safety
 
-        // Conservative rate limiting for DM search
+        // Conservative rate limiting for DM/MPIM search
         sleep(Duration::from_millis(RATE_LIMIT_DELAY_MS * 2)).await;
 
         let response = self.client.get(&url).query(&params).send().await?;
@@ -363,11 +372,11 @@ impl SlackClient {
 
             if status == 403 {
                 return Err(anyhow!(
-                    "Permission denied. Your token needs 'im:history' scope to search DM messages."
+                    "Permission denied. Your token needs 'im:history' and 'mpim:history' scopes to search DM/Group DM messages."
                 ));
             }
 
-            return Err(anyhow!("Failed to search DM messages: {} - {}", status, text));
+            return Err(anyhow!("Failed to search DM/Group DM messages: {} - {}", status, text));
         }
 
         #[derive(Deserialize)]
@@ -419,15 +428,15 @@ impl SlackClient {
     pub async fn get_dm_channels(&self) -> Result<Vec<SlackConversation>> {
         let url = format!("{}/conversations.list", SLACK_API_BASE);
 
-        info!("Fetching DM channels (Phase 1: Read-only)");
+        info!("Fetching DM and Group DM channels (Phase 1-4: Read-only)");
 
         let mut all_dms = Vec::new();
         let mut cursor: Option<String> = None;
 
         loop {
             let mut params = HashMap::new();
-            // CRITICAL: Only fetch "im" type for DM channels, not "mpim" (group DMs)
-            params.insert("types", "im".to_string());
+            // Phase 4: Fetch both "im" (DM) and "mpim" (Group DM) channels
+            params.insert("types", "im,mpim".to_string());
             params.insert("limit", "200".to_string()); // Smaller limit for DMs to be conservative
 
             if let Some(ref cursor_value) = cursor {
@@ -466,13 +475,15 @@ impl SlackClient {
             }
 
             if let Some(channels) = result.channels {
-                // Filter to ensure we only get DM channels (is_im = true)
+                // Filter to ensure we only get DM and Group DM channels (is_im = true or is_mpim = true)
                 let dm_channels: Vec<SlackConversation> = channels
                     .into_iter()
-                    .filter(|c| c.is_im.unwrap_or(false))
+                    .filter(|c| c.is_im.unwrap_or(false) || c.is_mpim.unwrap_or(false))
                     .collect();
 
-                info!("Found {} DM channels in this batch", dm_channels.len());
+                let im_count = dm_channels.iter().filter(|c| c.is_im.unwrap_or(false)).count();
+                let mpim_count = dm_channels.iter().filter(|c| c.is_mpim.unwrap_or(false)).count();
+                info!("Found {} DM and {} Group DM channels in this batch", im_count, mpim_count);
                 all_dms.extend(dm_channels);
             }
 
@@ -491,7 +502,10 @@ impl SlackClient {
             break;
         }
 
-        info!("Successfully fetched {} DM channels total", all_dms.len());
+        let total_im = all_dms.iter().filter(|c| c.is_im.unwrap_or(false)).count();
+        let total_mpim = all_dms.iter().filter(|c| c.is_mpim.unwrap_or(false)).count();
+        info!("Successfully fetched {} DM and {} Group DM channels (total: {})",
+              total_im, total_mpim, all_dms.len());
         Ok(all_dms)
     }
 
@@ -577,6 +591,7 @@ impl SlackClient {
                 return Ok(SlackConversation {
                     id: channel_id.to_string(),
                     name: Some(channel_id.to_string()),
+                    name_normalized: None,
                     is_channel: None,
                     is_group: None,
                     is_im: None,
@@ -1170,9 +1185,16 @@ pub fn build_search_query(params: &SearchRequest) -> String {
     if let Some(channel) = &params.channel {
         if !channel.contains(',') {
             // Single channel search
-            let clean_channel = if channel.starts_with("D") && channel.len() > 8 {
-                // This is a DM channel ID (e.g., D096JP29HQH) - use it directly
-                info!("Using DM channel ID directly: '{}'", channel);
+            let clean_channel = if channel.starts_with("👥") {
+                // This is a Group DM display name with emoji prefix - extract the channel ID
+                // The frontend should pass the channel ID separately, but as a fallback,
+                // we'll log an error since we can't extract the ID from the display name alone
+                error!("Group DM channel passed with emoji prefix '{}' - cannot extract channel ID from display name", channel);
+                return "INVALID_GROUP_DM_CHANNEL".to_string();
+            } else if (channel.starts_with("D") || channel.starts_with("G")) && channel.len() > 8 {
+                // This is a DM (D...) or Group DM (G...) channel ID - use it directly
+                let channel_type = if channel.starts_with("D") { "DM" } else { "Group DM" };
+                info!("Using {} channel ID directly: '{}'", channel_type, channel);
                 channel.trim().to_string()
             } else if channel.starts_with('@') {
                 // This is a DM display name (e.g., @murayama) - need to find the actual channel ID

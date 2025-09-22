@@ -201,6 +201,7 @@ pub struct SlackConversationsListResponse {
 pub struct SlackConversation {
     pub id: String,
     pub name: Option<String>,
+    pub name_normalized: Option<String>,  // Normalized name for Group DMs
     pub is_channel: Option<bool>,
     pub is_group: Option<bool>,
     pub is_im: Option<bool>,

@@ -158,7 +158,10 @@ pub async fn get_thread(
         match client.get_channel_info(&channel_id).await {
             Ok(channel_info) => {
                 if let Some(name) = channel_info.name {
-                    state.cache_channel(channel_id.clone(), name.clone()).await;
+                    // Determine if this is a DM or Group DM based on channel info
+                    let is_im = channel_info.is_im.unwrap_or(false);
+                    let is_mpim = channel_info.is_mpim.unwrap_or(false);
+                    state.cache_channel(channel_id.clone(), name.clone(), is_im, is_mpim).await;
                     channel_cache.insert(channel_id.clone(), name);
                 }
             }

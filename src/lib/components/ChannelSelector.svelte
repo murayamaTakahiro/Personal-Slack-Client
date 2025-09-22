@@ -12,6 +12,11 @@
   const dispatch = createEventDispatcher();
   
   let searchInput = '';
+
+  // Helper function to check if a channel is a DM or Group DM
+  function isDMChannel(channelName: string): boolean {
+    return channelName.startsWith('@') || channelName.startsWith('👥');
+  }
   let showDropdown = false;
   let highlightedIndex = -1;
   let inputElement: HTMLInputElement;
@@ -263,20 +268,20 @@
   function selectChannel(channelId: string, channelName: string) {
     if (mode === 'multi') {
       // For multi-select, we'll need to handle this differently
-      // For now, use the name for regular channels and ID for DM channels
-      const valueToUse = channelName.startsWith('@') ? channelId : channelName;
+      // For now, use the name for regular channels and ID for DM/Group DM channels
+      const valueToUse = isDMChannel(channelName) ? channelId : channelName;
       channelStore.toggleChannelSelection(valueToUse);
       // Keep dropdown open in multi-select mode so user can see Apply Selection button
       // Don't update searchInput to keep it clear for further searching
     } else {
-      // For DM channels (starting with @), use the channel ID for search
+      // For DM channels (starting with @ or 👥), use the channel ID for search
       // but display the name in the input
-      const channelValue = channelName.startsWith('@') ? channelId : channelName;
+      const channelValue = isDMChannel(channelName) ? channelId : channelName;
       value = channelValue;
       searchInput = channelName; // Always show the name in the input
       showDropdown = false;
       channelStore.addToRecent(channelName); // Store by name for display
-      dispatch('change', { channel: channelValue }); // Pass the ID for DM channels
+      dispatch('change', { channel: channelValue }); // Pass the ID for DM/Group DM channels
     }
   }
   
@@ -531,17 +536,17 @@
             <div
               class="channel-item"
               class:highlighted={highlightedIndex === index}
-              class:selected={mode === 'multi' ? selectedChannels.includes(channel.name.startsWith('@') ? channel.id : channel.name) : value === (channel.name.startsWith('@') ? channel.id : channel.name)}
+              class:selected={mode === 'multi' ? selectedChannels.includes(isDMChannel(channel.name) ? channel.id : channel.name) : value === (isDMChannel(channel.name) ? channel.id : channel.name)}
               on:click={() => selectChannel(channel.id, channel.name)}
             >
               {#if mode === 'multi'}
                 <input
                   type="checkbox"
-                  checked={selectedChannels.includes(channel.name.startsWith('@') ? channel.id : channel.name)}
-                  on:click|stopPropagation={() => channelStore.toggleChannelSelection(channel.name.startsWith('@') ? channel.id : channel.name)}
+                  checked={selectedChannels.includes(isDMChannel(channel.name) ? channel.id : channel.name)}
+                  on:click|stopPropagation={() => channelStore.toggleChannelSelection(isDMChannel(channel.name) ? channel.id : channel.name)}
                 />
               {/if}
-              <span class="channel-name">{channel.name.startsWith('@') ? channel.name : '#' + channel.name}</span>
+              <span class="channel-name">{isDMChannel(channel.name) ? channel.name : '#' + channel.name}</span>
               <button
                 on:click={(e) => toggleFavorite(channel.id, e)}
                 class="favorite-btn active"
@@ -563,17 +568,17 @@
             <div
               class="channel-item"
               class:highlighted={highlightedIndex === actualIndex}
-              class:selected={mode === 'multi' ? selectedChannels.includes(channel.name.startsWith('@') ? channel.id : channel.name) : value === (channel.name.startsWith('@') ? channel.id : channel.name)}
+              class:selected={mode === 'multi' ? selectedChannels.includes(isDMChannel(channel.name) ? channel.id : channel.name) : value === (isDMChannel(channel.name) ? channel.id : channel.name)}
               on:click={() => selectChannel(channel.id, channel.name)}
             >
               {#if mode === 'multi'}
                 <input
                   type="checkbox"
-                  checked={selectedChannels.includes(channel.name.startsWith('@') ? channel.id : channel.name)}
-                  on:click|stopPropagation={() => channelStore.toggleChannelSelection(channel.name.startsWith('@') ? channel.id : channel.name)}
+                  checked={selectedChannels.includes(isDMChannel(channel.name) ? channel.id : channel.name)}
+                  on:click|stopPropagation={() => channelStore.toggleChannelSelection(isDMChannel(channel.name) ? channel.id : channel.name)}
                 />
               {/if}
-              <span class="channel-name">{channel.name.startsWith('@') ? channel.name : '#' + channel.name}</span>
+              <span class="channel-name">{isDMChannel(channel.name) ? channel.name : '#' + channel.name}</span>
               <button
                 on:click={(e) => toggleFavorite(channel.id, e)}
                 class="favorite-btn"
@@ -595,17 +600,17 @@
             <div
               class="channel-item"
               class:highlighted={highlightedIndex === actualIndex}
-              class:selected={mode === 'multi' ? selectedChannels.includes(channel.name.startsWith('@') ? channel.id : channel.name) : value === (channel.name.startsWith('@') ? channel.id : channel.name)}
+              class:selected={mode === 'multi' ? selectedChannels.includes(isDMChannel(channel.name) ? channel.id : channel.name) : value === (isDMChannel(channel.name) ? channel.id : channel.name)}
               on:click={() => selectChannel(channel.id, channel.name)}
             >
               {#if mode === 'multi'}
                 <input
                   type="checkbox"
-                  checked={selectedChannels.includes(channel.name.startsWith('@') ? channel.id : channel.name)}
-                  on:click|stopPropagation={() => channelStore.toggleChannelSelection(channel.name.startsWith('@') ? channel.id : channel.name)}
+                  checked={selectedChannels.includes(isDMChannel(channel.name) ? channel.id : channel.name)}
+                  on:click|stopPropagation={() => channelStore.toggleChannelSelection(isDMChannel(channel.name) ? channel.id : channel.name)}
                 />
               {/if}
-              <span class="channel-name">{channel.name.startsWith('@') ? channel.name : '#' + channel.name}</span>
+              <span class="channel-name">{isDMChannel(channel.name) ? channel.name : '#' + channel.name}</span>
               <button
                 on:click={(e) => toggleFavorite(channel.id, e)}
                 class="favorite-btn"

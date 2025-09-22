@@ -19,7 +19,9 @@ pub struct CachedUser {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct CachedChannel {
     pub name: String,
-    pub cached_at: u64, // Unix timestamp
+    pub is_im: bool,     // Is direct message
+    pub is_mpim: bool,   // Is multi-party instant message (Group DM)
+    pub cached_at: u64,  // Unix timestamp
 }
 
 #[derive(Clone)]
@@ -157,12 +159,14 @@ impl AppState {
         );
     }
 
-    pub async fn cache_channel(&self, channel_id: String, channel_name: String) {
+    pub async fn cache_channel(&self, channel_id: String, channel_name: String, is_im: bool, is_mpim: bool) {
         let mut cache = self.channel_cache.write().await;
         cache.insert(
             channel_id,
             CachedChannel {
                 name: channel_name,
+                is_im,
+                is_mpim,
                 cached_at: Self::current_timestamp(),
             },
         );
@@ -196,6 +200,17 @@ impl AppState {
         for (id, channel) in cache.iter() {
             if Self::is_cache_valid(channel.cached_at) {
                 result.insert(id.clone(), channel.name.clone());
+            }
+        }
+        result
+    }
+
+    pub async fn get_channel_cache_full(&self) -> HashMap<String, CachedChannel> {
+        let cache = self.channel_cache.read().await;
+        let mut result = HashMap::new();
+        for (id, channel) in cache.iter() {
+            if Self::is_cache_valid(channel.cached_at) {
+                result.insert(id.clone(), channel.clone());
             }
         }
         result
