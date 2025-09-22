@@ -1217,8 +1217,59 @@ pub async fn search_messages_fast(
             let search_query = build_search_query(&search_request);
             info!("Fast search with query: {}", search_query);
 
-            // Check if we should use conversations.history instead
-            if search_query == "USE_CONVERSATIONS_HISTORY" {
+            // Check if this is a DM channel search (channel ID starts with D)
+            if let Some(ref ch) = channel {
+                if ch.starts_with("D") && ch.len() > 8 {
+                    info!("Detected DM channel search for: {}", ch);
+
+                    // Use the dedicated DM search function
+                    let query_str = if query.is_empty() {
+                        None
+                    } else {
+                        Some(query.as_str())
+                    };
+                    let dm_messages = client.search_dm_messages(
+                        ch,
+                        query_str,
+                        limit.unwrap_or(100),
+                    ).await?;
+
+                    info!("DM search returned {} messages", dm_messages.len());
+
+                    // Filter by date if specified
+                    let filtered_messages: Vec<SlackMessage> = dm_messages.into_iter()
+                        .filter(|msg| {
+                            if let Some(ref from) = from_date {
+                                // msg.ts is a String in SlackMessage
+                                let ts_float: f64 = msg.ts.parse().unwrap_or(0.0);
+                                let msg_date = chrono::DateTime::from_timestamp(ts_float as i64, 0)
+                                    .map(|dt| dt.format("%Y-%m-%d").to_string())
+                                    .unwrap_or_default();
+                                msg_date >= *from
+                            } else {
+                                true
+                            }
+                        })
+                        .filter(|msg| {
+                            if let Some(ref to) = to_date {
+                                // msg.ts is a String in SlackMessage
+                                let ts_float: f64 = msg.ts.parse().unwrap_or(0.0);
+                                let msg_date = chrono::DateTime::from_timestamp(ts_float as i64, 0)
+                                    .map(|dt| dt.format("%Y-%m-%d").to_string())
+                                    .unwrap_or_default();
+                                msg_date <= *to
+                            } else {
+                                true
+                            }
+                        })
+                        .collect();
+
+                    info!("After date filtering: {} messages", filtered_messages.len());
+                    all_slack_messages = filtered_messages;
+
+                    // Skip the normal search flow
+                }
+            } else if search_query == "USE_CONVERSATIONS_HISTORY" {
                 // Use conversations.history for better private channel support
                 info!("Using conversations.history for channel + user search");
 
