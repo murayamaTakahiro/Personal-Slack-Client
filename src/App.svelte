@@ -39,6 +39,7 @@
   import EmojiSearchDialog from './lib/components/EmojiSearchDialog.svelte';
   import { savedSearchesStore } from './lib/stores/savedSearches';
   import { urlHistoryStore } from './lib/stores/urlHistory';
+  import { searchKeywordHistoryStore } from './lib/stores/searchKeywordHistory';
   import RealtimeSettings from './lib/components/RealtimeSettings.svelte';
   import PerformanceSettings from './lib/components/PerformanceSettings.svelte';
   import PerformanceDashboard from './lib/components/PerformanceDashboard.svelte';
@@ -217,6 +218,18 @@
         }),
         new Promise(resolve => setTimeout(() => {
           console.warn('[App] URL history initialization timed out');
+          resolve(null);
+        }, 2000)) // Reduced timeout
+      ]),
+
+      // Initialize search keyword history store with timeout
+      Promise.race([
+        searchKeywordHistoryStore.initialize().catch(error => {
+          console.warn('[App] Search keyword history initialization failed:', error);
+          return null; // Don't let this break the app
+        }),
+        new Promise(resolve => setTimeout(() => {
+          console.warn('[App] Search keyword history initialization timed out');
           resolve(null);
         }, 2000)) // Reduced timeout
       ]),
@@ -1105,6 +1118,11 @@
           logger.debug('[App] Re-initializing URL history for workspace switch...');
           await urlHistoryStore.initialize();
           logger.debug('[App] URL history re-initialized');
+
+          // Re-initialize search keyword history for the new workspace
+          logger.debug('[App] Re-initializing search keyword history for workspace switch...');
+          await searchKeywordHistoryStore.initialize();
+          logger.debug('[App] Search keyword history re-initialized');
           
           // Force UI update by reassigning channels
           channels = [...channels];

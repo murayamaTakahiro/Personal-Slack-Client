@@ -14,7 +14,9 @@
   import { isPostDialogOpen } from '../stores/postDialog';
   import UrlHistoryManager from './UrlHistoryManager.svelte';
   import { urlHistoryStore } from '../stores/urlHistory';
-  
+  import SearchKeywordHistory from './SearchKeywordHistory.svelte';
+  import { searchKeywordHistoryStore } from '../stores/searchKeywordHistory';
+
   export let channels: [string, string][] = [];
   export let showAdvanced = true;
   
@@ -39,6 +41,8 @@
   let savedSearchKey = 0; // Key to force component recreation
   let showUrlHistory = false;
   let urlHistoryButton: HTMLButtonElement;
+  let showKeywordHistory = false;
+  let keywordHistoryButton: HTMLButtonElement;
   
   // Keep local filter values in sync with searchParams store
   // This ensures filters persist when dialogs are opened/closed or focus changes
@@ -67,12 +71,16 @@
       // Clear query for realtime mode to focus on channel-based filtering
       searchQuery.set('');
     }
-    
+
     // Check if we have either a query or at least one filter
     const hasFilters = channel || userId || fromDate || toDate;
     const hasQuery = $searchQuery.trim();
-    
+
     if (hasQuery || hasFilters) {
+      // Save keyword to history if it's a non-empty query
+      if (hasQuery && !isRealtimeUpdate) {
+        searchKeywordHistoryStore.saveKeyword(hasQuery);
+      }
       // Save to saved searches if not a duplicate
       const searchToSave = {
         query: $searchQuery.trim() || undefined,
@@ -195,8 +203,41 @@
       return;
     }
 
+    // Handle arrow keys for keyword history navigation
+    if (showKeywordHistory && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      // Let the SearchKeywordHistory component handle navigation
+      return;
+    }
+
     if (e.key === 'Enter' && !$searchLoading) {
       handleSearch();
+    }
+  }
+
+  function toggleKeywordHistory() {
+    showKeywordHistory = !showKeywordHistory;
+    if (!showKeywordHistory) {
+      // Return focus to the button when closing
+      if (keywordHistoryButton) {
+        keywordHistoryButton.focus();
+      }
+    }
+  }
+
+  function handleKeywordSelect(event: CustomEvent<{ keyword: string }>) {
+    searchQuery.set(event.detail.keyword);
+    showKeywordHistory = false;
+    // Focus back on search input
+    if (searchInput) {
+      searchInput.focus();
+    }
+  }
+
+  function closeKeywordHistory() {
+    showKeywordHistory = false;
+    // Return focus to the button when closing
+    if (keywordHistoryButton) {
+      keywordHistoryButton.focus();
     }
   }
   
@@ -641,15 +682,42 @@
         <div class="input-group">
           <label>
             Search Keywords:
-            <input
-              type="text"
-              bind:this={searchInput}
-              bind:value={$searchQuery}
-              on:keydown={handleKeydown}
-              placeholder="Search messages... (optional with filters)"
-              disabled={$searchLoading}
-              class="search-input"
-            />
+            <div class="keyword-input-container">
+              <div class="keyword-input-wrapper">
+                <input
+                  type="text"
+                  bind:this={searchInput}
+                  bind:value={$searchQuery}
+                  on:keydown={handleKeydown}
+                  placeholder="Search messages... (optional with filters)"
+                  disabled={$searchLoading}
+                  class="search-input"
+                />
+                <button
+                  bind:this={keywordHistoryButton}
+                  on:click={toggleKeywordHistory}
+                  class="btn-keyword-history {showKeywordHistory ? 'active' : ''}"
+                  title="Search History (Ctrl+H)"
+                  type="button"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  {#if $searchKeywordHistoryStore.length > 0}
+                    <span class="history-count">{$searchKeywordHistoryStore.length}</span>
+                  {/if}
+                </button>
+              </div>
+              {#if showKeywordHistory}
+                <SearchKeywordHistory
+                  isOpen={showKeywordHistory}
+                  triggerElement={keywordHistoryButton}
+                  on:select={handleKeywordSelect}
+                  on:close={closeKeywordHistory}
+                />
+              {/if}
+            </div>
           </label>
         </div>
 
@@ -959,10 +1027,12 @@
     opacity: 0.6;
   }
   
+  .keyword-input-container,
   .url-input-container {
     position: relative;
   }
 
+  .keyword-input-wrapper,
   .url-input-wrapper {
     display: flex;
     gap: 0.5rem;
@@ -970,6 +1040,41 @@
 
   .url-input {
     flex: 1;
+  }
+
+  .btn-keyword-history {
+    padding: 0.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .btn-keyword-history:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary);
+  }
+
+  .btn-keyword-history.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  .btn-keyword-history .history-count {
+    padding: 1px 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 500;
+    min-width: 16px;
+    text-align: center;
   }
 
   .btn-url-history {
