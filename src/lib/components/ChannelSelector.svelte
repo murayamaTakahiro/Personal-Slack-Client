@@ -178,7 +178,7 @@
         if (highlightedIndex >= 0 && highlightedIndex < totalItems) {
           const channel = flatChannelList[highlightedIndex];
           if (channel) {
-            selectChannel(channel.name);
+            selectChannel(channel.id, channel.name);
           }
         }
         break;
@@ -260,17 +260,23 @@
     showToast(message, 'success');
   }
   
-  function selectChannel(channelName: string) {
+  function selectChannel(channelId: string, channelName: string) {
     if (mode === 'multi') {
-      channelStore.toggleChannelSelection(channelName);
+      // For multi-select, we'll need to handle this differently
+      // For now, use the name for regular channels and ID for DM channels
+      const valueToUse = channelName.startsWith('@') ? channelId : channelName;
+      channelStore.toggleChannelSelection(valueToUse);
       // Keep dropdown open in multi-select mode so user can see Apply Selection button
       // Don't update searchInput to keep it clear for further searching
     } else {
-      value = channelName;
-      searchInput = channelName;
+      // For DM channels (starting with @), use the channel ID for search
+      // but display the name in the input
+      const channelValue = channelName.startsWith('@') ? channelId : channelName;
+      value = channelValue;
+      searchInput = channelName; // Always show the name in the input
       showDropdown = false;
-      channelStore.addToRecent(channelName);
-      dispatch('change', { channel: channelName });
+      channelStore.addToRecent(channelName); // Store by name for display
+      dispatch('change', { channel: channelValue }); // Pass the ID for DM channels
     }
   }
   
@@ -525,17 +531,17 @@
             <div
               class="channel-item"
               class:highlighted={highlightedIndex === index}
-              class:selected={mode === 'multi' ? selectedChannels.includes(channel.name) : value === channel.name}
-              on:click={() => selectChannel(channel.name)}
+              class:selected={mode === 'multi' ? selectedChannels.includes(channel.name.startsWith('@') ? channel.id : channel.name) : value === (channel.name.startsWith('@') ? channel.id : channel.name)}
+              on:click={() => selectChannel(channel.id, channel.name)}
             >
               {#if mode === 'multi'}
                 <input
                   type="checkbox"
-                  checked={selectedChannels.includes(channel.name)}
-                  on:click|stopPropagation={() => channelStore.toggleChannelSelection(channel.name)}
+                  checked={selectedChannels.includes(channel.name.startsWith('@') ? channel.id : channel.name)}
+                  on:click|stopPropagation={() => channelStore.toggleChannelSelection(channel.name.startsWith('@') ? channel.id : channel.name)}
                 />
               {/if}
-              <span class="channel-name">#{channel.name}</span>
+              <span class="channel-name">{channel.name.startsWith('@') ? channel.name : '#' + channel.name}</span>
               <button
                 on:click={(e) => toggleFavorite(channel.id, e)}
                 class="favorite-btn active"
@@ -557,17 +563,17 @@
             <div
               class="channel-item"
               class:highlighted={highlightedIndex === actualIndex}
-              class:selected={mode === 'multi' ? selectedChannels.includes(channel.name) : value === channel.name}
-              on:click={() => selectChannel(channel.name)}
+              class:selected={mode === 'multi' ? selectedChannels.includes(channel.name.startsWith('@') ? channel.id : channel.name) : value === (channel.name.startsWith('@') ? channel.id : channel.name)}
+              on:click={() => selectChannel(channel.id, channel.name)}
             >
               {#if mode === 'multi'}
                 <input
                   type="checkbox"
-                  checked={selectedChannels.includes(channel.name)}
-                  on:click|stopPropagation={() => channelStore.toggleChannelSelection(channel.name)}
+                  checked={selectedChannels.includes(channel.name.startsWith('@') ? channel.id : channel.name)}
+                  on:click|stopPropagation={() => channelStore.toggleChannelSelection(channel.name.startsWith('@') ? channel.id : channel.name)}
                 />
               {/if}
-              <span class="channel-name">#{channel.name}</span>
+              <span class="channel-name">{channel.name.startsWith('@') ? channel.name : '#' + channel.name}</span>
               <button
                 on:click={(e) => toggleFavorite(channel.id, e)}
                 class="favorite-btn"
@@ -589,17 +595,17 @@
             <div
               class="channel-item"
               class:highlighted={highlightedIndex === actualIndex}
-              class:selected={mode === 'multi' ? selectedChannels.includes(channel.name) : value === channel.name}
-              on:click={() => selectChannel(channel.name)}
+              class:selected={mode === 'multi' ? selectedChannels.includes(channel.name.startsWith('@') ? channel.id : channel.name) : value === (channel.name.startsWith('@') ? channel.id : channel.name)}
+              on:click={() => selectChannel(channel.id, channel.name)}
             >
               {#if mode === 'multi'}
                 <input
                   type="checkbox"
-                  checked={selectedChannels.includes(channel.name)}
-                  on:click|stopPropagation={() => channelStore.toggleChannelSelection(channel.name)}
+                  checked={selectedChannels.includes(channel.name.startsWith('@') ? channel.id : channel.name)}
+                  on:click|stopPropagation={() => channelStore.toggleChannelSelection(channel.name.startsWith('@') ? channel.id : channel.name)}
                 />
               {/if}
-              <span class="channel-name">#{channel.name}</span>
+              <span class="channel-name">{channel.name.startsWith('@') ? channel.name : '#' + channel.name}</span>
               <button
                 on:click={(e) => toggleFavorite(channel.id, e)}
                 class="favorite-btn"

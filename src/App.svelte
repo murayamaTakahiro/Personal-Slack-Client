@@ -69,7 +69,6 @@
   import PerformanceMonitor from './lib/components/PerformanceMonitor.svelte';
   import ConfirmationDialog from './lib/components/ConfirmationDialog.svelte';
   import ExperimentalSettings from './lib/components/ExperimentalSettings.svelte';
-  import DMChannelsList from './lib/components/DMChannelsList.svelte';
 
   let channels: [string, string][] = [];
   let showSettings = false;
@@ -83,6 +82,11 @@
   let showKeyboardHelp = false;
   let showEmojiSearch = false;
   let realtimeInterval: NodeJS.Timeout | null = null;
+
+  // DM Search state
+  let dmSearchMode = false;
+  let selectedDMId: string | null = null;
+  let selectedDMName: string | null = null;
   let previousMessageIds = new Set<string>();
   let unsubscribeRealtime: (() => void) | null = null;
   let unsubscribeSearchResults: (() => void) | null = null;
@@ -1157,6 +1161,36 @@
     }
   }
   
+  // DM Search handlers - temporarily disabled as DMs are now in regular channel list
+  function handleDMSelect(event: CustomEvent) {
+    // const { dmId, dmInfo } = event.detail;
+    // selectedDMId = dmId;
+    // selectedDMName = dmInfo?.name || null;
+    // console.log('[App] Selected DM:', dmId, dmInfo);
+    // if (dmSearchMode) {
+    //   searchResults.set(null);
+    //   searchError.set(null);
+    // }
+  }
+
+  function handleDMSearchResults(event: CustomEvent) {
+    // const { results, dmId, query } = event.detail;
+    // console.log(`[App] DM search results for ${dmId}:`, results.length, 'messages');
+    // if (results && results.length > 0) {
+    //   searchResults.set({
+    //     messages: results,
+    //     total: results.length,
+    //     query: query || '',
+    //     channel_breakdown: {},
+    //     is_dm_search: true,
+    //     dm_id: dmId
+    //   });
+    // } else {
+    //   searchResults.set(null);
+    //   searchError.set(`No messages found in DM ${dmId} matching: ${query}`);
+    // }
+  }
+
   async function handleSearch(event?: CustomEvent) {
     try {
       searchLoading.set(true);
@@ -1273,21 +1307,35 @@
     try {
       // Clear existing channels first
       channels = [];
-      
-      // Get new channels for current workspace
-      const newChannels = await getUserChannels();
-      
+
+      // Check if DM channels feature is enabled
+      const includeDMs = $settings.experimentalFeatures?.dmChannelsEnabled || false;
+      console.log('[DEBUG] Loading channels with DM feature enabled:', includeDMs);
+      console.log('[DEBUG] Current experimental features:', $settings.experimentalFeatures);
+
+      // Get new channels for current workspace (including DMs if enabled)
+      const newChannels = await getUserChannels(includeDMs);
+      console.log('[DEBUG] Received channels:', newChannels.length);
+
+      // Log first few channels to see if any DMs are included
+      const dmChannels = newChannels.filter(([id, name]) => name.startsWith('@'));
+      console.log('[DEBUG] DM channels found:', dmChannels.length);
+      if (dmChannels.length > 0) {
+        console.log('[DEBUG] First few DM channels:', dmChannels.slice(0, 3));
+      }
+
       // Update channels and force reactivity
       channels = newChannels || [];
-      
+
       // Initialize channel store with workspace-specific data (favorites, recent channels, etc.)
       await channelStore.initChannels(channels);
-      
+
       // Loaded channels for workspace
-      
+
       // Also load users for mention resolution
       await loadUsers();
     } catch (err) {
+      console.error('[DEBUG] Failed to load channels:', err);
       // Failed to load channels
       channels = [];
       searchError.set('Failed to load channels. Please check your token permissions.');
@@ -1601,7 +1649,7 @@
         
         <UserIdSettings />
 
-        <ExperimentalSettings />
+        <ExperimentalSettings on:channelsNeedReload={loadChannels} />
       </div>
 
       <div class="settings-actions">
@@ -1638,12 +1686,12 @@
       <SearchBar
         bind:this={searchBarElement}
         {channels}
+        bind:dmSearchMode={dmSearchMode}
+        bind:selectedDMId={selectedDMId}
+        bind:selectedDMName={selectedDMName}
         on:search={handleSearch}
       />
     </ErrorBoundary>
-
-    <!-- DM Channels List (Experimental Feature) -->
-    <DMChannelsList />
 
     {#if !token && !$searchError}
       <div class="welcome-message">

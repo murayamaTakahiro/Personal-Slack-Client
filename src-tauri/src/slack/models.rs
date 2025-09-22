@@ -118,7 +118,7 @@ pub struct SlackPaging {
     pub pages: usize,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SlackMessage {
     pub ts: String,
     pub thread_ts: Option<String>,
@@ -136,7 +136,7 @@ pub struct SlackMessage {
     pub files: Option<Vec<SlackFile>>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SlackChannelInfo {
     pub id: String,
     pub name: String,
@@ -206,6 +206,7 @@ pub struct SlackConversation {
     pub is_im: Option<bool>,
     pub is_mpim: Option<bool>,
     pub is_private: Option<bool>,
+    pub user: Option<String>,  // For DM channels: ID of the other user
 }
 
 #[derive(Debug, Deserialize)]

@@ -331,6 +331,91 @@ impl SlackClient {
     /// Get DM channels (direct messages with individual users)
     /// This is Phase 1: Read-only DM channel discovery
     /// IMPORTANT: This requires im:read scope in the Slack token
+    /// Search for messages within a single DM channel using conversations.history
+    /// IMPORTANT: This uses conversations.history NOT search.messages for DMs
+    /// Phase 2 implementation - conservative approach
+    pub async fn search_dm_messages(
+        &self,
+        dm_id: &str,
+        query: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<SlackMessage>> {
+        let url = format!("{}/conversations.history", SLACK_API_BASE);
+
+        info!(
+            "Searching DM channel {} with query: {:?}, limit: {}",
+            dm_id, query, limit
+        );
+
+        let mut params = HashMap::new();
+        params.insert("channel", dm_id.to_string());
+        params.insert("limit", limit.min(100).to_string()); // Cap at 100 for safety
+
+        // Conservative rate limiting for DM search
+        sleep(Duration::from_millis(RATE_LIMIT_DELAY_MS * 2)).await;
+
+        let response = self.client.get(&url).query(&params).send().await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await?;
+            error!("Failed to search DM messages: {} - {}", status, text);
+
+            if status == 403 {
+                return Err(anyhow!(
+                    "Permission denied. Your token needs 'im:history' scope to search DM messages."
+                ));
+            }
+
+            return Err(anyhow!("Failed to search DM messages: {} - {}", status, text));
+        }
+
+        #[derive(Deserialize)]
+        struct ConversationsHistoryResponse {
+            ok: bool,
+            messages: Option<Vec<SlackMessage>>,
+            error: Option<String>,
+        }
+
+        let result: ConversationsHistoryResponse = response.json().await?;
+
+        if !result.ok {
+            let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
+
+            if error_msg.contains("missing_scope") {
+                return Err(anyhow!(
+                    "Missing required scope. Your token needs 'im:history' permission to search DM messages."
+                ));
+            }
+
+            return Err(anyhow!("Slack API error: {}", error_msg));
+        }
+
+        let mut messages = result.messages.unwrap_or_default();
+
+        // If a query is provided, filter messages locally (Phase 2 approach)
+        if let Some(search_query) = query {
+            let search_lower = search_query.to_lowercase();
+            messages.retain(|msg| {
+                msg.text.to_lowercase().contains(&search_lower)
+            });
+
+            info!(
+                "Filtered DM messages: {} results match query '{}'",
+                messages.len(),
+                search_query
+            );
+        }
+
+        info!(
+            "Successfully retrieved {} messages from DM channel {}",
+            messages.len(),
+            dm_id
+        );
+
+        Ok(messages)
+    }
+
     pub async fn get_dm_channels(&self) -> Result<Vec<SlackConversation>> {
         let url = format!("{}/conversations.list", SLACK_API_BASE);
 
@@ -497,6 +582,7 @@ impl SlackClient {
                     is_im: None,
                     is_mpim: None,
                     is_private: None,
+                    user: None,
                 });
             }
             return Err(anyhow!("Slack API error: {}", error_msg));
@@ -1078,13 +1164,27 @@ pub fn build_search_query(params: &SearchRequest) -> String {
         query_parts.push(params.query.clone());
     }
 
-    // Add channel filter - remove # if present
+    // Add channel filter - handle different channel types
     // Note: Slack doesn't support OR for channels in a single query
     // For multi-channel search, we'll need to handle this differently
     if let Some(channel) = &params.channel {
         if !channel.contains(',') {
             // Single channel search
-            let clean_channel = channel.trim_start_matches('#').trim();
+            let clean_channel = if channel.starts_with("D") && channel.len() > 8 {
+                // This is a DM channel ID (e.g., D096JP29HQH) - use it directly
+                info!("Using DM channel ID directly: '{}'", channel);
+                channel.trim().to_string()
+            } else if channel.starts_with('@') {
+                // This is a DM display name (e.g., @murayama) - need to find the actual channel ID
+                // For now, we'll log a warning and use it as-is
+                // The frontend should be passing the channel ID, not the display name
+                warn!("DM channel passed as display name '{}' - should be using channel ID", channel);
+                channel.trim().to_string()
+            } else {
+                // Regular channel - remove # if present
+                channel.trim_start_matches('#').trim().to_string()
+            };
+
             if !clean_channel.is_empty() {
                 info!("Adding channel filter for: '{}'", clean_channel);
                 query_parts.push(format!("in:{}", clean_channel));

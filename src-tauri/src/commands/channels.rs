@@ -1,5 +1,5 @@
 use crate::error::AppResult;
-use crate::slack::models::SlackConversation;
+use crate::slack::models::{SlackConversation, SlackMessage};
 use crate::state::AppState;
 use serde_json::Value;
 use tauri::{AppHandle, State};
@@ -119,6 +119,54 @@ pub async fn check_dm_permissions(state: State<'_, AppState>) -> AppResult<bool>
                 error!("Error checking DM permissions: {}", e);
                 Err(e.into())
             }
+        }
+    }
+}
+
+/// Search for messages within a single DM channel (Phase 2)
+/// IMPORTANT: This is an experimental feature that requires:
+/// 1. Feature flag to be enabled (dmChannelsEnabled)
+/// 2. Token with im:history scope
+/// 3. Uses conversations.history API, NOT search.messages
+#[tauri::command]
+pub async fn search_dm_messages(
+    state: State<'_, AppState>,
+    dm_id: String,
+    query: Option<String>,
+    limit: Option<usize>,
+) -> AppResult<Vec<SlackMessage>> {
+    info!(
+        "Searching DM channel {} with query: {:?} (Phase 2)",
+        dm_id, query
+    );
+
+    // Get the Slack client
+    let client = state.get_client().await?;
+
+    // Set default limit if not provided (conservative for DMs)
+    let max_results = limit.unwrap_or(50).min(100);
+
+    // Try to search DM messages
+    match client
+        .search_dm_messages(&dm_id, query.as_deref(), max_results)
+        .await
+    {
+        Ok(messages) => {
+            info!(
+                "Successfully searched DM {}: found {} messages",
+                dm_id,
+                messages.len()
+            );
+            Ok(messages)
+        }
+        Err(e) => {
+            // Log the error with appropriate severity based on the error type
+            if e.to_string().contains("missing_scope") || e.to_string().contains("im:history") {
+                warn!("Cannot search DM messages: Missing im:history permission. {}", e);
+            } else {
+                error!("Failed to search DM messages: {}", e);
+            }
+            Err(e.into())
         }
     }
 }

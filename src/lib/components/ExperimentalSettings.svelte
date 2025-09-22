@@ -1,11 +1,16 @@
 <script lang="ts">
   import { settings, toggleDMChannels } from '../stores/settings';
+  import { createEventDispatcher } from 'svelte';
+
+  const dispatch = createEventDispatcher();
 
   // Get current state of DM channels feature
   $: dmChannelsEnabled = $settings.experimentalFeatures?.dmChannelsEnabled || false;
 
-  function handleDMChannelsToggle() {
+  async function handleDMChannelsToggle() {
     toggleDMChannels(!dmChannelsEnabled);
+    // Dispatch event to reload channels
+    dispatch('channelsNeedReload');
   }
 </script>
 
@@ -28,19 +33,19 @@
             checked={dmChannelsEnabled}
             on:change={handleDMChannelsToggle}
           />
-          <span class="toggle-label">Enable DM Channels (Phase 1: Read-only)</span>
+          <span class="toggle-label">Enable DM Channels</span>
         </label>
       </div>
       <div class="feature-description">
-        <p>Display Direct Message channels in a read-only list.</p>
+        <p>Include Direct Message channels in the channel selector alongside regular channels.</p>
         <p class="requirements">Requirements:</p>
         <ul>
           <li>Slack token must have <code>im:read</code> permission</li>
-          <li>Currently only displays DM list (no search functionality)</li>
+          <li>DMs appear with "@username" format in the channel list</li>
+          <li>Search works the same as regular channels</li>
         </ul>
         <p class="phase-info">
-          <strong>Phase 1:</strong> Read-only display of DM channels<br>
-          <strong>Future phases:</strong> Search and interaction capabilities
+          <strong>Note:</strong> You may need to reload the app after toggling this feature
         </p>
       </div>
     </div>

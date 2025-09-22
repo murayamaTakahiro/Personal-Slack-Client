@@ -45,8 +45,8 @@ export async function openInSlack(permalink: string): Promise<void> {
   return await invoke('open_in_slack', { permalink });
 }
 
-export async function getUserChannels(): Promise<[string, string][]> {
-  return await invoke('get_user_channels', {});
+export async function getUserChannels(includeDMs: boolean = false): Promise<[string, string][]> {
+  return await invoke('get_user_channels', { includeDms: includeDMs });
 }
 
 export async function getUsers(): Promise<[string, string, string | null][]> {

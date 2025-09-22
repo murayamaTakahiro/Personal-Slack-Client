@@ -673,21 +673,112 @@ pub async fn search_messages(
 }
 
 #[tauri::command]
-pub async fn get_user_channels(state: State<'_, AppState>) -> AppResult<Vec<(String, String)>> {
+pub async fn get_user_channels(
+    state: State<'_, AppState>,
+    include_dms: Option<bool>,
+) -> AppResult<Vec<(String, String)>> {
+    info!("[DEBUG] get_user_channels called with include_dms: {:?}", include_dms);
     let client = state.get_client().await?;
 
+    // Get regular channels (public and private)
+    let mut channels = client.get_channels().await?;
+    info!("[DEBUG] Regular channels fetched: {}", channels.len());
 
-    let channels = client.get_channels().await?;
+    // If DMs are requested and feature is enabled, include them
+    if include_dms.unwrap_or(false) {
+        info!("Including DM channels in channel list");
+
+        // Try to fetch DM channels, but don't fail if permissions are missing
+        match client.get_dm_channels().await {
+            Ok(dm_channels) => {
+                info!("Successfully fetched {} DM channels", dm_channels.len());
+
+                // Get users for mapping user IDs to names
+                let users = match client.get_all_users().await {
+                    Ok(users) => users,
+                    Err(e) => {
+                        warn!("Failed to fetch users for DM name mapping: {}", e);
+                        vec![]
+                    }
+                };
+
+                // Create a map of user IDs to display names
+                let user_map: HashMap<String, String> = users
+                    .into_iter()
+                    .filter_map(|user| {
+                        let display_name = user.profile.as_ref()
+                            .and_then(|p| p.display_name.clone())
+                            .filter(|n| !n.is_empty())
+                            .or_else(|| user.profile.as_ref()
+                                .and_then(|p| p.real_name.clone()))
+                            .or_else(|| Some(user.name.clone()))
+                            .unwrap_or_else(|| user.id.clone());
+                        Some((user.id.clone(), display_name))
+                    })
+                    .collect();
+
+                // Convert DM channels to the same format as regular channels
+                for dm in dm_channels {
+                    // DMs have a user field that contains the other user's ID
+                    let dm_name = if let Some(ref user_id) = dm.user {
+                        // Look up the user's display name
+                        let display_name = user_map.get(user_id)
+                            .map(|name| format!("@{}", name))
+                            .unwrap_or_else(|| format!("@{}", user_id));
+                        info!("[DEBUG] DM channel {} mapped to user '{}' -> '{}'", dm.id, user_id, display_name);
+                        display_name
+                    } else {
+                        // Fallback: use channel ID
+                        info!("[DEBUG] DM channel {} has no user field, using fallback name", dm.id);
+                        format!("DM-{}", dm.id)
+                    };
+
+                    // Add to channels list with a special DM prefix
+                    channels.push(crate::slack::models::SlackConversation {
+                        id: dm.id.clone(),
+                        name: Some(dm_name.clone()),
+                        is_channel: Some(false),
+                        is_group: Some(false),
+                        is_im: Some(true),
+                        is_mpim: Some(false),
+                        is_private: Some(false),
+                        user: dm.user,
+                    });
+                    info!("[DEBUG] Added DM channel to list: {} -> {}", dm.id, dm_name);
+                }
+            }
+            Err(e) => {
+                // Log but don't fail - DMs are optional
+                if e.to_string().contains("missing_scope") || e.to_string().contains("im:read") {
+                    info!("DM channels not available: Missing im:read permission");
+                } else {
+                    warn!("Failed to fetch DM channels: {}", e);
+                }
+            }
+        }
+    }
 
     let mut channel_list = Vec::new();
+    let mut dm_count = 0;
     for channel in channels {
         if let Some(name) = channel.name {
+            if name.starts_with("@") {
+                dm_count += 1;
+            }
             channel_list.push((channel.id.clone(), name.clone()));
             // Cache the channel
             state.cache_channel(channel.id, name).await;
         }
     }
 
+    info!("[DEBUG] Returning {} total channels, including {} DM channels", channel_list.len(), dm_count);
+    if dm_count > 0 {
+        info!("[DEBUG] First few DM channels in final list: {:?}",
+            channel_list.iter()
+                .filter(|(_, name)| name.starts_with("@"))
+                .take(3)
+                .collect::<Vec<_>>());
+    }
 
     Ok(channel_list)
 }
