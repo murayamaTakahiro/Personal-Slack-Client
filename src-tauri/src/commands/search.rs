@@ -473,8 +473,8 @@ pub async fn search_messages(
                         let name = user_info
                             .profile
                             .as_ref()
-                            .and_then(|p| p.display_name.clone())
-                            .or_else(|| user_info.real_name.clone())
+                            .and_then(|p| p.display_name.clone().filter(|s| !s.is_empty()))
+                            .or_else(|| user_info.real_name.clone().filter(|s| !s.is_empty()))
                             .unwrap_or_else(|| user_info.name.clone());
                         Some((user_id, name))
                     }
@@ -525,8 +525,8 @@ pub async fn search_messages(
                         let name = user_info
                             .profile
                             .as_ref()
-                            .and_then(|p| p.display_name.clone())
-                            .or_else(|| user_info.real_name.clone())
+                            .and_then(|p| p.display_name.clone().filter(|s| !s.is_empty()))
+                            .or_else(|| user_info.real_name.clone().filter(|s| !s.is_empty()))
                             .unwrap_or_else(|| user_info.name.clone());
 
                         // Update cache
@@ -696,7 +696,26 @@ pub async fn get_user_channels(
 
                 // Get users for mapping user IDs to names
                 let users = match client.get_all_users().await {
-                    Ok(users) => users,
+                    Ok(users) => {
+                        // Debug: Log all users that might be related to our issue
+                        for user in &users {
+                            if user.id == "U04F9M6JX2M" ||
+                               user.name.contains("murayama") ||
+                               user.name.contains("yandt89") ||
+                               (user.real_name.as_ref().map_or(false, |n| n.contains("murayama") || n.contains("yandt89"))) ||
+                               (user.profile.as_ref().and_then(|p| p.display_name.as_ref()).map_or(false, |n| n.contains("murayama") || n.contains("yandt89"))) {
+                                info!("[DEBUG] Relevant user found:");
+                                info!("  id: {}", user.id);
+                                info!("  name: {}", user.name);
+                                info!("  real_name: {:?}", user.real_name);
+                                if let Some(ref p) = user.profile {
+                                    info!("  profile.display_name: {:?}", p.display_name);
+                                    info!("  profile.real_name: {:?}", p.real_name);
+                                }
+                            }
+                        }
+                        users
+                    },
                     Err(e) => {
                         warn!("Failed to fetch users for DM name mapping: {}", e);
                         vec![]
@@ -705,8 +724,26 @@ pub async fn get_user_channels(
 
                 // Create a map of user IDs to display names
                 let user_map: HashMap<String, String> = users
-                    .into_iter()
+                    .iter()
                     .filter_map(|user| {
+                        // Debug logging for the specific user
+                        if user.id == "U04F9M6JX2M" {
+                            info!("[DEBUG] Found user U04F9M6JX2M:");
+                            info!("  - id: {}", user.id);
+                            info!("  - name: {}", user.name);
+                            info!("  - real_name: {:?}", user.real_name);
+                            if let Some(ref profile) = user.profile {
+                                info!("  - profile.display_name: {:?}", profile.display_name);
+                                info!("  - profile.real_name: {:?}", profile.real_name);
+                            }
+                        }
+
+                        // Priority order for display name:
+                        // 1. profile.display_name (if set and not empty)
+                        // 2. profile.real_name (if set and not empty)
+                        // 3. real_name at top level (if set and not empty)
+                        // 4. name field (username/handle)
+                        // 5. user ID as fallback
                         let display_name = user.profile.as_ref()
                             .and_then(|p| p.display_name.clone())
                             .filter(|n| !n.is_empty())
@@ -714,18 +751,29 @@ pub async fn get_user_channels(
                                 .and_then(|p| p.real_name.clone())
                                 .filter(|n| !n.is_empty()))
                             .or_else(|| {
-                                // Try the name field if display_name and real_name are empty
-                                if !user.name.is_empty() {
-                                    Some(user.name.clone())
-                                } else {
-                                    None
-                                }
+                                // Try the real_name field at the top level
+                                user.real_name.clone().filter(|n| !n.is_empty())
                             })
-                            .unwrap_or_else(|| user.id.clone());
+                            .unwrap_or_else(|| {
+                                // Use name field as last resort before ID
+                                // Note: name field is the @handle, not the display name
+                                if !user.name.is_empty() {
+                                    user.name.clone()
+                                } else {
+                                    user.id.clone()
+                                }
+                            });
 
-                        // Log for debugging the murayama/yandt89 issue
+                        // More targeted debug logging
+                        if user.id == "U04F9M6JX2M" {
+                            info!("[DEBUG] *** IMPORTANT: User U04F9M6JX2M (username='{}') mapped to display_name: '{}'",
+                                 user.name, display_name);
+                        }
+
+                        // Also log if we find murayama or yandt89 anywhere
                         if user.id.contains("murayama") || user.name.contains("murayama") ||
-                           user.name.contains("yandt89") || display_name.contains("murayama") {
+                           user.name.contains("yandt89") || display_name.contains("murayama") ||
+                           display_name.contains("yandt89") {
                             info!("[DEBUG] User mapping: id={}, name={}, display_name={}",
                                  user.id, user.name, display_name);
                         }
@@ -734,8 +782,22 @@ pub async fn get_user_channels(
                     })
                     .collect();
 
+                info!("[DEBUG] Built user_map with {} users", user_map.len());
+                // Log a sample of the user_map for debugging
+                for (id, name) in user_map.iter().take(5) {
+                    info!("[DEBUG]   Sample user_map entry: {} -> {}", id, name);
+                }
+
                 // Convert DM and Group DM channels to the same format as regular channels
                 for dm in dm_channels {
+                    // Debug: Log DM channels with specific user
+                    if dm.user.as_ref().map_or(false, |u| u == "U04F9M6JX2M") {
+                        info!("[DEBUG] Found DM channel for U04F9M6JX2M:");
+                        info!("  channel.id: {}", dm.id);
+                        info!("  channel.user: {:?}", dm.user);
+                        info!("  channel.name: {:?}", dm.name);
+                        info!("  channel.is_im: {:?}", dm.is_im);
+                    }
                     let (dm_name, is_im, is_mpim) = if dm.is_mpim.unwrap_or(false) {
                         // This is a Group DM (MPIM)
                         // Group DMs don't have a single user field, they have multiple participants
@@ -743,41 +805,153 @@ pub async fn get_user_channels(
                             .or_else(|| dm.name_normalized.clone())
                             .unwrap_or_else(|| format!("Group-DM-{}", &dm.id[..8.min(dm.id.len())]));
 
-                        // Clean up the mpdm- prefix and resolve user IDs to names
+                        // Debug: Log the raw group name we're processing
+                        info!("[DEBUG] Raw Group DM name for {}: '{}'", dm.id, group_name);
+
+                        // Clean up the mpdm- prefix and resolve usernames to display names
                         if group_name.starts_with("mpdm-") {
+                            info!("[DEBUG] ===== START MPDM NAME RESOLUTION =====");
+                            info!("[DEBUG] Processing mpdm Group DM name: '{}'", group_name);
+
                             let user_part = &group_name[5..]; // Remove "mpdm-" prefix
-                            // Split by -- to get individual user IDs
-                            let user_ids: Vec<&str> = user_part.split("--").collect();
+                            // Remove trailing -1 if present
+                            let clean_part = user_part.trim_end_matches("-1");
+                            // Split by -- to get individual usernames (not user IDs!)
+                            let usernames: Vec<&str> = clean_part.split("--").collect();
+                            info!("[DEBUG] Extracted usernames from mpdm name: {:?}", usernames);
+
                             let mut resolved_names = Vec::new();
 
-                            for uid in user_ids {
-                                // Remove the -1 suffix if present
-                                let clean_uid = uid.trim_end_matches("-1");
-                                // Try to resolve user ID to name
-                                if let Some(user_name) = user_map.get(clean_uid) {
-                                    resolved_names.push(user_name.clone());
+                            for username in usernames {
+                                info!("[DEBUG] Resolving username: '{}'", username);
+
+                                // Look through all users to find the one with this username
+                                let mut found_display_name = None;
+
+                                for user in &users {
+                                    // Check if this user's name matches the username
+                                    if user.name.trim().eq_ignore_ascii_case(username.trim()) {
+                                        info!("[DEBUG] Found user with username '{}': ID={}, real_name={:?}",
+                                             username, user.id, user.real_name);
+
+                                        // Get their display name from user_map
+                                        if let Some(display_name) = user_map.get(&user.id) {
+                                            info!("[DEBUG] Resolved '{}' (ID: {}) to display name: '{}'",
+                                                 username, user.id, display_name);
+                                            found_display_name = Some(display_name.clone());
+                                            break;
+                                        } else {
+                                            info!("[DEBUG] WARNING: User ID {} not found in user_map!", user.id);
+                                        }
+                                    }
+                                }
+
+                                // Use the resolved display name or fall back to the username
+                                if let Some(display_name) = found_display_name {
+                                    resolved_names.push(display_name);
                                 } else {
-                                    // If we can't resolve, use the ID as fallback
-                                    resolved_names.push(clean_uid.to_string());
+                                    info!("[DEBUG] Could not resolve username '{}', using as-is", username);
+                                    resolved_names.push(username.to_string());
                                 }
                             }
 
                             // Create a readable name from resolved users
+                            info!("[DEBUG] Resolved names: {:?}", resolved_names);
                             group_name = resolved_names.join(", ");
+                            info!("[DEBUG] Final mpdm Group DM name: '{}'", group_name);
+                            info!("[DEBUG] ===== END MPDM NAME RESOLUTION =====");
+                        } else if group_name.contains("-") {
+                            // Handle Group DM names that come as usernames separated by dashes
+                            // Example: "a.ogawa-kanayama-yandt89-y.kurihashi-1"
+                            info!("[DEBUG] ===== START GROUP DM NAME RESOLUTION =====");
+                            info!("[DEBUG] Processing username-based Group DM name: '{}'", group_name);
+                            info!("[DEBUG] Channel ID: {}", dm.id);
+
+                            // Remove trailing -1 if present
+                            let clean_name = group_name.trim_end_matches("-1");
+
+                            // Split by dashes to get individual usernames
+                            let usernames: Vec<&str> = clean_name.split('-').collect();
+                            let mut resolved_names = Vec::new();
+
+                            for username in usernames {
+                                // Look through the user_map to find the user with this username
+                                let mut found_display_name = None;
+
+                                // Debug: Log what we're looking for
+                                info!("[DEBUG] Looking for username: '{}'", username);
+
+                                // The user_map is keyed by user ID, but we need to find by username
+                                // We need to iterate through all users to find the matching username
+                                for user in &users {
+                                    // Trim and compare case-insensitively to avoid issues
+                                    if user.name.trim().eq_ignore_ascii_case(username.trim()) {
+                                        // Found the user, now get their display name from user_map
+                                        info!("[DEBUG] Found user with username '{}': ID={}, name={}, real_name={:?}",
+                                             username, user.id, user.name, user.real_name);
+
+                                        // Debug: Log profile info
+                                        if let Some(ref profile) = user.profile {
+                                            info!("[DEBUG]   profile.display_name={:?}, profile.real_name={:?}",
+                                                 profile.display_name, profile.real_name);
+                                        }
+
+                                        if let Some(display_name) = user_map.get(&user.id) {
+                                            info!("[DEBUG] user_map[{}] = '{}'", user.id, display_name);
+                                            info!("[DEBUG] Resolved username '{}' (ID: {}) to display name: '{}'",
+                                                 username, user.id, display_name);
+                                            found_display_name = Some(display_name.clone());
+                                            break;
+                                        } else {
+                                            info!("[DEBUG] WARNING: User ID {} not found in user_map!", user.id);
+                                        }
+                                    }
+                                }
+
+                                // Use the resolved display name or fall back to the username
+                                if let Some(display_name) = found_display_name {
+                                    resolved_names.push(display_name);
+                                } else {
+                                    // Couldn't resolve, use the username as-is
+                                    info!("[DEBUG] Could not resolve username '{}' to display name, using as-is", username);
+                                    resolved_names.push(username.to_string());
+                                }
+                            }
+
+                            // Create a readable name from resolved users
+                            info!("[DEBUG] Resolved names array: {:?}", resolved_names);
+                            group_name = resolved_names.join(", ");
+                            info!("[DEBUG] Final resolved Group DM name: '{}'", group_name);
+                            info!("[DEBUG] ===== END GROUP DM NAME RESOLUTION =====");
                         }
 
                         // Prefix with special indicator for Group DMs
                         let display_name = format!("👥 {}", group_name);
-                        info!("[DEBUG] Group DM channel {} -> '{}'", dm.id, display_name);
+                        info!("[DEBUG] *** FINAL Group DM channel {} -> '{}' (will be cached as this)", dm.id, display_name);
                         (display_name, false, true)
                     } else if dm.is_im.unwrap_or(false) {
                         // This is a regular DM
                         // DMs have a user field that contains the other user's ID
                         let display_name = if let Some(ref user_id) = dm.user {
+                            // Debug: Check what we're about to look up
+                            if user_id == "U04F9M6JX2M" {
+                                info!("[DEBUG] About to look up user U04F9M6JX2M in user_map");
+                                info!("[DEBUG] user_map contains key '{}': {}", user_id, user_map.contains_key(user_id));
+                                if let Some(mapped_name) = user_map.get(user_id) {
+                                    info!("[DEBUG] user_map['{}'] = '{}'", user_id, mapped_name);
+                                }
+                            }
+
                             // Look up the user's display name
                             let name = user_map.get(user_id)
                                 .map(|name| format!("@{}", name))
                                 .unwrap_or_else(|| format!("@{}", user_id));
+
+                            // Special debug for our problematic user
+                            if user_id == "U04F9M6JX2M" {
+                                info!("[DEBUG] DM channel {} for user U04F9M6JX2M resulted in name: '{}'", dm.id, name);
+                            }
+
                             info!("[DEBUG] DM channel {} mapped to user '{}' -> '{}'", dm.id, user_id, name);
                             name
                         } else {

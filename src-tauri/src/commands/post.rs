@@ -28,8 +28,8 @@ pub async fn post_to_channel(
                             let name = user_info
                                 .profile
                                 .as_ref()
-                                .and_then(|p| p.display_name.clone())
-                                .or_else(|| user_info.real_name.clone())
+                                .and_then(|p| p.display_name.clone().filter(|s| !s.is_empty()))
+                                .or_else(|| user_info.real_name.clone().filter(|s| !s.is_empty()))
                                 .unwrap_or_else(|| user_info.name.clone());
                             message.user_name = Some(name.clone());
                             // Cache the user name
@@ -82,8 +82,8 @@ pub async fn post_thread_reply(
                             let name = user_info
                                 .profile
                                 .as_ref()
-                                .and_then(|p| p.display_name.clone())
-                                .or_else(|| user_info.real_name.clone())
+                                .and_then(|p| p.display_name.clone().filter(|s| !s.is_empty()))
+                                .or_else(|| user_info.real_name.clone().filter(|s| !s.is_empty()))
                                 .unwrap_or_else(|| user_info.name.clone());
                             message.user_name = Some(name.clone());
                             // Cache the user name
