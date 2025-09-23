@@ -17,7 +17,7 @@ const MAX_CONCURRENT_REQUESTS: usize = 30; // Massively increased for 400+ messa
 
 #[derive(Clone)]
 pub struct SlackClient {
-    client: Client,
+    pub client: Client,
     token: String,
     rate_limiter: Arc<tokio::sync::Semaphore>,
 }

@@ -177,6 +177,8 @@ pub struct SlackUserInfo {
     pub name: String,
     pub real_name: Option<String>,
     pub profile: Option<SlackUserProfile>,
+    pub is_bot: Option<bool>,
+    pub deleted: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

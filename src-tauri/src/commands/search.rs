@@ -738,31 +738,49 @@ pub async fn get_user_channels(
                             }
                         }
 
+                        // Check if user is a bot or deleted
+                        let is_bot = user.is_bot.unwrap_or(false);
+                        let is_deleted = user.deleted.unwrap_or(false);
+
                         // Priority order for display name:
-                        // 1. profile.display_name (if set and not empty)
-                        // 2. profile.real_name (if set and not empty)
-                        // 3. real_name at top level (if set and not empty)
-                        // 4. name field (username/handle)
-                        // 5. user ID as fallback
-                        let display_name = user.profile.as_ref()
-                            .and_then(|p| p.display_name.clone())
-                            .filter(|n| !n.is_empty())
-                            .or_else(|| user.profile.as_ref()
-                                .and_then(|p| p.real_name.clone())
-                                .filter(|n| !n.is_empty()))
-                            .or_else(|| {
-                                // Try the real_name field at the top level
-                                user.real_name.clone().filter(|n| !n.is_empty())
-                            })
-                            .unwrap_or_else(|| {
-                                // Use name field as last resort before ID
-                                // Note: name field is the @handle, not the display name
-                                if !user.name.is_empty() {
-                                    user.name.clone()
-                                } else {
-                                    user.id.clone()
-                                }
-                            });
+                        // For deleted users, prepend [Deleted]
+                        // For bot users, use real_name first (often more descriptive)
+                        // For regular users, use the standard priority
+                        let display_name = if is_deleted {
+                            format!("[Deleted] {}", user.name)
+                        } else if is_bot {
+                            // For bots, prefer real_name which is often more descriptive
+                            user.real_name.clone()
+                                .filter(|n| !n.is_empty())
+                                .or_else(|| user.profile.as_ref()
+                                    .and_then(|p| p.display_name.clone())
+                                    .filter(|n| !n.is_empty()))
+                                .or_else(|| user.profile.as_ref()
+                                    .and_then(|p| p.real_name.clone())
+                                    .filter(|n| !n.is_empty()))
+                                .unwrap_or_else(|| format!("[Bot] {}", user.name))
+                        } else {
+                            // Regular users - standard priority
+                            user.profile.as_ref()
+                                .and_then(|p| p.display_name.clone())
+                                .filter(|n| !n.is_empty())
+                                .or_else(|| user.profile.as_ref()
+                                    .and_then(|p| p.real_name.clone())
+                                    .filter(|n| !n.is_empty()))
+                                .or_else(|| {
+                                    // Try the real_name field at the top level
+                                    user.real_name.clone().filter(|n| !n.is_empty())
+                                })
+                                .unwrap_or_else(|| {
+                                    // Use name field as last resort before ID
+                                    // Note: name field is the @handle, not the display name
+                                    if !user.name.is_empty() {
+                                        user.name.clone()
+                                    } else {
+                                        user.id.clone()
+                                    }
+                                })
+                        };
 
                         // More targeted debug logging
                         if user.id == "U04F9M6JX2M" {
@@ -783,6 +801,26 @@ pub async fn get_user_channels(
                     .collect();
 
                 info!("[DEBUG] Built user_map with {} users", user_map.len());
+
+                // Count bot and deleted users
+                let bot_count = users.iter().filter(|u| u.is_bot.unwrap_or(false)).count();
+                let deleted_count = users.iter().filter(|u| u.deleted.unwrap_or(false)).count();
+                info!("[DEBUG] User breakdown: {} total, {} bots, {} deleted",
+                     users.len(), bot_count, deleted_count);
+
+                // Debug: Check for specific problematic users
+                let problem_users = ["U2R5VHFND", "U2R5VKH1P", "U2UAC7Q3S", "U6FTNV0CE", "UBZ931BR8", "UCK5KGMME", "UDUJSB4SJ"];
+                for problem_id in &problem_users {
+                    if user_map.contains_key(*problem_id) {
+                        info!("[DEBUG] Found problem user {} in map: '{}'", problem_id, user_map.get(*problem_id).unwrap());
+                    } else {
+                        info!("[DEBUG] WARNING: Problem user {} NOT found in user_map", problem_id);
+                        // Check if it's in the users list at all
+                        let in_users = users.iter().any(|u| u.id == *problem_id);
+                        info!("[DEBUG]   - User {} in users list: {}", problem_id, in_users);
+                    }
+                }
+
                 // Log a sample of the user_map for debugging
                 for (id, name) in user_map.iter().take(5) {
                     info!("[DEBUG]   Sample user_map entry: {} -> {}", id, name);
@@ -959,7 +997,54 @@ pub async fn get_user_channels(
                             info!("[DEBUG] DM channel {} has no user field, using fallback name", dm.id);
                             format!("DM-{}", dm.id)
                         };
-                        (display_name, true, false)
+
+                        // If we couldn't find the user in the map, try fetching individually
+                        // Check if display_name is just "@" + user ID (e.g., "@U2R5VHFND")
+                        // User IDs typically start with U and are 9-11 alphanumeric characters
+                        let is_raw_user_id = display_name.starts_with("@U") &&
+                                            display_name.len() >= 10 &&
+                                            display_name.len() <= 12 &&
+                                            display_name[1..].chars().all(|c| c.is_alphanumeric());
+
+                        let final_display_name = if is_raw_user_id {
+                            // This looks like we only have a user ID, try to fetch the user info
+                            if let Some(user_id) = &dm.user {
+                                info!("[DEBUG] User {} not in initial map (display_name='{}'), attempting individual fetch",
+                                     user_id, display_name);
+                                match client.get_user_info(user_id).await {
+                                    Ok(user_info) => {
+                                        let fetched_name = user_info.profile.as_ref()
+                                            .and_then(|p| p.display_name.clone())
+                                            .filter(|n| !n.is_empty())
+                                            .or_else(|| user_info.profile.as_ref()
+                                                .and_then(|p| p.real_name.clone())
+                                                .filter(|n| !n.is_empty()))
+                                            .or_else(|| user_info.real_name.clone().filter(|n| !n.is_empty()))
+                                            .unwrap_or_else(|| user_info.name.clone());
+
+                                        let formatted_name = if user_info.deleted.unwrap_or(false) {
+                                            format!("@[Deleted] {}", fetched_name)
+                                        } else if user_info.is_bot.unwrap_or(false) {
+                                            format!("@[Bot] {}", fetched_name)
+                                        } else {
+                                            format!("@{}", fetched_name)
+                                        };
+
+                                        info!("[DEBUG] Successfully fetched user {} -> '{}'", user_id, formatted_name);
+                                        formatted_name
+                                    }
+                                    Err(e) => {
+                                        info!("[DEBUG] Failed to fetch user {}: {}", user_id, e);
+                                        display_name // Keep the original ID-based name
+                                    }
+                                }
+                            } else {
+                                display_name
+                            }
+                        } else {
+                            display_name
+                        };
+                        (final_display_name, true, false)
                     } else {
                         // Unknown type - shouldn't happen but handle gracefully
                         warn!("[DEBUG] Unknown channel type for {}: is_im={:?}, is_mpim={:?}",

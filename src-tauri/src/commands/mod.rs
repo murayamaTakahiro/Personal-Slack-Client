@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod channels;
+pub mod debug;
 pub mod emoji;
 pub mod files;
 pub mod post;
