@@ -1024,6 +1024,14 @@ impl SlackClient {
         channel: &str,
         timestamp: &str,
     ) -> Result<Vec<SlackReaction>> {
+        // Skip reaction fetching for DM channels (DMs, Group DMs, and some MPIMs)
+        // DM channel IDs start with 'D' (direct messages) or 'G' (group DMs/MPIMs)
+        // Some cross-workspace or external DMs might use 'C' IDs but behave like DMs
+        if channel.starts_with('D') || channel.starts_with('G') {
+            debug!("Skipping reaction fetch for DM channel: {}", channel);
+            return Ok(vec![]);
+        }
+
         let _ = self.rate_limiter.acquire().await;
 
         let url = format!("{}/reactions.get", SLACK_API_BASE);
@@ -1060,6 +1068,12 @@ impl SlackClient {
                     .unwrap_or("Unknown error");
                 // Handle "no_reaction" as normal case - message has no reactions
                 if error_msg.contains("no_reaction") {
+                    return Ok(vec![]);
+                }
+                // Handle "channel_not_found" for DMs that use 'C' channel IDs (cross-workspace/external)
+                // These are MPIMs or cross-workspace DMs that behave like DMs for reactions
+                if error_msg == "channel_not_found" {
+                    debug!("Channel not found for reactions (likely a DM-type channel): {}", channel);
                     return Ok(vec![]);
                 }
                 return Err(anyhow::anyhow!("Slack API error: {}", error_msg));
