@@ -473,6 +473,17 @@ impl SlackClient {
 
         let mut messages = result.messages.unwrap_or_default();
 
+        // Add channel information to each message for DMs
+        // This is important so the UI can identify the channel properly
+        for message in &mut messages {
+            if message.channel.is_none() {
+                message.channel = Some(SlackChannelInfo {
+                    id: dm_id.to_string(),
+                    name: dm_id.to_string(), // Will be resolved by the UI/cache
+                });
+            }
+        }
+
         info!(
             "Retrieved {} messages from DM channel {} before filtering",
             messages.len(),
