@@ -198,6 +198,26 @@ impl SlackClient {
 
         if !result.ok {
             let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
+
+            // Handle user_not_found error for external users
+            if error_msg.contains("user_not_found") {
+                // Return a synthetic user info for external users
+                debug!("User {} not found - likely an external workspace user", user_id);
+                return Ok(SlackUserInfo {
+                    id: user_id.to_string(),
+                    name: format!("external-{}", user_id),
+                    real_name: Some(format!("[External User]")),
+                    is_bot: Some(false),
+                    deleted: Some(false),
+                    profile: Some(SlackUserProfile {
+                        display_name: Some(format!("External User ({})", &user_id[..6.min(user_id.len())])),
+                        real_name: Some("External User".to_string()),
+                        image_48: None,
+                        image_72: None,
+                    }),
+                });
+            }
+
             return Err(anyhow!("Slack API error: {}", error_msg));
         }
 
@@ -384,38 +404,92 @@ impl SlackClient {
             return Err(anyhow!("Failed to search DM/Group DM messages: {} - {}", status, text));
         }
 
+        // Log the response size for debugging
+        let response_text = response.text().await?;
+        info!("Conversations.history response size: {} bytes", response_text.len());
+
+        // Log first 500 chars of response for debugging (to check structure)
+        if response_text.len() > 0 {
+            let preview = if response_text.len() > 500 {
+                &response_text[..500]
+            } else {
+                &response_text
+            };
+            debug!("Response preview: {}", preview);
+        }
+
         #[derive(Deserialize)]
         struct ConversationsHistoryResponse {
             ok: bool,
             messages: Option<Vec<SlackMessage>>,
             error: Option<String>,
+            error_detail: Option<String>,
+            response_metadata: Option<serde_json::Value>,
         }
 
-        let result: ConversationsHistoryResponse = response.json().await?;
+        // Try to parse the response
+        let result: ConversationsHistoryResponse = match serde_json::from_str(&response_text) {
+            Ok(r) => r,
+            Err(e) => {
+                error!("Failed to parse conversations.history response: {}", e);
+                error!("Raw response was: {}", response_text);
+                return Err(anyhow!("Failed to parse DM channel response: {}", e));
+            }
+        };
 
         if !result.ok {
             let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
+            let error_detail = result.error_detail.unwrap_or_else(|| String::new());
 
+            error!("Slack API returned error for DM {}: {} (detail: {})", dm_id, error_msg, error_detail);
+
+            // Log response metadata if available
+            if let Some(metadata) = result.response_metadata {
+                error!("Response metadata: {:?}", metadata);
+            }
+
+            // Check for specific error conditions
             if error_msg.contains("missing_scope") {
                 return Err(anyhow!(
                     "Missing required scope. Your token needs 'im:history' permission to search DM messages."
                 ));
             }
 
-            return Err(anyhow!("Slack API error: {}", error_msg));
+            if error_msg.contains("channel_not_found") {
+                error!("Channel not found error for {}", dm_id);
+                return Err(anyhow!("DM channel {} not found or not accessible", dm_id));
+            }
+
+            if error_msg.contains("not_in_channel") {
+                error!("User not in channel {} - this might be a cross-workspace DM", dm_id);
+                // For cross-workspace DMs, we might need different handling
+                // Return empty messages for now instead of error
+                info!("Returning empty results for inaccessible DM channel {}", dm_id);
+                return Ok(vec![]);
+            }
+
+            return Err(anyhow!("Slack API error for DM {}: {} {}", dm_id, error_msg, error_detail));
         }
 
         let mut messages = result.messages.unwrap_or_default();
 
+        info!(
+            "Retrieved {} messages from DM channel {} before filtering",
+            messages.len(),
+            dm_id
+        );
+
         // If a query is provided, filter messages locally (Phase 2 approach)
         if let Some(search_query) = query {
             let search_lower = search_query.to_lowercase();
+            let before_filter = messages.len();
             messages.retain(|msg| {
                 msg.text.to_lowercase().contains(&search_lower)
             });
 
             info!(
-                "Filtered DM messages: {} results match query '{}'",
+                "Filtered DM messages: {} -> {} results match query '{}'",
+                before_filter,
                 messages.len(),
                 search_query
             );

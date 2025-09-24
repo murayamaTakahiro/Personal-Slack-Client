@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug DM User Mapping Issue</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        pre {
+            background: #2d2d2d;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        h2 {
+            color: #4fc3f7;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #444;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Debug DM User Mapping Issue</h1>
+    <p>User ID: U04F9M6JX2M (should be "murayama" but showing as "yandt89")</p>
+
+    <div class="section">
+        <h2>1. Check User Info</h2>
+        <button onclick="checkUserInfo()">Get User Info for U04F9M6JX2M</button>
+        <pre id="userInfo">Click button to fetch user info...</pre>
+    </div>
+
+    <div class="section">
+        <h2>2. Check DM Channels</h2>
+        <button onclick="checkDMChannels()">Get DM Channels</button>
+        <pre id="dmChannels">Click button to fetch DM channels...</pre>
+    </div>
+
+    <div class="section">
+        <h2>3. Get All Channels with DMs</h2>
+        <button onclick="getAllChannels()">Get All Channels (including DMs)</button>
+        <pre id="allChannels">Click button to fetch all channels...</pre>
+    </div>
+
+    <div class="section">
+        <h2>4. Search for Other Users</h2>
+        <input type="text" id="searchUserId" placeholder="Enter user ID" value="U04F9M6JX2M">
+        <button onclick="searchUser()">Search User</button>
+        <pre id="searchResult">Enter user ID and click search...</pre>
+    </div>
+
+    <script>
+        // Check if we're in Tauri environment
+        const invoke = window.__TAURI__?.core?.invoke || window.__TAURI__?.invoke;
+
+        if (!invoke) {
+            document.body.innerHTML = '<h1>Error: This page must be run inside the Tauri application</h1>';
+        }
+
+        async function checkUserInfo() {
+            const resultEl = document.getElementById('userInfo');
+            try {
+                resultEl.textContent = 'Fetching...';
+                const result = await invoke('debug_user_info', { userId: 'U04F9M6JX2M' });
+                resultEl.textContent = result;
+            } catch (err) {
+                resultEl.textContent = 'Error: ' + err;
+            }
+        }
+
+        async function checkDMChannels() {
+            const resultEl = document.getElementById('dmChannels');
+            try {
+                resultEl.textContent = 'Fetching...';
+                const result = await invoke('debug_dm_channels', {});
+                resultEl.textContent = result;
+            } catch (err) {
+                resultEl.textContent = 'Error: ' + err;
+            }
+        }
+
+        async function getAllChannels() {
+            const resultEl = document.getElementById('allChannels');
+            try {
+                resultEl.textContent = 'Fetching...';
+                const channels = await invoke('get_user_channels', { includeDms: true });
+
+                // Find channels related to our user
+                const relevantChannels = channels.filter(([id, name]) =>
+                    name.includes('murayama') || name.includes('yandt89') || name.includes('U04F9M6JX2M')
+                );
+
+                let output = `Total channels: ${channels.length}\n\n`;
+                output += 'Channels containing "murayama", "yandt89", or user ID:\n';
+                if (relevantChannels.length > 0) {
+                    relevantChannels.forEach(([id, name]) => {
+                        output += `  ${id}: ${name}\n`;
+                    });
+                } else {
+                    output += '  None found\n';
+                }
+
+                output += '\n\nAll DM channels (@...):\n';
+                channels.filter(([id, name]) => name.startsWith('@')).forEach(([id, name]) => {
+                    output += `  ${id}: ${name}\n`;
+                });
+
+                resultEl.textContent = output;
+            } catch (err) {
+                resultEl.textContent = 'Error: ' + err;
+            }
+        }
+
+        async function searchUser() {
+            const userId = document.getElementById('searchUserId').value;
+            const resultEl = document.getElementById('searchResult');
+            try {
+                resultEl.textContent = 'Fetching...';
+                const result = await invoke('debug_user_info', { userId });
+                resultEl.textContent = result;
+            } catch (err) {
+                resultEl.textContent = 'Error: ' + err;
+            }
+        }
+    </script>
+</body>
+</html>
