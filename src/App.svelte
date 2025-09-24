@@ -6,6 +6,7 @@
   import ThreadView from './lib/components/ThreadView.svelte';
   import WorkspaceSwitcher from './lib/components/WorkspaceSwitcher.svelte';
   import './styles/zoom.css';
+  import './styles/theme-improvements.css';
   import { 
     searchResults, 
     searchLoading, 
@@ -55,6 +56,7 @@
   import { clearAllCaches } from './lib/services/memoization';
   import { searchOptimizer } from './lib/services/searchOptimizer';
   import { initializeConfig, watchConfigFile } from './lib/services/configService';
+  import { cacheService } from './lib/services/cacheService';
   import { realtimeStore, timeUntilUpdate, formattedLastUpdate } from './lib/stores/realtime';
   import { zoomStore } from './lib/stores/zoom';
   import { showToast } from './lib/stores/toast';
@@ -523,11 +525,14 @@
         await initializeCurrentUser();
         logger.debug('[App] Current user ID initialized');
         
-        // Initialize emoji service after token is loaded
-        logger.debug('[App] Initializing emoji service after token load...');
-        await emojiService.initialize();
-        logger.debug('[App] Emoji service initialized');
-        
+        // Initialize emoji service in background (non-blocking)
+        logger.debug('[App] Starting emoji service initialization (non-blocking)...');
+        emojiService.initialize().then(() => {
+          logger.debug('[App] Emoji service initialized successfully');
+        }).catch(err => {
+          logger.warn('[App] Emoji service initialization failed (non-critical):', err);
+        });
+
         await loadChannels();
       } else {
         // Token found in frontend but not initialized in backend
@@ -751,11 +756,14 @@
                   await initializeCurrentUser();
                   logger.debug('[App] Current user ID initialized');
                   
-                  // Initialize emoji service for legacy mode
-                  logger.debug('[App] Initializing emoji service for legacy mode...');
-                  await emojiService.initialize();
-                  logger.debug('[App] Emoji service initialized');
-                  
+                  // Initialize emoji service in background (non-blocking)
+                  logger.debug('[App] Starting emoji service initialization for legacy mode (non-blocking)...');
+                  emojiService.initialize().then(() => {
+                    logger.debug('[App] Emoji service initialized successfully');
+                  }).catch(err => {
+                    logger.warn('[App] Emoji service initialization failed (non-critical):', err);
+                  });
+
                   await loadChannels();
                   channels = [...channels];
                   
@@ -1012,11 +1020,14 @@
             await initializeCurrentUser();
             logger.debug('[App] Current user ID initialized');
             
-            // Initialize emoji service after token is loaded with workspace ID
-            logger.debug('[App] Initializing emoji service after workspace switch...', { workspaceId: currentWorkspace.id });
-            await emojiService.initialize(currentWorkspace.id);
-            console.log('[App] Emoji service initialized for workspace:', currentWorkspace.id);
-            
+            // Initialize emoji service in background (non-blocking)
+            logger.debug('[App] Starting emoji service initialization after workspace switch (non-blocking)...', { workspaceId: currentWorkspace.id });
+            emojiService.initialize(currentWorkspace.id).then(() => {
+              console.log('[App] Emoji service initialized successfully for workspace:', currentWorkspace.id);
+            }).catch(err => {
+              logger.warn('[App] Emoji service initialization failed (non-critical):', err);
+            });
+
             await loadChannels();
           } else {
             // Failed to initialize backend with token
@@ -1305,40 +1316,83 @@
   
   async function loadChannels() {
     try {
-      // Clear existing channels first
-      channels = [];
+      // Get current workspace ID if in multi-workspace mode
+      const currentWorkspace = get(activeWorkspace);
+      const workspaceId = currentWorkspace?.id;
 
-      // Check if DM channels feature is enabled
-      const includeDMs = $settings.experimentalFeatures?.dmChannelsEnabled || false;
-      console.log('[DEBUG] Loading channels with DM feature enabled:', includeDMs);
-      console.log('[DEBUG] Current experimental features:', $settings.experimentalFeatures);
+      // Step 1: Load cached data immediately for instant UI
+      const cachedChannels = cacheService.loadChannels(workspaceId);
+      const cachedUsers = cacheService.loadUsers(workspaceId);
 
-      // Get new channels for current workspace (including DMs if enabled)
-      const newChannels = await getUserChannels(includeDMs);
-      console.log('[DEBUG] Received channels:', newChannels.length);
+      if (cachedChannels && cachedUsers) {
+        const cacheAge = cacheService.getCacheAge('channels', workspaceId) || 0;
+        console.log(`[Performance] Using cached data (age: ${(cacheAge / 1000 / 60).toFixed(0)} minutes)`);
 
-      // Log first few channels to see if any DMs are included
-      const dmChannels = newChannels.filter(([id, name]) => name.startsWith('@'));
-      console.log('[DEBUG] DM channels found:', dmChannels.length);
-      if (dmChannels.length > 0) {
-        console.log('[DEBUG] First few DM channels:', dmChannels.slice(0, 3));
+        // Show cached data immediately
+        channels = cachedChannels;
+        await channelStore.initChannels(channels);
+        await userStore.initUsers(cachedUsers);
+
+        // Mark that we're using cached data
+        showToast('Loading workspace data...', 'info', 1000);
+      } else {
+        console.log('[Performance] No valid cache found, loading fresh data...');
+        // Clear existing channels while loading
+        channels = [];
       }
 
-      // Update channels and force reactivity
+      // Step 2: Load fresh data in parallel (background refresh if cached)
+      const includeDMs = $settings.experimentalFeatures?.dmChannelsEnabled || false;
+      const startTime = performance.now();
+      console.log('[Performance] Starting parallel load of channels and users...');
+
+      const [newChannels, users] = await Promise.all([
+        getUserChannels(includeDMs),
+        getUsers()
+      ]);
+
+      const loadTime = performance.now() - startTime;
+      console.log(`[Performance] Fresh data loaded in ${loadTime.toFixed(0)}ms`);
+      console.log('[DEBUG] Received channels:', newChannels.length);
+      console.log('[DEBUG] Received users:', users?.length || 0);
+
+      // Step 3: Update cache for next time
+      cacheService.saveChannels(newChannels, workspaceId);
+      cacheService.saveUsers(users, workspaceId);
+
+      // Step 4: Update UI with fresh data
+      const dmChannels = newChannels.filter(([id, name]) => name.startsWith('@'));
+      console.log('[DEBUG] DM channels found:', dmChannels.length);
+
       channels = newChannels || [];
-
-      // Initialize channel store with workspace-specific data (favorites, recent channels, etc.)
       await channelStore.initChannels(channels);
+      await userStore.initUsers(users);
 
-      // Loaded channels for workspace
-
-      // Also load users for mention resolution
-      await loadUsers();
+      // Show success message only if we loaded fresh data
+      if (!cachedChannels || !cachedUsers) {
+        console.log('[Performance] Workspace data loaded successfully');
+      } else {
+        console.log('[Performance] Workspace data refreshed in background');
+      }
     } catch (err) {
       console.error('[DEBUG] Failed to load channels:', err);
-      // Failed to load channels
-      channels = [];
-      searchError.set('Failed to load channels. Please check your token permissions.');
+
+      // If we have cached data, use it as fallback
+      const currentWorkspace = get(activeWorkspace);
+      const workspaceId = currentWorkspace?.id;
+      const cachedChannels = cacheService.loadChannels(workspaceId);
+      const cachedUsers = cacheService.loadUsers(workspaceId);
+
+      if (cachedChannels && cachedUsers) {
+        console.log('[Performance] Using cached data as fallback after error');
+        channels = cachedChannels;
+        await channelStore.initChannels(channels);
+        await userStore.initUsers(cachedUsers);
+        showToast('Using cached data (offline mode)', 'warning');
+      } else {
+        channels = [];
+        searchError.set('Failed to load channels. Please check your token permissions.');
+      }
     }
   }
   
