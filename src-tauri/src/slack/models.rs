@@ -1,4 +1,5 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchRequest {
@@ -126,7 +127,7 @@ pub struct SlackMessage {
     pub username: Option<String>,
     pub subtype: Option<String>,  // Add subtype to identify bot messages
     pub text: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_channel_info")]
     pub channel: Option<SlackChannelInfo>,  // Make channel optional for conversations.history
     #[serde(default)]
     pub permalink: Option<String>,  // Make permalink optional for conversations.history
@@ -140,6 +141,40 @@ pub struct SlackMessage {
 pub struct SlackChannelInfo {
     pub id: String,
     pub name: String,
+}
+
+// Custom deserializer for channel field that can handle both string and object formats
+fn deserialize_channel_info<'de, D>(deserializer: D) -> Result<Option<SlackChannelInfo>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Option::<Value>::deserialize(deserializer)?;
+
+    match value {
+        None => Ok(None),
+        Some(Value::String(id)) => {
+            // When channel is just a string ID (like in DM conversations.history)
+            Ok(Some(SlackChannelInfo {
+                id: id.clone(),
+                name: id,  // Use ID as name for now
+            }))
+        }
+        Some(Value::Object(map)) => {
+            // When channel is an object (like in search.messages)
+            let id = map.get("id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let name = map.get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
+            Ok(Some(SlackChannelInfo {
+                id: id.to_string(),
+                name: name.to_string(),
+            }))
+        }
+        _ => Ok(None),
+    }
 }
 
 #[derive(Debug, Deserialize)]
