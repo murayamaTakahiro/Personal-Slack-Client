@@ -340,6 +340,10 @@ impl SlackClient {
         query: Option<&str>,
         limit: usize,
     ) -> Result<Vec<SlackMessage>> {
+        // Acquire semaphore permit for rate limiting
+        let _permit = self.rate_limiter.acquire().await
+            .map_err(|e| anyhow!("Failed to acquire rate limit permit: {}", e))?;
+
         let url = format!("{}/conversations.history", SLACK_API_BASE);
 
         // Determine if it's a DM or Group DM
@@ -360,8 +364,9 @@ impl SlackClient {
         params.insert("channel", dm_id.to_string());
         params.insert("limit", limit.min(100).to_string()); // Cap at 100 for safety
 
-        // Conservative rate limiting for DM/MPIM search
-        sleep(Duration::from_millis(RATE_LIMIT_DELAY_MS * 2)).await;
+        // Small delay to prevent hitting rate limits
+        // The semaphore already limits concurrent requests, but a small delay helps with burst prevention
+        sleep(Duration::from_millis(RATE_LIMIT_DELAY_MS)).await;
 
         let response = self.client.get(&url).query(&params).send().await?;
 

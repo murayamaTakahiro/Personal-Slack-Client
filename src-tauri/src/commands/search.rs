@@ -80,6 +80,20 @@ pub async fn search_messages(
                 channels.len()
             );
 
+            // Determine if this includes DM channels
+            let dm_channels: Vec<String> = channels.iter()
+                .filter(|ch| ch.starts_with("D") || ch.starts_with("G"))
+                .cloned()
+                .collect();
+            let _regular_channels: Vec<String> = channels.iter()
+                .filter(|ch| !ch.starts_with("D") && !ch.starts_with("G"))
+                .cloned()
+                .collect();
+
+            if !dm_channels.is_empty() {
+                info!("Multi-channel search includes {} DM/Group DM channels", dm_channels.len());
+            }
+
             // Create futures for parallel execution
             use std::pin::Pin;
             use futures::future::Future;
@@ -96,52 +110,106 @@ pub async fn search_messages(
                 let to_date = to_date.clone();
 
                 search_futures.push(Box::pin(async move {
-                    let search_request = SearchRequest {
-                        query: query.clone(),
-                        channel: Some(channel.clone()),
-                        user: user.clone(),  // Pass the full user string
-                        from_date,
-                        to_date,
-                        limit: Some(max_results),
-                        is_realtime: force_refresh,
-                    };
+                    // Check if this is a DM/Group DM channel
+                    let is_dm_channel = channel.starts_with("D") || channel.starts_with("G");
 
-                    let search_query = build_search_query(&search_request);
-                    info!(
-                        "Searching channel '{}' with query: {}",
-                        channel, search_query
-                    );
+                    if is_dm_channel {
+                        // Use DM-specific search for DM/Group DM channels
+                        info!("Using DM search for channel: {}", channel);
 
-                    let mut messages = fetch_all_results(&client, search_query, max_results).await?;
+                        // For DMs, use the search_dm_messages function
+                        let query_str = if query.is_empty() {
+                            None
+                        } else {
+                            Some(query.as_str())
+                        };
 
-                    // Filter by user IDs if multi-user search
-                    if let Some(ref users) = user {
-                        if users.contains(',') {
-                            // Parse user IDs from comma-separated string
-                            let user_ids: Vec<String> = users
-                                .split(',')
-                                .map(|u| {
-                                    let trimmed = u.trim();
-                                    if trimmed.starts_with("<@") && trimmed.ends_with(">") {
-                                        trimmed[2..trimmed.len()-1].to_string()
-                                    } else {
-                                        trimmed.trim_start_matches('@').to_string()
-                                    }
-                                })
-                                .filter(|u| !u.is_empty())
-                                .collect();
+                        let mut messages = client.search_dm_messages(
+                            &channel,
+                            query_str,
+                            max_results,
+                        ).await?;
 
-                            info!("Filtering {} messages for users: {:?}", messages.len(), user_ids);
+                        // Apply date filters if specified
+                        if let Some(ref from) = from_date {
+                            messages.retain(|msg| {
+                                let ts_float: f64 = msg.ts.parse().unwrap_or(0.0);
+                                let msg_date = chrono::DateTime::from_timestamp(ts_float as i64, 0)
+                                    .map(|dt| dt.format("%Y-%m-%d").to_string())
+                                    .unwrap_or_default();
+                                msg_date >= *from
+                            });
+                        }
 
-                            // Debug: Log first few messages to see user field
-                            for (i, msg) in messages.iter().take(3).enumerate() {
-                                info!("Message {}: user={:?}, text={:?}", i, msg.user, &msg.text[..msg.text.len().min(50)]);
+                        if let Some(ref to) = to_date {
+                            messages.retain(|msg| {
+                                let ts_float: f64 = msg.ts.parse().unwrap_or(0.0);
+                                let msg_date = chrono::DateTime::from_timestamp(ts_float as i64, 0)
+                                    .map(|dt| dt.format("%Y-%m-%d").to_string())
+                                    .unwrap_or_default();
+                                msg_date <= *to
+                            });
+                        }
+
+                        // Add channel info to DM messages
+                        for msg in &mut messages {
+                            if msg.channel.is_none() {
+                                msg.channel = Some(SlackChannelInfo {
+                                    id: channel.clone(),
+                                    name: channel.clone(), // Will be resolved to proper name later
+                                });
                             }
+                        }
 
-                            let message_count = messages.len();
-                            messages = messages.into_iter()
-                                .filter(|msg| {
-                                    let matches = msg.user.as_ref()
+                        Ok::<Vec<SlackMessage>, anyhow::Error>(messages)
+                    } else {
+                        // Use regular search for normal channels
+                        let search_request = SearchRequest {
+                            query: query.clone(),
+                            channel: Some(channel.clone()),
+                            user: user.clone(),  // Pass the full user string
+                            from_date,
+                            to_date,
+                            limit: Some(max_results),
+                            is_realtime: force_refresh,
+                        };
+
+                        let search_query = build_search_query(&search_request);
+                        info!(
+                            "Searching channel '{}' with query: {}",
+                            channel, search_query
+                        );
+
+                        let mut messages = fetch_all_results(&client, search_query, max_results).await?;
+
+                        // Filter by user IDs if multi-user search
+                        if let Some(ref users) = user {
+                            if users.contains(',') {
+                                // Parse user IDs from comma-separated string
+                                let user_ids: Vec<String> = users
+                                    .split(',')
+                                    .map(|u| {
+                                        let trimmed = u.trim();
+                                        if trimmed.starts_with("<@") && trimmed.ends_with(">") {
+                                            trimmed[2..trimmed.len()-1].to_string()
+                                        } else {
+                                            trimmed.trim_start_matches('@').to_string()
+                                        }
+                                    })
+                                    .filter(|u| !u.is_empty())
+                                    .collect();
+
+                                info!("Filtering {} messages for users: {:?}", messages.len(), user_ids);
+
+                                // Debug: Log first few messages to see user field
+                                for (i, msg) in messages.iter().take(3).enumerate() {
+                                    info!("Message {}: user={:?}, text={:?}", i, msg.user, &msg.text[..msg.text.len().min(50)]);
+                                }
+
+                                let message_count = messages.len();
+                                messages = messages.into_iter()
+                                    .filter(|msg| {
+                                        let matches = msg.user.as_ref()
                                         .map(|u| {
                                             let user_match = user_ids.contains(u);
                                             if !user_match && message_count < 10 {
@@ -153,11 +221,12 @@ pub async fn search_messages(
                                     matches
                                 })
                                 .collect();
-                            info!("After filtering: {} messages", messages.len());
+                                info!("After filtering: {} messages", messages.len());
+                            }
                         }
-                    }
 
-                    Ok::<Vec<SlackMessage>, anyhow::Error>(messages)
+                        Ok::<Vec<SlackMessage>, anyhow::Error>(messages)
+                    }
                 }));
             }
 
@@ -1434,6 +1503,15 @@ pub async fn search_messages_fast(
                 channels.len()
             );
             
+            // Determine if this includes DM channels
+            let dm_channel_count = channels.iter()
+                .filter(|ch| ch.starts_with("D") || ch.starts_with("G"))
+                .count();
+
+            if dm_channel_count > 0 {
+                info!("Fast search: Multi-channel search includes {} DM/Group DM channels", dm_channel_count);
+            }
+
             // Create futures for parallel execution
             let search_futures = channels.iter().map(|single_channel| {
                 let client = Arc::clone(&client);
@@ -1442,33 +1520,92 @@ pub async fn search_messages_fast(
                 let user = user.clone();
                 let from_date = from_date.clone();
                 let to_date = to_date.clone();
-                
+
                 async move {
-                    let search_request = SearchRequest {
-                        query: query.clone(),
-                        channel: Some(channel.clone()),
-                        user,
-                        from_date,
-                        to_date,
-                        limit: Some(max_results),
-                        is_realtime: force_refresh,
-                    };
-                    
-                    let search_query = build_search_query(&search_request);
-                    info!(
-                        "Fast search: Searching channel '{}' with query: {}",
-                        channel, search_query
-                    );
-                    
-                    match fetch_all_results(&client, search_query, max_results).await {
-                        Ok(messages) => {
-                            info!("Fast search: Found {} messages in channel '{}'", messages.len(), channel);
-                            Ok::<Vec<SlackMessage>, anyhow::Error>(messages)
+                    // Check if this is a DM/Group DM channel
+                    let is_dm_channel = channel.starts_with("D") || channel.starts_with("G");
+
+                    if is_dm_channel {
+                        // Use DM-specific search for DM/Group DM channels
+                        info!("Fast search: Using DM search for channel: {}", channel);
+
+                        // For DMs, use the search_dm_messages function
+                        let query_str = if query.is_empty() {
+                            None
+                        } else {
+                            Some(query.as_str())
+                        };
+
+                        match client.search_dm_messages(&channel, query_str, max_results).await {
+                            Ok(mut messages) => {
+                                // Apply date filters if specified
+                                if let Some(ref from) = from_date {
+                                    messages.retain(|msg| {
+                                        let ts_float: f64 = msg.ts.parse().unwrap_or(0.0);
+                                        let msg_date = chrono::DateTime::from_timestamp(ts_float as i64, 0)
+                                            .map(|dt| dt.format("%Y-%m-%d").to_string())
+                                            .unwrap_or_default();
+                                        msg_date >= *from
+                                    });
+                                }
+
+                                if let Some(ref to) = to_date {
+                                    messages.retain(|msg| {
+                                        let ts_float: f64 = msg.ts.parse().unwrap_or(0.0);
+                                        let msg_date = chrono::DateTime::from_timestamp(ts_float as i64, 0)
+                                            .map(|dt| dt.format("%Y-%m-%d").to_string())
+                                            .unwrap_or_default();
+                                        msg_date <= *to
+                                    });
+                                }
+
+                                // Add channel info to DM messages
+                                for msg in &mut messages {
+                                    if msg.channel.is_none() {
+                                        msg.channel = Some(SlackChannelInfo {
+                                            id: channel.clone(),
+                                            name: channel.clone(), // Will be resolved to proper name later
+                                        });
+                                    }
+                                }
+
+                                info!("Fast search: Found {} messages in DM channel '{}'", messages.len(), channel);
+                                Ok::<Vec<SlackMessage>, anyhow::Error>(messages)
+                            }
+                            Err(e) => {
+                                error!("Fast search: Failed to search DM channel '{}': {}", channel, e);
+                                // Return empty vec on error to continue with other channels
+                                Ok::<Vec<SlackMessage>, anyhow::Error>(vec![])
+                            }
                         }
-                        Err(e) => {
-                            error!("Fast search: Failed to search channel '{}': {}", channel, e);
-                            // Return empty vec on error to continue with other channels
-                            Ok::<Vec<SlackMessage>, anyhow::Error>(vec![])
+                    } else {
+                        // Use regular search for normal channels
+                        let search_request = SearchRequest {
+                            query: query.clone(),
+                            channel: Some(channel.clone()),
+                            user,
+                            from_date,
+                            to_date,
+                            limit: Some(max_results),
+                            is_realtime: force_refresh,
+                        };
+
+                        let search_query = build_search_query(&search_request);
+                        info!(
+                            "Fast search: Searching channel '{}' with query: {}",
+                            channel, search_query
+                        );
+
+                        match fetch_all_results(&client, search_query, max_results).await {
+                            Ok(messages) => {
+                                info!("Fast search: Found {} messages in channel '{}'", messages.len(), channel);
+                                Ok::<Vec<SlackMessage>, anyhow::Error>(messages)
+                            }
+                            Err(e) => {
+                                error!("Fast search: Failed to search channel '{}': {}", channel, e);
+                                // Return empty vec on error to continue with other channels
+                                Ok::<Vec<SlackMessage>, anyhow::Error>(vec![])
+                            }
                         }
                     }
                 }
