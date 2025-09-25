@@ -81,6 +81,7 @@
   let keyboardService: KeyboardService;
   let searchBarElement: SearchBar;
   let resultListElement: ResultList;
+  let threadViewElement: ThreadView;
   let showKeyboardHelp = false;
   let showEmojiSearch = false;
   let realtimeInterval: NodeJS.Timeout | null = null;
@@ -587,7 +588,7 @@
       }
     }
 
-    // Add debug log for all navigation key events
+    // Add debug log for navigation key events
     if (['j', 'k', 'ArrowUp', 'ArrowDown', 'e'].includes(event.key) || event.ctrlKey) {
       console.log('[App] Global keydown event detected:', {
         key: event.key,
@@ -792,6 +793,14 @@
         action: () => {
           if (!showSettings && searchBarElement && typeof searchBarElement.toggleAdvancedSearch === 'function') {
             searchBarElement.toggleAdvancedSearch();
+
+            // Reset expanded state for both ResultList and ThreadView when toggling search bar
+            if (resultListElement && typeof resultListElement.resetExpanded === 'function') {
+              resultListElement.resetExpanded();
+            }
+            if (threadViewElement && typeof threadViewElement.resetExpanded === 'function') {
+              threadViewElement.resetExpanded();
+            }
           }
         },
         allowInInput: true
@@ -1773,7 +1782,7 @@
         
         <div class="thread-panel">
           <ErrorBoundary fallback="Unable to display thread" showDetails={true}>
-            <ThreadView message={$selectedMessage} />
+            <ThreadView bind:this={threadViewElement} message={$selectedMessage} />
           </ErrorBoundary>
         </div>
       </div>

@@ -485,6 +485,11 @@
       }
     }
   }
+
+  // Export function to reset expanded state when search bar is toggled
+  export function resetExpanded() {
+    isExpanded = false;
+  }
 </script>
 
 <div class="thread-view" class:expanded={isExpanded} bind:this={threadViewElement} on:keydown={handleKeyDown} on:focus={handleFocus} on:focus={handleContainerFocus} on:blur={handleContainerBlur} role="region" aria-label="Thread messages" tabindex="-1">

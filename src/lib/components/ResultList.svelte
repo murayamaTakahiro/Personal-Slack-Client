@@ -134,6 +134,11 @@
       listContainer.scrollTop = 0;
     }
   }
+
+  // Export function to reset expanded state when search bar is toggled
+  export function resetExpanded() {
+    isExpanded = false;
+  }
   
   function updateFocus() {
     if (focusedIndex >= 0 && focusedIndex < messages.length) {
