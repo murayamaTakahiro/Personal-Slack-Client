@@ -456,10 +456,34 @@ pub async fn search_messages(
     all_slack_messages.sort_by(|a, b| b.ts.cmp(&a.ts));
     let mut slack_messages: Vec<_> = all_slack_messages.into_iter().take(max_results).collect();
 
-    // For Live mode (force_refresh), fetch reactions for each message if they don't have them
-    if force_refresh.unwrap_or(false) {
-        info!("Live mode: Fetching reactions for {} messages", slack_messages.len());
-        
+    // Fetch reactions for each message if they don't have them
+    // NOTE: search.messages API doesn't return reactions, so we need to fetch them separately
+    // This was previously only done for Live mode, but reactions were missing in normal searches
+    if !slack_messages.is_empty() {
+        info!("Fetching reactions for {} messages", slack_messages.len());
+
+        // Debug: Log channel types for all messages
+        let mut channel_type_counts = std::collections::HashMap::new();
+        for (idx, msg) in slack_messages.iter().enumerate() {
+            if let Some(channel_info) = &msg.channel {
+                let channel_type = if channel_info.id.starts_with('D') {
+                    "DM"
+                } else if channel_info.id.starts_with('G') {
+                    "Group_DM"
+                } else if channel_info.id.starts_with('C') {
+                    "Channel"
+                } else {
+                    "Unknown"
+                };
+                *channel_type_counts.entry(channel_type).or_insert(0) += 1;
+
+                if idx == 0 {
+                    info!("DEBUG: First message channel: {} (type: {})", channel_info.id, channel_type);
+                }
+            }
+        }
+        info!("DEBUG: Channel type breakdown: {:?}", channel_type_counts);
+
         // Collect indices of messages that need reactions
         let messages_needing_reactions: Vec<(usize, String, String)> = slack_messages
             .iter()
@@ -654,19 +678,23 @@ pub async fn search_messages(
         });
     }
 
-    // NEW OPTIMIZATION: Don't fetch reactions here at all for non-realtime mode
-    // Let the frontend handle progressive loading of reactions
-    if !force_refresh.unwrap_or(false) && !messages.is_empty() {
-        info!("Skipping backend reaction fetching - will use progressive loading in frontend");
-        
-        // Only check cache for already-fetched reactions (instant)
-        for message in messages.iter_mut() {
-            if let Some(cached_reactions) = state.get_cached_reactions(&message.channel, &message.ts).await {
-                message.reactions = Some(cached_reactions);
-            }
-            // Don't fetch missing reactions - let frontend handle it progressively
-        }
-    }
+    // REVERTED: The optimization was causing reactions to not display
+    // The search.messages API doesn't return reactions by default, so we need to fetch them
+    // Commenting out the optimization to restore reaction display functionality
+    //
+    // // NEW OPTIMIZATION: Don't fetch reactions here at all for non-realtime mode
+    // // Let the frontend handle progressive loading of reactions
+    // if !force_refresh.unwrap_or(false) && !messages.is_empty() {
+    //     info!("Skipping backend reaction fetching - will use progressive loading in frontend");
+    //
+    //     // Only check cache for already-fetched reactions (instant)
+    //     for message in messages.iter_mut() {
+    //         if let Some(cached_reactions) = state.get_cached_reactions(&message.channel, &message.ts).await {
+    //             message.reactions = Some(cached_reactions);
+    //         }
+    //         // Don't fetch missing reactions - let frontend handle it progressively
+    //     }
+    // }
 
     let execution_time_ms = start_time.elapsed().as_millis() as u64;
 

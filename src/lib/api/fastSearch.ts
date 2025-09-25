@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type { SearchParams, SearchResult } from '../types/slack';
 import { batchFetchReactions, type ReactionRequest } from './slack';
 import { get } from 'svelte/store';
-import { reactionLoadingState } from '../stores/search';
+import { reactionLoadingState, searchResults } from '../stores/search';
 
 /**
  * Ultra-fast search implementation that returns messages immediately
@@ -83,19 +83,39 @@ async function loadReactionsUltraFast(messages: any[]) {
       // Apply reactions to messages
       for (const reaction of response.reactions) {
         if (reaction.reactions && reaction.message_index >= 0 && reaction.message_index < messages.length) {
-          messages[reaction.message_index].reactions = reaction.reactions;
+          const msg = messages[reaction.message_index];
+          console.log(`[FastSearch] Applying ${reaction.reactions.length} reactions to message at index ${reaction.message_index} (ts: ${msg.ts})`);
+
+          // Create a new message object to trigger Svelte reactivity
+          messages[reaction.message_index] = {
+            ...messages[reaction.message_index],
+            reactions: reaction.reactions
+          };
         }
       }
-      
+
       loadedCount += response.fetched_count;
       errorCount += response.error_count;
-      
+
       // Update loading state
       reactionLoadingState.update(state => ({
         ...state,
         loadedCount: loadedCount,
         errors: errorCount
       }));
+
+      // CRITICAL: Update the searchResults store to trigger Svelte reactivity
+      // This ensures the UI updates when reactions are loaded
+      searchResults.update(results => {
+        if (results && results.messages === messages) {
+          // Force a new reference to trigger reactivity
+          return {
+            ...results,
+            messages: [...messages]
+          };
+        }
+        return results;
+      });
       
       console.log(`[FastSearch] Loaded batch: ${loadedCount}/${messages.length} reactions`);
       

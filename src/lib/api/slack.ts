@@ -20,9 +20,16 @@ export async function searchMessages(params: SearchParams): Promise<SearchResult
     limit: params.limit,
     forceRefresh: params.isRealtimeUpdate || false  // Add force refresh for realtime updates
   });
-  
-  // Files are now included from the backend
-  
+
+  // Debug: Check if reactions are included in the response
+  if (result.messages && result.messages.length > 0) {
+    const messagesWithReactions = result.messages.filter(m => m.reactions && m.reactions.length > 0);
+    console.log(`[searchMessages] ${messagesWithReactions.length}/${result.messages.length} messages have reactions`);
+    if (messagesWithReactions.length > 0) {
+      console.log('[searchMessages] Sample message with reactions:', messagesWithReactions[0]);
+    }
+  }
+
   return result;
 }
 

@@ -76,7 +76,11 @@
 
   // Separate reactions state to avoid full component re-renders
   const reactionsStore = writable<EmojiReaction[]>(message.reactions || []);
-  $: reactionsStore.set(message.reactions || []);
+  $: {
+    const reactions = message.reactions || [];
+    console.log('[OptimizedMessageItem] Updating reactions for message', message.ts, ':', reactions.length, 'reactions');
+    reactionsStore.set(reactions);
+  }
 
   // Memoized timestamp formatting
   const formattedTimestamp = writable('');

@@ -1035,13 +1035,17 @@ impl SlackClient {
         channel: &str,
         timestamp: &str,
     ) -> Result<Vec<SlackReaction>> {
-        // Skip reaction fetching for DM channels (DMs, Group DMs, and some MPIMs)
-        // DM channel IDs start with 'D' (direct messages) or 'G' (group DMs/MPIMs)
-        // Some cross-workspace or external DMs might use 'C' IDs but behave like DMs
-        if channel.starts_with('D') || channel.starts_with('G') {
-            debug!("Skipping reaction fetch for DM channel: {}", channel);
-            return Ok(vec![]);
-        }
+        // DEBUG: Log every reaction fetch attempt
+        debug!("get_reactions called for channel: {} timestamp: {}", channel, timestamp);
+
+        // NOTE: Removed the DM channel skip logic as Slack API supports reactions in DMs
+        // Previously this code was skipping all DM channels, but reactions work in DMs too
+        info!("DEBUG: Proceeding with reaction fetch for channel: {} (type: {})",
+              channel,
+              if channel.starts_with('D') { "DM" }
+              else if channel.starts_with('G') { "Group_DM" }
+              else if channel.starts_with('C') { "Channel" }
+              else { "Unknown" });
 
         let _ = self.rate_limiter.acquire().await;
 
@@ -1077,17 +1081,28 @@ impl SlackClient {
                     .get("error")
                     .and_then(|v| v.as_str())
                     .unwrap_or("Unknown error");
+
+                info!("DEBUG: get_reactions API error for channel {}: {}", channel, error_msg);
+
                 // Handle "no_reaction" as normal case - message has no reactions
                 if error_msg.contains("no_reaction") {
+                    debug!("Message has no reactions: {}", channel);
                     return Ok(vec![]);
                 }
-                // Handle "channel_not_found" for DMs that use 'C' channel IDs (cross-workspace/external)
-                // These are MPIMs or cross-workspace DMs that behave like DMs for reactions
+                // Handle "channel_not_found" - this might indicate permission issues
                 if error_msg == "channel_not_found" {
-                    debug!("Channel not found for reactions (likely a DM-type channel): {}", channel);
+                    info!("Channel not found for reactions (permission issue?): {}", channel);
                     return Ok(vec![]);
                 }
-                return Err(anyhow::anyhow!("Slack API error: {}", error_msg));
+                // Handle other known errors gracefully
+                if error_msg == "message_not_found" {
+                    debug!("Message not found for reactions: {}", channel);
+                    return Ok(vec![]);
+                }
+
+                // Log unexpected errors but don't fail completely
+                error!("Unexpected reaction API error for channel {}: {}", channel, error_msg);
+                return Ok(vec![]);
             }
         }
 
@@ -1096,6 +1111,8 @@ impl SlackClient {
             .and_then(|msg| msg.get("reactions"))
             .and_then(|r| serde_json::from_value::<Vec<SlackReaction>>(r.clone()).ok())
             .unwrap_or_default();
+
+        info!("DEBUG: get_reactions for {} found {} reactions", channel, reactions.len());
 
         Ok(reactions)
     }
