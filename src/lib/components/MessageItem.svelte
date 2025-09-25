@@ -54,7 +54,7 @@
     return date.toLocaleString();
   }
   
-  function truncateText(text: string, maxLength = 200) {
+  function truncateText(text: string, maxLength = 2000) {
     if (text.length <= maxLength) return text;
     
     // Check if we're cutting off in the middle of a Slack-formatted URL
@@ -75,7 +75,7 @@
   $: decodedText = decodeSlackText(message.text);
   $: parsedSegments = parseMessageWithEmojis(decodedText);
   $: markdownSegments = parseMessageWithMarkdown(parsedSegments);
-  $: messageSegments = truncateSegments(markdownSegments, 200);
+  $: messageSegments = truncateSegments(markdownSegments, 2000);
   
   function truncateSegments(segments: any[], maxLength: number) {
     let totalLength = 0;
