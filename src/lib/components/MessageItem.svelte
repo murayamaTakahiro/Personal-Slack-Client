@@ -13,6 +13,7 @@
   import { parseMessageWithEmojis, parseEmoji } from '../utils/emojiParser';
   import { parseMessageWithMarkdown } from '../utils/markdownParser';
   import { decodeSlackText } from '../utils/htmlEntities';
+  import { parseMessageWithMentionsUsingUserStore } from '../utils/mentionParserWithUsers';
   import { currentUserId } from '../stores/currentUser';
   
   export let message: Message;
@@ -73,8 +74,17 @@
   
   // First decode Slack text, then parse (don't truncate before parsing to preserve URL integrity)
   $: decodedText = decodeSlackText(message.text);
-  $: parsedSegments = parseMessageWithEmojis(decodedText);
-  $: markdownSegments = parseMessageWithMarkdown(parsedSegments);
+  // First parse mentions using user store for accurate detection
+  $: mentionSegments = parseMessageWithMentionsUsingUserStore(decodedText);
+  // Then parse emojis in the segments that are not mentions
+  $: emojiSegments = mentionSegments.flatMap(segment => {
+    if (segment.type === 'mention' || segment.type === 'url') {
+      return [segment];
+    } else {
+      return parseMessageWithEmojis(segment.content);
+    }
+  });
+  $: markdownSegments = parseMessageWithMarkdown(emojiSegments);
   $: messageSegments = truncateSegments(markdownSegments, 2000);
   
   function truncateSegments(segments: any[], maxLength: number) {

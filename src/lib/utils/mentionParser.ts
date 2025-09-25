@@ -7,8 +7,9 @@ export interface ParsedSegment {
 export function parseMessageWithMentions(text: string): ParsedSegment[] {
   // Combined regex to match mentions (both Slack format and display format), URLs with/without angle brackets
   // Matches: <@USERID>, <@USERID|username>, @mentions (bounded), <http(s)://...>, and plain http(s):// URLs
-  // For @mentions, use word boundary or specific terminators to prevent over-matching
-  const combinedRegex = /(<@[A-Z0-9]+(?:\|[^>]+)?>)|(@[\w.-]+)(?=\s|$|[,.:;!?])|<(https?:\/\/[^>]+)>|(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g;
+  // For @mentions, match any non-whitespace characters after @ until we hit a space
+  // This allows for usernames with dots, slashes, underscores, hyphens, and Japanese characters
+  const combinedRegex = /(<@[A-Z0-9]+(?:\|[^>]+)?>)|(@[^\s]+)(?=\s|$)|<(https?:\/\/[^>]+)>|(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g;
   const segments: ParsedSegment[] = [];
   let lastIndex = 0;
   let match;

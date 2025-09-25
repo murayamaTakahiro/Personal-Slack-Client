@@ -13,6 +13,7 @@
   import { parseMessageWithEmojis, parseEmoji } from '../utils/emojiParser';
   import { parseMessageWithMarkdown } from '../utils/markdownParser';
   import { decodeSlackText } from '../utils/htmlEntities';
+  import { parseMessageWithMentionsUsingUserStore } from '../utils/mentionParserWithUsers';
   import { writable } from 'svelte/store';
   import { currentUserId } from '../stores/currentUser';
   import { filePreviewStore, lightboxOpen } from '../stores/filePreview';
@@ -37,8 +38,17 @@
 
   // Process text using reactive statements like MessageItem does
   $: decodedText = decodeSlackText(message.text);
-  $: parsedSegments = parseMessageWithEmojis(decodedText);
-  $: markdownSegments = parseMessageWithMarkdown(parsedSegments);
+  // First parse mentions using user store for accurate detection
+  $: mentionSegments = parseMessageWithMentionsUsingUserStore(decodedText);
+  // Then parse emojis in the segments that are not mentions
+  $: emojiSegments = mentionSegments.flatMap(segment => {
+    if (segment.type === 'mention' || segment.type === 'url') {
+      return [segment];
+    } else {
+      return parseMessageWithEmojis(segment.content);
+    }
+  });
+  $: markdownSegments = parseMessageWithMarkdown(emojiSegments);
   $: messageSegments = truncateSegments(markdownSegments, 2000);
   $: processedText = messageSegments.map(s => s.content).join('');
 
