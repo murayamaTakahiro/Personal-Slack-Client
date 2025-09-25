@@ -28,6 +28,7 @@
   let focusedIndex = -1;
   let listContainer: HTMLDivElement;
   let messageElements: HTMLElement[] = [];
+  let isExpanded = false;
   
   // Post dialog state
   let showPostDialog = false;
@@ -113,6 +114,18 @@
 
       // Update focus and scroll
       updateFocus();
+    }
+  }
+
+  // Handle focus events for expansion
+  function handleContainerFocus() {
+    isExpanded = true;
+  }
+
+  function handleContainerBlur(event: FocusEvent) {
+    // Check if focus is moving to a child element
+    if (listContainer && !listContainer.contains(event.relatedTarget as Node)) {
+      isExpanded = false;
     }
   }
   
@@ -888,10 +901,13 @@
       </div>
       <div
         class="messages"
+        class:expanded={isExpanded}
         bind:this={listContainer}
         tabindex="0"
         role="list"
         aria-label="Search results"
+        on:focus={handleContainerFocus}
+        on:blur={handleContainerBlur}
         on:keydown={handleKeyDown}>
         {#each visibleMessages as message, visibleIndex (message.ts)}
           {@const actualIndex = messages.findIndex(m => m.ts === message.ts)}
@@ -954,10 +970,11 @@
     display: flex;
     flex-direction: column;
     background: var(--bg-secondary);
-    border-radius: 8px;
+    border-radius: 6px;
     overflow: hidden;
     min-height: 0; /* Important for flex containers with scrollable children */
     height: 100%; /* Ensure container takes full available height */
+    transition: all 0.3s ease;
   }
   
   .loading,
@@ -1011,7 +1028,7 @@
   }
 
   .results-header {
-    padding: 1rem;
+    padding: 0.5rem 0.75rem;
     border-bottom: 1px solid var(--border);
     background: var(--bg-primary);
     flex-shrink: 0; /* Prevent header from shrinking */
@@ -1049,10 +1066,26 @@
   .messages {
     flex: 1;
     overflow-y: auto;
-    padding: 0.5rem;
+    padding: 0.25rem;
     outline: none;
     min-height: 0; /* Important for flex child to be scrollable */
     height: 0; /* Force container to not expand beyond flex allocation */
+    transition: all 0.3s ease;
+  }
+
+  /* When expanded (focused), take more space */
+  .messages.expanded {
+    position: fixed;
+    top: 60px; /* Reduced for compact header and search bar */
+    left: 8px;
+    right: calc(50% + 4px); /* Take up left half */
+    bottom: 8px;
+    height: auto !important;
+    max-height: calc(100vh - 76px);
+    z-index: 100;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   }
   
   .messages:focus {

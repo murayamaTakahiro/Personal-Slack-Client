@@ -989,9 +989,9 @@
 <style>
   .search-bar {
     background: var(--bg-secondary);
-    border-radius: 8px;
-    padding: 1rem;
-    margin-bottom: 1rem;
+    border-radius: 6px;
+    padding: 0.25rem 0.5rem;
+    margin-bottom: 0.25rem;
   }
   
   .search-main {
@@ -1003,8 +1003,8 @@
   .btn-toggle {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
     background: transparent;
     border: 1px solid var(--border);
     border-radius: 4px;
@@ -1012,6 +1012,7 @@
     cursor: pointer;
     transition: all 0.2s;
     position: relative;
+    font-size: 0.875rem;
   }
   
   .btn-toggle:hover {
@@ -1026,8 +1027,8 @@
   }
   
   .search-advanced {
-    margin-top: 1rem;
-    padding-top: 1rem;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
     border-top: 1px solid var(--border);
     animation: slideDown 0.3s ease-out;
   }
@@ -1044,12 +1045,12 @@
   }
   
   .search-section {
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.75rem;
   }
   
   .search-section h3 {
-    margin: 0 0 1rem 0;
-    font-size: 0.875rem;
+    margin: 0 0 0.5rem 0;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
@@ -1057,7 +1058,7 @@
   }
   
   .input-group {
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
   }
   
   .input-group label {
@@ -1070,10 +1071,10 @@
   
   .search-input,
   .url-input {
-    padding: 0.5rem 1rem;
+    padding: 0.3rem 0.75rem;
     border: 1px solid var(--border);
     border-radius: 4px;
-    font-size: 1rem;
+    font-size: 0.9rem;
     background: var(--bg-primary);
     color: var(--text-primary);
     width: 100%;

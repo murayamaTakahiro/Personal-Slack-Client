@@ -1567,7 +1567,7 @@
           class="btn-settings"
           on:click={() => showSettings = !showSettings}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <circle cx="12" cy="12" r="3"/>
             <path d="M12 1v6m0 6v6m4.22-13.22 4.24 4.24M1.54 1.54l4.24 4.24M20.46 20.46l-4.24-4.24M1.54 20.46l4.24-4.24"/>
           </svg>
@@ -1872,39 +1872,39 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
-    padding: 1rem;
+    padding: 0.5rem;
     overflow: hidden; /* Prevent overflow of the main container */
   }
   
   .app-header {
     display: flex;
-    gap: 1rem;
+    gap: 0.5rem;
     align-items: center;
-    padding: 1rem;
+    padding: 0.25rem 0.5rem;
     background: var(--bg-secondary);
-    border-radius: 8px;
-    margin-bottom: 1rem;
+    border-radius: 6px;
+    margin-bottom: 0.25rem;
     flex-shrink: 0; /* Prevent header from shrinking */
   }
-  
+
   .app-header > :last-child {
     margin-left: auto;
   }
-  
+
   .app-header h1 {
-    font-size: 1.5rem;
+    font-size: 1rem;
     font-weight: 600;
   }
   
   .realtime-indicator {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 0.5rem 1rem;
+    gap: 0.5rem;
+    padding: 0.25rem 0.5rem;
     background: rgba(255, 68, 68, 0.1);
     border: 1px solid #ff4444;
-    border-radius: 6px;
-    font-size: 0.875rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
   }
   
   .live-badge {
@@ -1932,14 +1932,15 @@
   .btn-settings {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
+    gap: 0.2rem;
+    padding: 0.15rem 0.4rem;
     background: transparent;
     border: 1px solid var(--border);
     border-radius: 4px;
     color: var(--text-secondary);
     cursor: pointer;
     transition: all 0.2s;
+    font-size: 0.8rem;
   }
   
   .btn-settings:hover {
@@ -2064,10 +2065,11 @@
   
   .main-content {
     display: flex;
-    gap: 1rem;
+    gap: 0.5rem;
     flex: 1;
     min-height: 0;
     overflow: hidden; /* Prevent children from overflowing */
+    height: 100%;
   }
   
   .results-panel {

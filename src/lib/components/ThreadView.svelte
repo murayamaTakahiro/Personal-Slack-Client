@@ -22,6 +22,7 @@
   let error: string | null = null;
   let selectedIndex = -1;
   let threadViewElement: HTMLDivElement;
+  let isExpanded = false;
 
   // Post dialog state
   let showPostDialog = false;
@@ -260,7 +261,19 @@
       }
     });
   }
-  
+
+  // Handle focus events for expansion
+  function handleContainerFocus() {
+    isExpanded = true;
+  }
+
+  function handleContainerBlur(event: FocusEvent) {
+    // Check if focus is moving to a child element
+    if (threadViewElement && !threadViewElement.contains(event.relatedTarget as Node)) {
+      isExpanded = false;
+    }
+  }
+
   function handleKeyDown(event: KeyboardEvent) {
     if (!thread) return;
 
@@ -435,7 +448,7 @@
   }
 </script>
 
-<div class="thread-view" bind:this={threadViewElement} on:keydown={handleKeyDown} on:focus={handleFocus} role="region" aria-label="Thread messages" tabindex="-1">
+<div class="thread-view" class:expanded={isExpanded} bind:this={threadViewElement} on:keydown={handleKeyDown} on:focus={handleFocus} on:focus={handleContainerFocus} on:blur={handleContainerBlur} role="region" aria-label="Thread messages" tabindex="-1">
   {#if !message}
     <div class="empty">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" opacity="0.3">
@@ -559,13 +572,29 @@
     display: flex;
     flex-direction: column;
     background: var(--bg-secondary);
-    border-radius: 8px;
+    border-radius: 6px;
     overflow: hidden;
     outline: none;
     min-height: 0; /* Important for flex containers with scrollable children */
     height: 100%; /* Ensure container takes full available height */
+    transition: all 0.3s ease;
   }
-  
+
+  /* When expanded (focused), take more space */
+  .thread-view.expanded {
+    position: fixed;
+    top: 60px; /* Reduced for compact header and search bar */
+    left: calc(50% - 4px); /* Take up right half */
+    right: 8px;
+    bottom: 8px;
+    height: auto !important;
+    max-height: calc(100vh - 76px);
+    z-index: 100;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  }
+
   .thread-view:focus {
     box-shadow: inset 0 0 0 3px var(--primary);
     outline: 2px solid var(--primary);
@@ -606,9 +635,10 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem;
+    padding: 0.5rem 0.75rem;
     border-bottom: 1px solid var(--border);
     background: var(--bg-primary);
+    flex-shrink: 0;
   }
   
   .thread-header h3 {
@@ -628,13 +658,13 @@
   .btn-open-thread {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
     background: var(--primary);
     color: white;
     border: none;
     border-radius: 4px;
-    font-size: 0.875rem;
+    font-size: 0.75rem;
     cursor: pointer;
     transition: all 0.2s;
   }
@@ -647,7 +677,7 @@
   .single-message {
     flex: 1;
     overflow-y: auto;
-    padding: 1rem;
+    padding: 0.5rem;
     min-height: 0; /* Critical for nested flex scrolling */
   }
   
