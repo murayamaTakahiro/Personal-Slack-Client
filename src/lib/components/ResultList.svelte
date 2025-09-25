@@ -760,10 +760,11 @@
           return; // Let lightbox handle navigation
         }
 
-        // Check if thread view has focus - if so, don't handle
+        // Check if thread view has focus - if so, let it handle the quote
         const threadViewElement = document.querySelector('.thread-view');
         if (threadViewElement && threadViewElement.contains(document.activeElement)) {
-          return; // Let thread view handle its own navigation
+          // Don't process here, ThreadView will handle it via its own keydown handler
+          return;
         }
 
         // Also check if the result list actually has focus

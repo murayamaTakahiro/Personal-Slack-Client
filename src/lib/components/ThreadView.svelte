@@ -14,6 +14,7 @@
   import { logger } from '../services/logger';
   import { lightboxOpen } from '../stores/filePreview';
   import { isPostDialogOpen } from '../stores/postDialog';
+  import { getKeyboardService } from '../services/keyboardService';
 
   export let message: Message | null = null;
 
@@ -277,6 +278,17 @@
   function handleKeyDown(event: KeyboardEvent) {
     if (!thread) return;
 
+    // Debug logging for Q key
+    if (event.key.toLowerCase() === 'q') {
+      console.log('[ThreadView] Q key pressed', {
+        activeElement: document.activeElement,
+        threadViewElement,
+        contains: threadViewElement?.contains(document.activeElement),
+        selectedIndex,
+        showPostDialog
+      });
+    }
+
     // Check if lightbox is open - if so, don't handle navigation
     if ($lightboxOpen) {
       return; // Let lightbox handle navigation
@@ -370,21 +382,7 @@
           showInfo('Jumped to last message in thread', `Message ${totalMessages} of ${totalMessages}`);
         }
         break;
-      case 'q':
-      case 'Q':
-        event.preventDefault();
-        // Don't handle if post dialog is open
-        if (showPostDialog) return;
-
-        // Quote the selected message (new Q key behavior)
-        if (selectedIndex >= 0 && selectedIndex < totalMessages) {
-          const selectedMsg = messages[selectedIndex].message;
-          const decodedText = decodeSlackText(selectedMsg.text);
-          // Quote the message text by adding "> " to the beginning of each line
-          const quotedText = decodedText.split('\n').map(line => `> ${line}`).join('\n');
-          openThreadReplyDialog(quotedText);
-        }
-        break;
+      // Q key is now handled in the capture phase listener
     }
   }
   
@@ -426,6 +424,32 @@
       selectedIndex = 0;
       setTimeout(() => focusMessage(0), 100);
     }
+
+    // Add event listener in capture phase to handle Q key before KeyboardService
+    const handleQuoteKey = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() === 'q' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+        // Check if thread view has focus
+        if (threadViewElement && threadViewElement.contains(document.activeElement)) {
+          // Check if post dialog is open
+          if (showPostDialog) return;
+
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+
+          // Handle the quote action
+          handleQuoteMessage();
+        }
+      }
+    };
+
+    // Add listener in capture phase (true = capture)
+    document.addEventListener('keydown', handleQuoteKey, true);
+
+    // Cleanup function
+    return () => {
+      document.removeEventListener('keydown', handleQuoteKey, true);
+    };
   });
   
   $: if (thread && selectedIndex === -1) {
@@ -444,6 +468,21 @@
     if (thread && selectedIndex === -1) {
       selectedIndex = 0;
       focusMessage(0);
+    }
+  }
+
+  // Export function to handle quote action from outside
+  export function handleQuoteMessage() {
+    // Quote the selected message in thread
+    if (thread && selectedIndex >= 0) {
+      const messages = getAllMessages();
+      if (selectedIndex < messages.length) {
+        const selectedMsg = messages[selectedIndex].message;
+        const decodedText = decodeSlackText(selectedMsg.text);
+        // Quote the message text by adding "> " to the beginning of each line
+        const quotedText = decodedText.split('\n').map(line => `> ${line}`).join('\n') + '\n';
+        openThreadReplyDialog(quotedText);
+      }
     }
   }
 </script>
