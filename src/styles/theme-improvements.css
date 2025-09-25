@@ -3,46 +3,59 @@
  * Enhances contrast, typography, spacing, and visual hierarchy
  */
 
-/* Enhanced Light Theme with Better Contrast */
+/* Enhanced Light Theme with Modern Professional Colors */
 :root {
-  /* Primary Colors - Higher Contrast */
+  /* Primary Colors - Soft and Professional */
   --bg-primary: #ffffff;
-  --bg-secondary: #f5f7fa;
-  --bg-hover: #e8ecf1;
-  --bg-active: #dce2e9;
+  --bg-secondary: #f8f9fa;
+  --bg-hover: #f1f3f5;
+  --bg-active: #e9ecef;
 
-  /* Text Colors - Improved Contrast */
-  --text-primary: #1a1d23;     /* Darker for better contrast (WCAG AAA) */
-  --text-secondary: #4a5568;    /* Darker secondary text */
-  --text-muted: #718096;
-  --text-link: #2563eb;
+  /* Sidebar & Navigation */
+  --sidebar-bg: #2c2d30;        /* Slack-inspired dark sidebar */
+  --sidebar-hover: #3f4147;
+  --sidebar-active: #4d4f56;
+  --sidebar-text: #d1d2d3;
+  --sidebar-text-active: #ffffff;
 
-  /* Borders - More Visible */
-  --border: #cbd5e1;
-  --border-strong: #94a3b8;
-  --border-focus: #3b82f6;
+  /* Text Colors - Balanced Contrast */
+  --text-primary: #2c3e50;      /* Softer than pure black */
+  --text-secondary: #64748b;    /* Muted but readable */
+  --text-muted: #94a3b8;
+  --text-link: #4a6fa5;
 
-  /* Brand Colors - More Vibrant */
-  --primary: #3b82f6;
-  --primary-hover: #2563eb;
-  --primary-bg: #dbeafe;
-  --primary-text: #1e40af;
+  /* Borders - Subtle */
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --border-focus: #4a6fa5;
 
-  /* Status Colors */
-  --success: #10b981;
+  /* Brand Colors - Professional Blue */
+  --primary: #4a6fa5;
+  --primary-hover: #3e5f8a;
+  --primary-bg: #e6eef8;
+  --primary-text: #2c4770;
+
+  /* Status Colors - Muted & Professional */
+  --success: #059669;
   --success-bg: #d1fae5;
-  --warning: #f59e0b;
+  --warning: #d97706;
   --warning-bg: #fed7aa;
-  --error: #ef4444;
+  --error: #dc2626;
   --error-bg: #fee2e2;
-  --info: #3b82f6;
-  --info-bg: #dbeafe;
+  --info: #4a6fa5;
+  --info-bg: #e6eef8;
 
   /* Message-specific */
   --message-bg: #ffffff;
-  --message-hover: #f8fafc;
+  --message-hover: #fafbfc;
   --message-border: #e2e8f0;
-  --message-selected: #eff6ff;
+  --message-selected: #f0f4f9;
+
+  /* Accent Colors - For UI Elements */
+  --accent-green: #1d9560;      /* Online status */
+  --accent-yellow: #fcb42d;     /* Mentions */
+  --accent-red: #e01e5a;        /* Notifications */
+  --accent-purple: #7c3aed;     /* Special highlights */
 
   /* Improved Typography */
   --font-size-xs: 0.75rem;
@@ -84,36 +97,43 @@
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
 }
 
-/* Enhanced Dark Theme */
+/* Enhanced Dark Theme - Modern Slack-inspired */
 :root.dark {
-  /* Dark backgrounds - Better contrast */
-  --bg-primary: #0f1419;        /* Darker background */
-  --bg-secondary: #1a1f2e;
-  --bg-hover: #22293a;
-  --bg-active: #2a3244;
+  /* Dark backgrounds - Warmer tones */
+  --bg-primary: #1a1d21;        /* Warmer dark */
+  --bg-secondary: #222529;
+  --bg-hover: #2a2d33;
+  --bg-active: #35383f;
 
-  /* Text Colors - Higher contrast in dark mode */
-  --text-primary: #f0f4f8;      /* Brighter white */
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
-  --text-link: #60a5fa;
+  /* Sidebar & Navigation - Purple accent like Slack */
+  --sidebar-bg: #3f0e40;        /* Slack's signature purple */
+  --sidebar-hover: #4d1e4e;
+  --sidebar-active: #5b2e5c;
+  --sidebar-text: #d1b3d1;
+  --sidebar-text-active: #ffffff;
 
-  /* Borders - More visible in dark mode */
-  --border: #334155;
-  --border-strong: #475569;
-  --border-focus: #60a5fa;
+  /* Text Colors - Optimized for dark */
+  --text-primary: #e8e8e9;      /* Soft white */
+  --text-secondary: #b8bcc3;
+  --text-muted: #8b91a1;
+  --text-link: #6b9bd1;
 
-  /* Brand Colors - Adjusted for dark mode */
-  --primary: #60a5fa;
-  --primary-hover: #3b82f6;
-  --primary-bg: #1e3a8a;
-  --primary-text: #93c5fd;
+  /* Borders - Subtle in dark mode */
+  --border: #2e3338;
+  --border-strong: #3e434a;
+  --border-focus: #6b9bd1;
+
+  /* Brand Colors - Soft blue for dark mode */
+  --primary: #6b9bd1;
+  --primary-hover: #5a8bc1;
+  --primary-bg: #2c3e50;
+  --primary-text: #a3c5e8;
 
   /* Message-specific dark */
-  --message-bg: #1a1f2e;
-  --message-hover: #22293a;
-  --message-border: #334155;
-  --message-selected: #1e3a8a;
+  --message-bg: #222529;
+  --message-hover: #2a2d33;
+  --message-border: #2e3338;
+  --message-selected: #2c3e50;
 }
 
 /* Global Typography Improvements */
@@ -206,6 +226,7 @@ select:focus {
 .result-list {
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
+  box-shadow: 1px 0 3px rgba(0, 0, 0, 0.05);
 }
 
 .message-item {
@@ -226,13 +247,14 @@ select:focus {
 
 /* Better Channel Tags */
 .channel-tag {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
+  background: var(--primary-bg);
+  border: 1px solid transparent;
+  color: var(--primary-text);
   padding: var(--spacing-xs) var(--spacing-sm);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
+  opacity: 0.9;
 }
 
 /* User Mentions */
@@ -254,7 +276,8 @@ select:focus {
 /* Thread View Improvements */
 .thread-view {
   background: var(--bg-primary);
-  border-left: 1px solid var(--border-strong);
+  border-left: 1px solid var(--border);
+  box-shadow: -1px 0 3px rgba(0, 0, 0, 0.05);
 }
 
 .thread-header {
@@ -269,6 +292,10 @@ select:focus {
   border: 1px solid var(--border);
   box-shadow: var(--shadow-lg);
   border-radius: var(--radius-xl);
+}
+
+:root.dark .settings-panel {
+  background: var(--bg-secondary);
 }
 
 .settings-section {
@@ -372,6 +399,35 @@ select:focus {
   margin-right: var(--spacing-xs);
 }
 
-.status-indicator.online { background: var(--success); }
-.status-indicator.away { background: var(--warning); }
+.status-indicator.online { background: var(--accent-green); }
+.status-indicator.away { background: var(--accent-yellow); }
 .status-indicator.offline { background: var(--text-muted); }
+
+/* Additional UI Polish */
+:root {
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s ease;
+  --transition-slow: 0.35s ease;
+}
+
+/* Smooth transitions for interactive elements */
+button, a, input, textarea, select, .clickable {
+  transition: all var(--transition-fast);
+}
+
+/* Better hover states */
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Selection color */
+::selection {
+  background: var(--primary);
+  color: white;
+}
+
+:root.dark ::selection {
+  background: var(--primary);
+  color: white;
+}

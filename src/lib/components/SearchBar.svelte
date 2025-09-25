@@ -989,9 +989,11 @@
 <style>
   .search-bar {
     background: var(--bg-secondary);
-    border-radius: 6px;
-    padding: 0.25rem 0.5rem;
-    margin-bottom: 0.25rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    box-shadow: var(--shadow-sm);
   }
   
   .search-main {
@@ -1004,25 +1006,27 @@
     display: flex;
     align-items: center;
     gap: 0.25rem;
-    padding: 0.25rem 0.5rem;
-    background: transparent;
+    padding: 0.375rem 0.625rem;
+    background: var(--bg-primary);
     border: 1px solid var(--border);
-    border-radius: 4px;
+    border-radius: 6px;
     color: var(--text-secondary);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s ease;
     position: relative;
     font-size: 0.875rem;
   }
-  
+
   .btn-toggle:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
   }
-  
+
   .btn-toggle.active {
-    background: var(--primary-bg);
-    color: var(--primary);
+    background: var(--primary);
+    color: white;
     border-color: var(--primary);
   }
   
@@ -1071,19 +1075,21 @@
   
   .search-input,
   .url-input {
-    padding: 0.3rem 0.75rem;
+    padding: 0.5rem 0.75rem;
     border: 1px solid var(--border);
-    border-radius: 4px;
+    border-radius: 6px;
     font-size: 0.9rem;
     background: var(--bg-primary);
     color: var(--text-primary);
     width: 100%;
+    transition: all 0.15s ease;
   }
-  
+
   .search-input:focus,
   .url-input:focus {
     outline: none;
-    border-color: var(--primary);
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(74, 111, 165, 0.1);
   }
   
   .search-input:disabled,

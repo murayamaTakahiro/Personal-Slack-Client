@@ -526,35 +526,36 @@
     display: block;
     width: 100%;
     padding: 0.75rem;
-    margin-bottom: 0.5rem;
-    background: var(--bg-primary);
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    margin-bottom: 0.125rem;
+    background: var(--message-bg);
+    border: 1px solid transparent;
+    border-left: 3px solid transparent;
     text-align: left;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s ease;
   }
-  
+
   .message-item:hover {
-    background: var(--bg-hover);
-    border-color: var(--primary);
+    background: var(--message-hover);
+    border-left-color: var(--border);
   }
-  
+
   .message-item.selected {
-    background: var(--primary-bg);
-    border-color: var(--primary);
+    background: var(--message-selected);
+    border-left-color: var(--primary);
   }
 
   .message-item.focused {
-    outline: 2px solid var(--primary);
-    outline-offset: 1px;
+    outline: 2px solid var(--border-focus);
+    outline-offset: -2px;
+    border-left-color: var(--primary);
   }
   
   .message-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
   }
   
   .message-meta {
@@ -576,13 +577,14 @@
   .channel-badge {
     display: inline-flex;
     align-items: center;
-    padding: 0.125rem 0.5rem;
+    padding: 0.125rem 0.4rem;
     background: var(--primary-bg);
-    border: 1px solid var(--primary);
-    border-radius: 12px;
-    color: var(--primary);
-    font-size: 0.75rem;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--primary-text);
+    font-size: 0.7rem;
     font-weight: 500;
+    opacity: 0.9;
   }
   
   .timestamp {
@@ -604,9 +606,10 @@
     display: flex;
     align-items: center;
     gap: 0.25rem;
-    padding: 0.25rem 0.5rem;
+    padding: 0.2rem 0.4rem;
     background: var(--bg-secondary);
-    border-radius: 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
     font-size: 0.75rem;
     color: var(--text-secondary);
   }

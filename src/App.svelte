@@ -1822,39 +1822,7 @@
 </div>
 
 <style>
-  :global(:root) {
-    --bg-primary: #ffffff;
-    --bg-secondary: #f8f9fa;
-    --bg-hover: #f1f3f5;
-    --text-primary: #212529;
-    --text-secondary: #6c757d;
-    --border: #dee2e6;
-    --primary: #4a90e2;
-    --primary-hover: #357abd;
-    --primary-bg: #e7f1fb;
-    --error: #dc3545;
-    --warning: #ff9800;
-    --danger: #dc3545;
-    --danger-bg: #f8d7da;
-    --danger-hover: #c82333;
-  }
-  
-  :global(:root.dark) {
-    --bg-primary: #1a1d21;
-    --bg-secondary: #232629;
-    --bg-hover: #2d3136;
-    --text-primary: #e1e1e3;
-    --text-secondary: #a0a0a2;
-    --border: #3e4146;
-    --primary: #4a90e2;
-    --primary-hover: #357abd;
-    --primary-bg: #1e3a5c;
-    --error: #f56565;
-    --warning: #ffa726;
-    --danger: #f56565;
-    --danger-bg: #4a2525;
-    --danger-hover: #dc2626;
-  }
+  /* Color variables are now defined in theme-improvements.css */
   
   :global(*) {
     margin: 0;
@@ -1880,11 +1848,12 @@
     display: flex;
     gap: 0.5rem;
     align-items: center;
-    padding: 0.25rem 0.5rem;
-    background: var(--bg-secondary);
-    border-radius: 6px;
-    margin-bottom: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--sidebar-bg);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
     flex-shrink: 0; /* Prevent header from shrinking */
+    box-shadow: var(--shadow-sm);
   }
 
   .app-header > :last-child {
@@ -1894,6 +1863,7 @@
   .app-header h1 {
     font-size: 1rem;
     font-weight: 600;
+    color: var(--sidebar-text-active);
   }
   
   .realtime-indicator {
@@ -1901,15 +1871,16 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.25rem 0.5rem;
-    background: rgba(255, 68, 68, 0.1);
-    border: 1px solid #ff4444;
-    border-radius: 4px;
+    background: rgba(225, 30, 90, 0.15);
+    border: 1px solid var(--accent-red);
+    border-radius: 6px;
     font-size: 0.75rem;
+    color: var(--sidebar-text);
   }
-  
+
   .live-badge {
     padding: 0.25rem 0.5rem;
-    background: #ff4444;
+    background: var(--accent-red);
     color: white;
     border-radius: 4px;
     font-weight: 600;
@@ -1932,20 +1903,21 @@
   .btn-settings {
     display: flex;
     align-items: center;
-    gap: 0.2rem;
-    padding: 0.15rem 0.4rem;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: var(--text-secondary);
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: var(--sidebar-text);
     cursor: pointer;
     transition: all 0.2s;
     font-size: 0.8rem;
   }
-  
+
   .btn-settings:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
+    background: var(--sidebar-hover);
+    color: var(--sidebar-text-active);
+    border-color: rgba(255, 255, 255, 0.3);
   }
   
   .settings-panel {
