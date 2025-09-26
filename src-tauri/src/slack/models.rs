@@ -197,6 +197,10 @@ pub struct SlackReplyMessage {
     pub reply_users: Option<Vec<String>>,
     pub reply_users_count: Option<usize>,
     pub latest_reply: Option<String>,
+    #[serde(default)]
+    pub reactions: Option<Vec<SlackReaction>>,
+    #[serde(default)]
+    pub files: Option<Vec<SlackFile>>,
 }
 
 #[derive(Debug, Deserialize)]

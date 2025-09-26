@@ -1,6 +1,6 @@
 <script lang="ts">
   import { searchQuery, searchParams, searchLoading, searchProgress, selectedMessage, searchError } from '../stores/search';
-  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
+  import { createEventDispatcher, onMount, onDestroy, tick } from 'svelte';
   import ChannelSelector from './ChannelSelector.svelte';
   import UserSelector from './UserSelector.svelte';
   import SavedSearchManager from './SavedSearchManager.svelte';
@@ -432,11 +432,14 @@
   }
 
   function handleUrlKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter' && !urlLoading) {
-      // Don't handle Enter key if PostDialog is open
-      if ($isPostDialogOpen) {
-        return;
-      }
+    // Don't process if PostDialog is open
+    if ($isPostDialogOpen) {
+      return;
+    }
+
+    // Handle both Enter and Ctrl+Enter
+    if ((e.key === 'Enter' || (e.ctrlKey && e.key === 'Enter')) && !urlLoading && urlInput.trim()) {
+      e.preventDefault();
       handleUrlPaste();
     }
   }
@@ -595,7 +598,7 @@
   onMount(() => {
     const keyboardService = getKeyboardService();
     if (!keyboardService) return;
-    
+
     // Execute Search (Enter key is already handled in input)
     keyboardService.registerHandler('executeSearch', {
       action: () => {
@@ -605,7 +608,7 @@
       },
       allowInInput: true
     });
-    
+
     // Clear Search
     keyboardService.registerHandler('clearSearch', {
       action: () => {
@@ -616,7 +619,7 @@
       },
       allowInInput: true
     });
-    
+
     // Note: toggleSavedSearches and saveCurrentSearch handlers are now registered in App.svelte
     // to ensure proper timing and avoid conflicts
   });

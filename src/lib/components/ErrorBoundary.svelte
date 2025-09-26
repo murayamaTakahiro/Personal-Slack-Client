@@ -159,11 +159,18 @@
   }
   
   .error-boundary-wrapper {
-    /* No special styling - just a wrapper for error handling */
+    /* Flex container for proper scroll handling in thread view */
     display: flex;
     flex-direction: column;
+    /* WARNING: DO NOT UNCOMMENT flex: 1 globally - This causes scroll issues in result list */
     /* flex: 1; */
-    min-height: 0;
+    min-height: 0; /* Critical for nested flex scrolling */
+    overflow: hidden; /* Prevent expansion beyond allocated space */
+  }
+
+  /* Special handling for ThreadView which needs flex: 1 to scroll properly */
+  .thread-panel .error-boundary-wrapper {
+    flex: 1; /* ThreadView requires this for scrolling */
   }
   
   .error-message {

@@ -979,7 +979,7 @@
     border-radius: 6px;
     overflow: hidden;
     min-height: 0; /* Important for flex containers with scrollable children */
-    height: 100%; /* Ensure container takes full available height */
+    /* Remove height: 100% to work properly without parent having flex: 1 */
     transition: all 0.3s ease;
   }
   
@@ -1029,7 +1029,6 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    height: 100%; /* Ensure it takes full height from parent */
     overflow: hidden; /* Prevent container from expanding */
   }
 
@@ -1075,7 +1074,6 @@
     padding: 0.25rem;
     outline: none;
     min-height: 0; /* Important for flex child to be scrollable */
-    height: 0; /* Force container to not expand beyond flex allocation */
     transition: all 0.3s ease;
   }
 

@@ -248,6 +248,8 @@ pub async fn get_thread(
                 reply_users: None,
                 reply_users_count: None,
                 latest_reply: None,
+                reactions: None,
+                files: None,
             };
             // Insert at the beginning
             messages.insert(0, synthetic_parent);
@@ -294,8 +296,8 @@ pub async fn get_thread(
             permalink,
             is_thread_parent: msg.reply_count.unwrap_or(0) > 0,
             reply_count: msg.reply_count,
-            reactions: None, // Thread messages don't include reactions for now
-            files: None, // Thread messages don't include files for now
+            reactions: msg.reactions.clone(),
+            files: msg.files.clone(),
         });
     }
 

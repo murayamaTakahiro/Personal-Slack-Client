@@ -318,6 +318,7 @@
       case 'j':
       case 'J':
         event.preventDefault();
+        event.stopPropagation(); // Stop event from bubbling to ResultList
         if (selectedIndex === -1) {
           // Initialize selection
           selectedIndex = 0;
@@ -333,6 +334,7 @@
       case 'k':
       case 'K':
         event.preventDefault();
+        event.stopPropagation(); // Stop event from bubbling to ResultList
         if (selectedIndex === -1) {
           // Initialize selection at end
           selectedIndex = totalMessages - 1;
@@ -346,6 +348,7 @@
         break;
       case 'Enter':
         event.preventDefault();
+        event.stopPropagation();
         if (selectedIndex >= 0 && selectedIndex < totalMessages) {
           const selectedMsg = messages[selectedIndex].message;
           handleOpenInSlack(selectedMsg);
@@ -355,6 +358,7 @@
       case 'h':
       case 'H':
         event.preventDefault();
+        event.stopPropagation();
         if (totalMessages > 0) {
           selectedIndex = 0;
           focusMessage(selectedIndex);
@@ -364,6 +368,7 @@
         break;
       case 'End':
         event.preventDefault();
+        event.stopPropagation();
         if (totalMessages > 0) {
           selectedIndex = totalMessages - 1;
           focusMessage(selectedIndex);
@@ -374,6 +379,7 @@
       case 'e':
       case 'E':
         event.preventDefault();
+        event.stopPropagation();
         // Jump to last message (restore original E key behavior)
         if (totalMessages > 0) {
           selectedIndex = totalMessages - 1;
@@ -387,10 +393,12 @@
   }
   
   function focusMessage(index: number) {
-    const messageElement = document.querySelector(`.thread-message-${index}`) as HTMLElement;
+    // Use data-message-index attribute to find the container
+    const messageElement = document.querySelector(`.thread-messages [data-message-index="${index}"]`) as HTMLElement;
     if (messageElement) {
-      messageElement.focus();
+      // Scroll the message into view
       messageElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      // Don't focus on the message element itself - let the ThreadView maintain focus
     }
   }
   
@@ -533,35 +541,32 @@
     </div>
     
     <div class="thread-messages">
-      <div class="thread-parent thread-message-0">
+      <!-- Display parent message -->
+      <div data-message-ts={thread.parent.ts} data-message-index="0">
         <MessageItem
           message={thread.parent}
           selected={selectedIndex === 0}
-          enableReactions={false}
+          focused={selectedIndex === 0}
+          enableReactions={true}
+          showChannelBadge={false}
           on:click={() => handleMessageClick(0)}
         />
       </div>
 
+      <!-- Display thread replies the same way -->
       {#if thread.replies.length > 0}
-        <div class="thread-replies">
-          <div class="replies-header">
-            {thread.replies.length} {thread.replies.length === 1 ? 'reply' : 'replies'}
+        {#each thread.replies as reply, index}
+          <div data-message-ts={reply.ts} data-message-index={index + 1}>
+            <MessageItem
+              message={reply}
+              selected={selectedIndex === index + 1}
+              focused={selectedIndex === index + 1}
+              enableReactions={true}
+              showChannelBadge={false}
+              on:click={() => handleMessageClick(index + 1)}
+            />
           </div>
-          {#each thread.replies as reply, index}
-            <div class="thread-message-{index + 1}">
-              <MessageItem
-                message={reply}
-                selected={selectedIndex === index + 1}
-                enableReactions={false}
-                on:click={() => handleMessageClick(index + 1)}
-              />
-            </div>
-          {/each}
-        </div>
-      {:else}
-        <div class="no-replies">
-          No replies in this thread
-        </div>
+        {/each}
       {/if}
     </div>
   {:else if message && !message.isThreadParent}
@@ -584,13 +589,17 @@
         </button>
       </div>
       
-      <div class="thread-message-0">
-        <MessageItem
-          message={message}
-          selected={selectedIndex === 0}
-          enableReactions={false}
-          on:click={() => handleMessageClick(0)}
-        />
+      <div class="thread-messages">
+        <div data-message-ts={message.ts} data-message-index="0">
+          <MessageItem
+            message={message}
+            selected={selectedIndex === 0}
+            focused={selectedIndex === 0}
+            enableReactions={true}
+            showChannelBadge={false}
+            on:click={() => handleMessageClick(0)}
+          />
+        </div>
       </div>
     </div>
   {/if}
@@ -620,7 +629,7 @@
     overflow: hidden;
     outline: none;
     min-height: 0; /* Important for flex containers with scrollable children */
-    height: 100%; /* Ensure container takes full available height */
+    /* Remove height: 100% to work properly without parent having flex: 1 */
     transition: all 0.3s ease;
   }
 
@@ -717,98 +726,42 @@
     background: var(--primary-hover);
   }
   
-  .thread-messages,
+  .thread-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.25rem;
+    outline: none;
+    min-height: 0; /* Important for flex child to be scrollable */
+  }
+
   .single-message {
     flex: 1;
     overflow-y: auto;
-    padding: 0.5rem;
-    min-height: 0; /* Critical for nested flex scrolling */
-  }
-  
-  /* Removed .message styles - now using MessageItem component */
-
-  .thread-parent {
-    display: block;
-    width: 100%;
-    text-align: left;
-    padding: 1rem;
-    background: var(--bg-primary);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    margin-bottom: 0.75rem;
-    cursor: pointer;
-    transition: all 0.2s;
+    padding: 0.25rem;
+    min-height: 0;
     outline: none;
-    font-family: inherit;
-    font-size: inherit;
-    color: inherit;
   }
-  
-  button.message {
-    appearance: none;
-    -webkit-appearance: none;
+
+  .thread-messages:focus {
+    box-shadow: inset 0 0 0 2px var(--primary);
   }
-  
-  .message:hover {
-    border-color: var(--primary);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+  /* Style to match ResultList scrollbar */
+  .thread-messages::-webkit-scrollbar {
+    width: 8px;
   }
-  
-  .message:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px var(--primary-bg);
+
+  .thread-messages::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
   }
-  
-  .message.selected {
-    background: var(--primary-bg);
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px var(--primary-bg);
-  }
-  
-  .thread-parent {
-    position: relative;
-    margin-bottom: 1rem;
-  }
-  
-  .thread-parent::after {
-    content: '';
-    position: absolute;
-    left: 2rem;
-    bottom: -1rem;
-    width: 2px;
-    height: 1rem;
+
+  .thread-messages::-webkit-scrollbar-thumb {
     background: var(--border);
+    border-radius: 4px;
   }
-  
-  .replies-header {
-    padding: 0.5rem 0;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-  }
-  
-  .reply {
-    margin-left: 2rem;
-    position: relative;
-  }
-  
-  .reply::before {
-    content: '';
-    position: absolute;
-    left: -1rem;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: var(--border);
-  }
-  
-  /* Message styling handled by MessageItem component */
-  
-  .no-replies {
-    padding: 2rem;
-    text-align: center;
-    color: var(--text-secondary);
-    font-style: italic;
+
+  .thread-messages::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
   }
   
   /* Mention and URL styling handled by MessageItem component */
