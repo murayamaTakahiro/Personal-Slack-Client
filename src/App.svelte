@@ -423,7 +423,10 @@
       // Use capture phase (true) to intercept Ctrl+U before other handlers
       try {
         document.addEventListener('keydown', handleGlobalKeydown, true);
-        console.log('[App] Global keydown listener added successfully (capture phase)');
+        console.log('[App] Global keydown listener added successfully (capture phase)', {
+          timestamp: Date.now(),
+          listenerFunction: 'handleGlobalKeydown'
+        });
       } catch (error) {
         console.error('[App] Failed to add global keydown listener:', error);
       }
@@ -574,6 +577,19 @@
   });
 
   function handleGlobalKeydown(event: KeyboardEvent) {
+    // Debug logging for "i" key
+    if (event.key.toLowerCase() === 'i') {
+      console.log('[App] handleGlobalKeydown: "i" key detected', {
+        defaultPrevented: event.defaultPrevented,
+        propagationStopped: event.cancelBubble,
+        phase: event.eventPhase,
+        target: event.target,
+        currentTarget: event.currentTarget,
+        activeElement: document.activeElement,
+        activeElementClass: document.activeElement?.className
+      });
+    }
+
     // Handle Enter key to prevent it from reaching SearchBar when PostDialog is open
     if (event.key === 'Enter') {
       // If PostDialog is open and Enter is pressed in a textarea, stop it from reaching SearchBar
@@ -589,7 +605,7 @@
     }
 
     // Add debug log for navigation key events
-    if (['j', 'k', 'ArrowUp', 'ArrowDown', 'e'].includes(event.key) || event.ctrlKey) {
+    if (['i', 'j', 'k', 'ArrowUp', 'ArrowDown', 'e'].includes(event.key) || event.ctrlKey) {
       console.log('[App] Global keydown event detected:', {
         key: event.key,
         ctrlKey: event.ctrlKey,
@@ -640,6 +656,24 @@
         }
       }
       
+      // Check if event propagation has been stopped (e.g., by ThreadView's capture handler)
+      // This is important for the "i" key which ThreadView handles in capture phase
+      if (event.defaultPrevented) {
+        console.log('[App] Event already handled (defaultPrevented), skipping keyboardService', {
+          key: event.key,
+          defaultPrevented: event.defaultPrevented
+        });
+        return;
+      }
+
+      // Additional log for "i" key
+      if (event.key.toLowerCase() === 'i') {
+        console.log('[App] About to call keyboardService for "i" key', {
+          defaultPrevented: event.defaultPrevented,
+          keyboardServiceExists: !!keyboardService
+        });
+      }
+
       if (keyboardService && typeof keyboardService.handleKeyboardEvent === 'function') {
         keyboardService.handleKeyboardEvent(event);
       }

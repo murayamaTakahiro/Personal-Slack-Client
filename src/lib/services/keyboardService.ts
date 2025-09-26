@@ -134,7 +134,7 @@ export class KeyboardService {
     }
 
     // Log for navigation keys and important keys to debug
-    if (['r', 'p', 't', '1', '2', '3', '/', 'j', 'k', 'e', 'ArrowUp', 'ArrowDown'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || (event.key === '/' && event.ctrlKey)) {
+    if (['i', 'r', 'p', 't', '1', '2', '3', '/', 'j', 'k', 'e', 'ArrowUp', 'ArrowDown'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || (event.key === '/' && event.ctrlKey)) {
       console.log('🔍 DEBUG: KeyboardService handling key event', {
         key: event.key,
         ctrlKey: event.ctrlKey,
@@ -247,7 +247,7 @@ export class KeyboardService {
 
       if (shortcut && this.matchesShortcut(event, shortcut)) {
         // Log for navigation and relevant keys to reduce noise
-        if (['r', 'p', 't', 'q', '1', '2', '3', '/', 'j', 'k', 'e', 'ArrowUp', 'ArrowDown'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || (event.key === '/' && event.ctrlKey) || ['openReactionPicker', 'postMessage', 'replyInThread', 'quoteMessage', 'openUrls', 'focusThread', 'focusResults', 'focusSearchBar', 'toggleSavedSearches', 'nextResult', 'prevResult', 'jumpToLast'].includes(shortcutKey)) {
+        if (['i', 'r', 'p', 't', 'q', '1', '2', '3', '/', 'j', 'k', 'e', 'ArrowUp', 'ArrowDown'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || (event.key === '/' && event.ctrlKey) || ['openLightbox', 'openReactionPicker', 'postMessage', 'replyInThread', 'quoteMessage', 'openUrls', 'focusThread', 'focusResults', 'focusSearchBar', 'toggleSavedSearches', 'nextResult', 'prevResult', 'jumpToLast'].includes(shortcutKey)) {
           console.log('🔍 DEBUG: Handler MATCHED!', {
             shortcutKey,
             shortcut,
@@ -273,7 +273,7 @@ export class KeyboardService {
           event.stopPropagation();
         }
         
-        if (['r', 'p', 't', '1', '2', '3'].includes(event.key.toLowerCase()) || ['focusThread', 'focusResults', 'focusSearchBar'].includes(shortcutKey)) {
+        if (['i', 'r', 'p', 't', '1', '2', '3'].includes(event.key.toLowerCase()) || ['openLightbox', 'focusThread', 'focusResults', 'focusSearchBar'].includes(shortcutKey)) {
           console.log('🔍 DEBUG: Executing handler action for', shortcutKey);
         }
         

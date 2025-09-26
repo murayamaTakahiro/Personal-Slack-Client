@@ -150,6 +150,8 @@ export interface KeyboardShortcuts {
   lightboxClose?: string | string[];
   // File download shortcuts
   downloadAllAttachments?: string | string[];
+  // File preview shortcut
+  openFilePreview?: string | string[];
 }
 
 export interface MentionHistory {

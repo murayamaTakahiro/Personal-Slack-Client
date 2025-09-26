@@ -17,8 +17,9 @@
   import SkeletonLoader from './SkeletonLoader.svelte';
   import { logger } from '../services/logger';
   import { savedSearchOpen } from '../stores/savedSearchOpen';
-  import { lightboxOpen } from '../stores/filePreview';
-  
+  import { lightboxOpen, filePreviewStore } from '../stores/filePreview';
+  import { processFileMetadata } from '../services/fileService';
+
   export let messages: Message[] = [];
   export let loading = false;
   export let error: string | null = null;
@@ -803,9 +804,108 @@
         if (listContainer && document.activeElement !== listContainer) {
           listContainer.focus();
         }
-        
+
         if (focusedIndex >= 0 && focusedIndex < messages.length) {
           await handleOpenUrls();
+        }
+      },
+      allowInInput: false
+    });
+
+    // Open File Preview (i key) - opens file attachments in lightbox
+    // NOTE: We only handle this if ResultList has focus.
+    // ThreadView handles its own "i" key in handleKeyDown
+    keyboardService.registerHandler('openLightbox', {
+      action: () => {
+        console.log('[ResultList] openLightbox handler called - START', {
+          timestamp: Date.now(),
+          lightboxOpen: $lightboxOpen,
+          focusedIndex,
+          messagesLength: messages.length
+        });
+
+        // Check if lightbox is already open - if so, don't handle
+        if ($lightboxOpen) {
+          console.log('[ResultList] Lightbox already open, ignoring');
+          return;
+        }
+
+        // CRITICAL: First check if ThreadView has focus - if so, don't handle
+        // We need to check multiple possible focus targets in ThreadView
+        const threadViewElement = document.querySelector('.thread-view') as HTMLElement;
+        const threadMessagesElement = document.querySelector('.thread-messages') as HTMLElement;
+
+        // Check if activeElement is within ThreadView hierarchy
+        let currentElement = document.activeElement;
+        let isInThreadView = false;
+
+        // Walk up the DOM tree to check if we're inside ThreadView
+        while (currentElement && currentElement !== document.body) {
+          if (currentElement.classList.contains('thread-view') ||
+              currentElement.classList.contains('thread-messages')) {
+            isInThreadView = true;
+            break;
+          }
+          currentElement = currentElement.parentElement;
+        }
+
+        console.log('[ResultList] Focus hierarchy check:', {
+          activeElement: document.activeElement,
+          activeElementClass: document.activeElement?.className,
+          activeElementTagName: document.activeElement?.tagName,
+          isInThreadView,
+          threadViewExists: !!threadViewElement,
+          listContainer: !!listContainer,
+          listHasFocus: listContainer?.contains(document.activeElement) || document.activeElement === listContainer
+        });
+
+        // If focus is anywhere in ThreadView, don't handle
+        if (isInThreadView) {
+          console.log('[ResultList] Focus is in ThreadView, NOT handling - let ThreadView handle it');
+          return; // Let ThreadView handle the "i" key
+        }
+
+        // Also do a direct check for ThreadView elements having focus
+        if (threadViewElement && (threadViewElement === document.activeElement ||
+            threadViewElement.contains(document.activeElement))) {
+          console.log('[ResultList] ThreadView contains activeElement, NOT handling');
+          return;
+        }
+
+        // Now check if ResultList actually has focus
+        const resultListHasFocus = listContainer && (
+          document.activeElement === listContainer ||
+          listContainer.contains(document.activeElement)
+        );
+
+        if (!resultListHasFocus) {
+          console.log('[ResultList] ResultList does not have focus, ignoring "i" key');
+          return; // Don't handle if focus is elsewhere
+        }
+
+        // Additional safety check: ensure we have a valid focused message
+        if (focusedIndex < 0 || focusedIndex >= messages.length) {
+          console.log('[ResultList] No valid focused message index:', focusedIndex);
+          return;
+        }
+
+        // Now we know ResultList has focus and has a valid selection, handle the preview
+        console.log('[ResultList] ResultList has focus with valid selection, handling preview');
+
+        const message = messages[focusedIndex];
+
+        // Check if the message has file attachments
+        if (message.files && message.files.length > 0) {
+          console.log('[ResultList] Opening lightbox for message with', message.files.length, 'files');
+          // Process file metadata for all files
+          const fileMetadata = message.files.map(file => processFileMetadata(file));
+
+          // Open the lightbox with the first file
+          filePreviewStore.openLightbox(fileMetadata[0], fileMetadata);
+        } else {
+          // No files to preview
+          console.log('[ResultList] No file attachments in focused message');
+          showInfo('No attachments', 'This message has no file attachments to preview.');
         }
       },
       allowInInput: false
@@ -835,6 +935,7 @@
       keyboardService.unregisterHandler('jumpToLast');
       keyboardService.unregisterHandler('quoteMessage');
       keyboardService.unregisterHandler('openUrls');
+      keyboardService.unregisterHandler('openLightbox');
     }
   });
 </script>

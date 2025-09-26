@@ -12,9 +12,10 @@
   import MessageItem from './MessageItem.svelte';
   import PostDialog from './PostDialog.svelte';
   import { logger } from '../services/logger';
-  import { lightboxOpen } from '../stores/filePreview';
+  import { lightboxOpen, filePreviewStore } from '../stores/filePreview';
   import { isPostDialogOpen } from '../stores/postDialog';
   import { getKeyboardService } from '../services/keyboardService';
+  import { processFileMetadata } from '../services/fileService';
 
   export let message: Message | null = null;
 
@@ -276,6 +277,15 @@
   }
 
   function handleKeyDown(event: KeyboardEvent) {
+    // Debug all key events in ThreadView
+    console.log('[ThreadView] handleKeyDown called:', {
+      key: event.key,
+      threadViewElement: !!threadViewElement,
+      activeElement: document.activeElement,
+      containsActive: threadViewElement?.contains(document.activeElement),
+      isThreadViewActive: document.activeElement === threadViewElement
+    });
+
     if (!thread) return;
 
     // Debug logging for Q key
@@ -388,6 +398,7 @@
           showInfo('Jumped to last message in thread', `Message ${totalMessages} of ${totalMessages}`);
         }
         break;
+      // I key is now handled in the capture phase listener in onMount
       // Q key is now handled in the capture phase listener
     }
   }
@@ -433,30 +444,90 @@
       setTimeout(() => focusMessage(0), 100);
     }
 
-    // Add event listener in capture phase to handle Q key before KeyboardService
-    const handleQuoteKey = (event: KeyboardEvent) => {
+    // Add event listener in capture phase to handle Q and I keys before KeyboardService
+    const handleSpecialKeys = (event: KeyboardEvent) => {
+      // Debug logging for "i" key
+      if (event.key.toLowerCase() === 'i') {
+        console.log('[ThreadView] handleSpecialKeys: "i" key detected in CAPTURE phase', {
+          threadViewElement: !!threadViewElement,
+          containsActiveElement: threadViewElement?.contains(document.activeElement),
+          activeElement: document.activeElement,
+          activeElementClass: document.activeElement?.className,
+          defaultPrevented: event.defaultPrevented,
+          eventPhase: event.eventPhase
+        });
+      }
+
+      // Check if thread view has focus
+      if (!threadViewElement || !threadViewElement.contains(document.activeElement)) {
+        if (event.key.toLowerCase() === 'i') {
+          console.log('[ThreadView] handleSpecialKeys: NOT handling "i" - ThreadView doesn\'t have focus');
+        }
+        return; // Thread view doesn't have focus, don't handle
+      }
+
+      // Handle Q key for quote
       if (event.key.toLowerCase() === 'q' && !event.altKey && !event.ctrlKey && !event.metaKey) {
-        // Check if thread view has focus
-        if (threadViewElement && threadViewElement.contains(document.activeElement)) {
-          // Check if post dialog is open
-          if (showPostDialog) return;
+        // Check if post dialog is open
+        if (showPostDialog) return;
 
-          event.preventDefault();
-          event.stopPropagation();
-          event.stopImmediatePropagation();
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
 
-          // Handle the quote action
-          handleQuoteMessage();
+        // Handle the quote action
+        handleQuoteMessage();
+        return;
+      }
+
+      // Handle I key for image/file preview
+      if (event.key.toLowerCase() === 'i' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+        // Check if lightbox is already open
+        if ($lightboxOpen) return;
+
+        console.log('[ThreadView] Handling "i" key in capture phase - BEFORE preventDefault');
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        // Set a custom flag that App.svelte can check
+        (event as any).__threadViewHandled = true;
+
+        console.log('[ThreadView] "i" key handled - AFTER preventDefault', {
+          defaultPrevented: event.defaultPrevented,
+          propagationStopped: event.cancelBubble,
+          customFlag: (event as any).__threadViewHandled
+        });
+
+        // Get the selected message
+        const messages = getAllMessages();
+        if (selectedIndex >= 0 && selectedIndex < messages.length) {
+          const selectedMsg = messages[selectedIndex].message;
+
+          // Check if the message has file attachments
+          if (selectedMsg.files && selectedMsg.files.length > 0) {
+            console.log('[ThreadView] Opening lightbox for message with', selectedMsg.files.length, 'files (capture phase)');
+            // Process file metadata for all files
+            const fileMetadata = selectedMsg.files.map(file => processFileMetadata(file));
+
+            // Open the lightbox with the first file
+            filePreviewStore.openLightbox(fileMetadata[0], fileMetadata);
+          } else {
+            showInfo('No attachments', 'This message has no file attachments to preview.');
+          }
         }
       }
     };
 
-    // Add listener in capture phase (true = capture)
-    document.addEventListener('keydown', handleQuoteKey, true);
+    // Add listener in capture phase (true = capture) to intercept before bubbling phase
+    // Use window instead of document to ensure this runs BEFORE App.svelte's document listener
+    console.log('[ThreadView] Adding capture phase listener for special keys on WINDOW');
+    window.addEventListener('keydown', handleSpecialKeys, true);
 
     // Cleanup function
     return () => {
-      document.removeEventListener('keydown', handleQuoteKey, true);
+      window.removeEventListener('keydown', handleSpecialKeys, true);
     };
   });
   
@@ -525,7 +596,7 @@
     <div class="thread-header">
       <div>
         <h3>Thread in #{decodeSlackText(thread.parent.channelName)}</h3>
-        <span class="keyboard-hint">Use ↑↓/J/K to navigate, H/E for first/last, Enter to open in Slack, Alt+Enter to open URLs</span>
+        <span class="keyboard-hint">Use ↑↓/J/K to navigate, H/E for first/last, Enter to open in Slack, Alt+Enter to open URLs, I to preview files</span>
       </div>
       <button
         class="btn-open-thread"
@@ -574,7 +645,7 @@
       <div class="thread-header">
         <div>
           <h3>Message in #{decodeSlackText(message.channelName)}</h3>
-          <span class="keyboard-hint">Press Enter to open in Slack, Alt+Enter to open URLs</span>
+          <span class="keyboard-hint">Press Enter to open in Slack, Alt+Enter to open URLs, I to preview files</span>
         </div>
         <button
           class="btn-open-thread"
