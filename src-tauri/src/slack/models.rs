@@ -135,6 +135,8 @@ pub struct SlackMessage {
     pub reactions: Option<Vec<SlackReaction>>,
     #[serde(default)]
     pub files: Option<Vec<SlackFile>>,
+    #[serde(default)]
+    pub reply_count: Option<usize>,  // Number of thread replies
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

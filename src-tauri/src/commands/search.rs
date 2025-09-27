@@ -243,11 +243,12 @@ pub async fn search_messages(
             // Single channel search
             // Check if we have a text query or just filters
             let is_multi_user = user.as_ref().map_or(false, |u| u.contains(','));
-            if query.trim().is_empty() && !is_multi_user {
-                // No text query and no user filter - use conversations.history for better results
+            if query.trim().is_empty() {
+                // No text query - use conversations.history for better results
+                // This works for both with and without user filter
                 info!(
-                    "Using conversations.history API for channel '{}' without text query",
-                    channel_param
+                    "Using conversations.history API for channel '{}' without text query (user filter: {:?})",
+                    channel_param, user
                 );
 
                 // Convert date filters to timestamps if needed
@@ -271,47 +272,141 @@ pub async fn search_messages(
                     }
                 });
 
-                let latest = to_date.as_ref().and_then(|d| {
-                    // Parse ISO date and convert to Unix timestamp
-                    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(d) {
-                        Some(dt.timestamp().to_string())
-                    } else if let Some(date_part) = d.split('T').next() {
-                        if let Ok(date) = chrono::NaiveDate::parse_from_str(date_part, "%Y-%m-%d") {
-                            let datetime = date.and_hms_opt(23, 59, 59)?;
-                            let dt = chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(
-                                datetime,
-                                chrono::Utc,
-                            );
-                            Some(dt.timestamp().to_string())
+                // If from_date is set but to_date is not, set to_date to the end of from_date
+                let latest = if to_date.is_none() && from_date.is_some() {
+                    from_date.as_ref().and_then(|d| {
+                        // Parse ISO date and convert to Unix timestamp for end of day
+                        if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(d) {
+                            // Already has time component, add 24 hours
+                            Some((dt.timestamp() + 86400).to_string())
+                        } else if let Some(date_part) = d.split('T').next() {
+                            if let Ok(date) = chrono::NaiveDate::parse_from_str(date_part, "%Y-%m-%d") {
+                                let datetime = date.and_hms_opt(23, 59, 59)?;
+                                let dt = chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(
+                                    datetime,
+                                    chrono::Utc,
+                                );
+                                Some(dt.timestamp().to_string())
+                            } else {
+                                None
+                            }
                         } else {
                             None
                         }
-                    } else {
-                        None
-                    }
-                });
+                    })
+                } else {
+                    to_date.as_ref().and_then(|d| {
+                        // Parse ISO date and convert to Unix timestamp
+                        if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(d) {
+                            Some(dt.timestamp().to_string())
+                        } else if let Some(date_part) = d.split('T').next() {
+                            if let Ok(date) = chrono::NaiveDate::parse_from_str(date_part, "%Y-%m-%d") {
+                                let datetime = date.and_hms_opt(23, 59, 59)?;
+                                let dt = chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(
+                                    datetime,
+                                    chrono::Utc,
+                                );
+                                Some(dt.timestamp().to_string())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    })
+                };
+
+                // Debug logging for timestamps
+                if let Some(ref oldest_ts) = oldest {
+                    info!("[DEBUG] search.rs: oldest timestamp = {}", oldest_ts);
+                }
+                if let Some(ref latest_ts) = latest {
+                    info!("[DEBUG] search.rs: latest timestamp = {}", latest_ts);
+                }
 
                 // Clean channel name (remove # if present)
                 let clean_channel = channel_param.trim_start_matches('#');
+
+                // When filtering by user, we need to fetch more messages initially
+                // since many will be filtered out
+                let fetch_limit = if user.is_some() {
+                    // Fetch up to 1000 messages when filtering by user
+                    // This gives us better chances of finding all user's messages
+                    max_results.max(1000)
+                } else {
+                    max_results
+                };
+
+                info!("Fetching up to {} messages from channel (will filter to {} max)",
+                    fetch_limit, max_results);
 
                 // Use the appropriate method based on whether it's a realtime update
                 let messages_result = if force_refresh.unwrap_or(false) {
                     // For Live mode, use the method that includes reactions
                     (*client)
                         .clone()
-                        .get_channel_messages_with_reactions(clean_channel, oldest, latest, max_results)
+                        .get_channel_messages_with_reactions(clean_channel, oldest, latest, fetch_limit)
                         .await
                 } else {
                     (*client)
                         .clone()
-                        .get_channel_messages(clean_channel, oldest, latest, max_results)
+                        .get_channel_messages(clean_channel, oldest, latest, fetch_limit)
                         .await
                 };
 
                 match messages_result
                 {
-                    Ok(messages) => {
+                    Ok(mut messages) => {
                         info!("Got {} messages from conversations.history", messages.len());
+
+                        // Filter by user if specified
+                        if let Some(ref user_filter) = user {
+                            info!("Filtering messages by user: {}", user_filter);
+
+                            // Parse user IDs from comma-separated string or single user
+                            let user_ids: Vec<String> = if user_filter.contains(',') {
+                                user_filter
+                                    .split(',')
+                                    .map(|u| {
+                                        let trimmed = u.trim();
+                                        if trimmed.starts_with("<@") && trimmed.ends_with(">") {
+                                            trimmed[2..trimmed.len()-1].to_string()
+                                        } else {
+                                            trimmed.trim_start_matches('@').to_string()
+                                        }
+                                    })
+                                    .filter(|u| !u.is_empty())
+                                    .collect()
+                            } else {
+                                vec![
+                                    if user_filter.starts_with("<@") && user_filter.ends_with(">") {
+                                        user_filter[2..user_filter.len()-1].to_string()
+                                    } else {
+                                        user_filter.trim_start_matches('@').to_string()
+                                    }
+                                ]
+                            };
+
+                            info!("Filtering for user IDs: {:?}", user_ids);
+                            let before_count = messages.len();
+
+                            messages = messages.into_iter()
+                                .filter(|msg| {
+                                    msg.user.as_ref()
+                                        .map(|u| user_ids.contains(u))
+                                        .unwrap_or(false)
+                                })
+                                .collect();
+
+                            info!("User filter: {} -> {} messages", before_count, messages.len());
+
+                            // Limit to max_results after filtering
+                            if messages.len() > max_results {
+                                messages.truncate(max_results);
+                                info!("Truncated to {} messages (max_results)", max_results);
+                            }
+                        }
+
                         all_slack_messages = messages;
                     }
                     Err(e) => {

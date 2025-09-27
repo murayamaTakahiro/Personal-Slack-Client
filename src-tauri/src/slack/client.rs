@@ -707,83 +707,280 @@ impl SlackClient {
 
         let mut params = HashMap::new();
         params.insert("channel", channel_id.to_string());
-        params.insert("limit", limit.to_string());
+        // Always use 200 per request for best pagination results
+        let per_request_limit = 200;
+        params.insert("limit", per_request_limit.to_string()); // Slack recommends 200 per request for pagination
         params.insert("inclusive", "true".to_string());
 
-        if let Some(oldest_ts) = oldest {
-            params.insert("oldest", oldest_ts);
+        info!("[DEBUG] Using limit {} per API request (total limit requested: {})", per_request_limit, limit);
+
+        if let Some(ref oldest_ts) = oldest {
+            params.insert("oldest", oldest_ts.clone());
+            info!("[DEBUG] Setting oldest timestamp: {}", oldest_ts);
+            // Convert to human-readable for debugging
+            if let Ok(ts_float) = oldest_ts.parse::<f64>() {
+                if let Some(dt) = chrono::DateTime::from_timestamp(ts_float as i64, 0) {
+                    info!("[DEBUG] Oldest date: {} (JST: {})",
+                        dt.format("%Y-%m-%d %H:%M:%S UTC"),
+                        dt.with_timezone(&chrono::FixedOffset::east_opt(9 * 3600).unwrap()).format("%Y-%m-%d %H:%M:%S"));
+                }
+            }
+        } else {
+            info!("[DEBUG] No oldest timestamp specified - fetching ALL messages");
         }
 
-        if let Some(latest_ts) = latest {
-            params.insert("latest", latest_ts);
+        if let Some(ref latest_ts) = latest {
+            params.insert("latest", latest_ts.clone());
+            info!("[DEBUG] Setting latest timestamp: {}", latest_ts);
+            // Convert to human-readable for debugging
+            if let Ok(ts_float) = latest_ts.parse::<f64>() {
+                if let Some(dt) = chrono::DateTime::from_timestamp(ts_float as i64, 0) {
+                    info!("[DEBUG] Latest date: {} (JST: {})",
+                        dt.format("%Y-%m-%d %H:%M:%S UTC"),
+                        dt.with_timezone(&chrono::FixedOffset::east_opt(9 * 3600).unwrap()).format("%Y-%m-%d %H:%M:%S"));
+                }
+            }
+        } else {
+            info!("[DEBUG] No latest timestamp specified - fetching up to now");
         }
 
         info!(
-            "Getting channel messages for channel: {}, limit: {}",
-            channel_id, limit
+            "Getting channel messages for channel: {}, limit: {}, date range: {:?} to {:?}",
+            channel_id, limit, oldest, latest
         );
-
-        let response = self.client.get(&url).query(&params).send().await?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await?;
-            error!("Failed to get channel messages: {} - {}", status, text);
-            return Err(anyhow!(
-                "Failed to get channel messages: {} - {}",
-                status,
-                text
-            ));
-        }
-
-        // Get response text
-        let response_text = response.text().await?;
-
-        // Debug: Log response size (but not the full content to avoid memory issues)
-        debug!("API Response size: {} bytes", response_text.len());
-
-        // Optional: Only enable this for debugging when needed
-        // {
-        //     use std::fs;
-        //     let debug_file = "slack_response_debug.json";
-        //     if let Err(e) = fs::write(debug_file, &response_text) {
-        //         error!("Failed to write debug file: {}", e);
-        //     } else {
-        //         info!("API response saved to {} for debugging", debug_file);
-        //     }
-        // }
 
         #[derive(Deserialize)]
         struct ConversationsHistoryResponse {
             ok: bool,
             messages: Option<Vec<SlackMessage>>,
             error: Option<String>,
+            has_more: Option<bool>,
+            response_metadata: Option<ResponseMetadata>,
         }
 
-        let result: ConversationsHistoryResponse = serde_json::from_str(&response_text)?;
-
-        if !result.ok {
-            let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
-            error!("Slack API error: {}", error_msg);
-            return Err(anyhow!("Slack API error: {}", error_msg));
+        #[derive(Deserialize)]
+        struct ResponseMetadata {
+            next_cursor: Option<String>,
         }
 
-        let messages = result.messages.unwrap_or_default();
-        info!("Retrieved {} messages from conversations.history", messages.len());
+        // Initialize variables for pagination
+        let mut all_messages = Vec::new();
+        let mut cursor: Option<String> = None;
+        let mut total_api_calls = 0;
+
+        loop {
+            let mut current_params = params.clone();
+
+            // Add cursor if we have one from previous iteration
+            if let Some(ref cursor_str) = cursor {
+                current_params.insert("cursor", cursor_str.clone());
+            }
+
+            total_api_calls += 1;
+            info!("API call {} for conversations.history (cursor: {:?})", total_api_calls, cursor);
+
+            let response = self.client.get(&url).query(&current_params).send().await?;
+
+            if !response.status().is_success() {
+                let status = response.status();
+                let text = response.text().await?;
+                error!("Failed to get channel messages: {} - {}", status, text);
+                return Err(anyhow!(
+                    "Failed to get channel messages: {} - {}",
+                    status,
+                    text
+                ));
+            }
+
+            let response_text = response.text().await?;
+            debug!("API Response size: {} bytes", response_text.len());
+
+            let result: ConversationsHistoryResponse = serde_json::from_str(&response_text)?;
+
+            if !result.ok {
+                let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
+                error!("Slack API error: {}", error_msg);
+                return Err(anyhow!("Slack API error: {}", error_msg));
+            }
+
+            let messages = result.messages.unwrap_or_default();
+            info!("Retrieved {} messages in this batch (API call #{})", messages.len(), total_api_calls);
+
+            // Debug: Log timestamps of first and last messages in batch
+            if !messages.is_empty() {
+                let first_ts = &messages.first().unwrap().ts;
+                let last_ts = &messages.last().unwrap().ts;
+                info!("[DEBUG] Batch timestamp range: {} to {}", first_ts, last_ts);
+
+                // Convert timestamps to human-readable dates for debugging
+                if let Ok(first_float) = first_ts.parse::<f64>() {
+                    if let Some(dt) = chrono::DateTime::from_timestamp(first_float as i64, 0) {
+                        info!("[DEBUG] First message date: {} (JST: {})",
+                            dt.format("%Y-%m-%d %H:%M:%S UTC"),
+                            dt.with_timezone(&chrono::FixedOffset::east_opt(9 * 3600).unwrap()).format("%Y-%m-%d %H:%M:%S"));
+                    }
+                }
+                if let Ok(last_float) = last_ts.parse::<f64>() {
+                    if let Some(dt) = chrono::DateTime::from_timestamp(last_float as i64, 0) {
+                        info!("[DEBUG] Last message date: {} (JST: {})",
+                            dt.format("%Y-%m-%d %H:%M:%S UTC"),
+                            dt.with_timezone(&chrono::FixedOffset::east_opt(9 * 3600).unwrap()).format("%Y-%m-%d %H:%M:%S"));
+                    }
+                }
+            }
+
+            // Add messages to our collection
+            all_messages.extend(messages);
+
+            // Check if there are more messages to fetch
+            let has_more = result.has_more.unwrap_or(false);
+            cursor = result.response_metadata.and_then(|m| m.next_cursor).filter(|c| !c.is_empty());
+
+            info!("Total messages so far: {}, has_more: {}, next_cursor: {:?}",
+                all_messages.len(), has_more, cursor);
+
+            // Break if no more messages or no cursor
+            if !has_more || cursor.is_none() {
+                break;
+            }
+
+            // Break if we've reached the requested limit
+            if all_messages.len() >= limit {
+                info!("Reached requested limit of {} messages (actual: {})", limit, all_messages.len());
+                break;
+            }
+
+            // Safety limit to prevent infinite loops
+            if total_api_calls > 10 {
+                warn!("Reached maximum API call limit (10) for conversations.history");
+                break;
+            }
+        }
+
+        // Truncate to the requested limit if we got more
+        if all_messages.len() > limit {
+            info!("Truncating from {} to {} messages (requested limit)", all_messages.len(), limit);
+            all_messages.truncate(limit);
+        }
+
+        info!("Retrieved total of {} messages from conversations.history in {} API calls",
+            all_messages.len(), total_api_calls);
+
+        // Debug: Log final message count and user breakdown
+        if !all_messages.is_empty() {
+            let mut user_counts: HashMap<String, usize> = HashMap::new();
+            for msg in &all_messages {
+                if let Some(ref user) = msg.user {
+                    *user_counts.entry(user.clone()).or_insert(0) += 1;
+                }
+            }
+            info!("[DEBUG] Message count by user:");
+            for (user, count) in user_counts.iter().take(10) {
+                info!("[DEBUG]   User {}: {} messages", user, count);
+            }
+            if user_counts.len() > 10 {
+                info!("[DEBUG]   ... and {} more users", user_counts.len() - 10);
+            }
+        }
 
         // Debug: Log sample of messages to understand their structure
-        for (i, msg) in messages.iter().take(3).enumerate() {
+        for (i, msg) in all_messages.iter().take(3).enumerate() {
             debug!(
-                "Sample message {}: user={:?}, subtype={:?}, username={:?}, text_preview={:?}",
+                "Sample message {}: user={:?}, subtype={:?}, username={:?}, text_preview={:?}, reply_count={:?}",
                 i,
                 msg.user,
                 msg.subtype,
                 msg.username,
-                msg.text.chars().take(50).collect::<String>()
+                msg.text.chars().take(50).collect::<String>(),
+                msg.reply_count
             );
         }
 
-        Ok(messages)
+        // Fetch thread replies for each message that has them
+        let mut messages_with_replies = Vec::new();
+        for msg in &all_messages {
+            messages_with_replies.push(msg.clone());
+
+            // Check if message has thread replies
+            if let Some(reply_count) = msg.reply_count {
+                if reply_count > 0 {
+                    info!("[DEBUG] Message {} has {} thread replies, fetching them...",
+                        msg.ts, reply_count);
+
+                    // Fetch thread replies
+                    match self.get_thread_replies(channel_id, &msg.ts).await {
+                        Ok(replies) => {
+                            // Skip the first message as it's the parent message we already have
+                            let thread_replies: Vec<SlackMessage> = replies.into_iter()
+                                .skip(1)
+                                .collect();
+
+                            info!("[DEBUG] Retrieved {} thread replies", thread_replies.len());
+                            messages_with_replies.extend(thread_replies);
+                        }
+                        Err(e) => {
+                            warn!("[DEBUG] Failed to fetch thread replies: {}", e);
+                        }
+                    }
+                }
+            }
+        }
+
+        info!("[DEBUG] Total messages including thread replies: {} (was {} without replies)",
+            messages_with_replies.len(), all_messages.len());
+
+        // Sort messages by timestamp (newest first)
+        messages_with_replies.sort_by(|a, b| {
+            // Parse timestamps as floats for accurate comparison
+            let ts_a = a.ts.parse::<f64>().unwrap_or(0.0);
+            let ts_b = b.ts.parse::<f64>().unwrap_or(0.0);
+            // Reverse order for newest first
+            ts_b.partial_cmp(&ts_a).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        info!("[DEBUG] Messages sorted by timestamp (newest first)");
+
+        Ok(messages_with_replies)
+    }
+
+    async fn get_thread_replies(&self, channel_id: &str, thread_ts: &str) -> Result<Vec<SlackMessage>> {
+        let url = format!("{}/conversations.replies", SLACK_API_BASE);
+
+        let mut params = HashMap::new();
+        params.insert("channel", channel_id.to_string());
+        params.insert("ts", thread_ts.to_string());
+        params.insert("limit", "1000".to_string());
+
+        info!("[DEBUG] Fetching thread replies for ts={}", thread_ts);
+
+        let response = self.client.get(&url)
+            .query(&params)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await?;
+            return Err(anyhow!("Failed to get thread replies: {} - {}", status, text));
+        }
+
+        let response_text = response.text().await?;
+
+        #[derive(Deserialize)]
+        struct ConversationsRepliesResponse {
+            ok: bool,
+            messages: Option<Vec<SlackMessage>>,
+            error: Option<String>,
+        }
+
+        let result: ConversationsRepliesResponse = serde_json::from_str(&response_text)?;
+
+        if !result.ok {
+            let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
+            return Err(anyhow!("Slack API error: {}", error_msg));
+        }
+
+        Ok(result.messages.unwrap_or_default())
     }
 
     pub async fn get_channel_messages_with_reactions(
@@ -797,8 +994,12 @@ impl SlackClient {
 
         let mut params = HashMap::new();
         params.insert("channel", channel_id.to_string());
-        params.insert("limit", limit.to_string());
+        // Always use 200 per request for best pagination results
+        let per_request_limit = 200;
+        params.insert("limit", per_request_limit.to_string()); // Slack recommends 200 per request for pagination
         params.insert("inclusive", "true".to_string());
+
+        info!("[DEBUG] Using limit {} per API request for reactions (total limit requested: {})", per_request_limit, limit);
         // Include all metadata to get reactions
         params.insert("include_all_metadata", "true".to_string());
 
@@ -815,74 +1016,166 @@ impl SlackClient {
             channel_id, limit
         );
 
-        let response = self
-            .client
-            .get(&url)
-            .header("Authorization", format!("Bearer {}", self.token))
-            .query(&params)
-            .send()
-            .await?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await?;
-            error!("Failed to get channel messages with reactions: {} - {}", status, text);
-            return Err(anyhow!(
-                "Failed to get channel messages with reactions: {} - {}",
-                status,
-                text
-            ));
-        }
-
-        // Get response text
-        let response_text = response.text().await?;
-
-        // Debug: Log response size (but not the full content to avoid memory issues)
-        debug!("API Response size: {} bytes", response_text.len());
-
-        // Optional: Only enable this for debugging when needed
-        // {
-        //     use std::fs;
-        //     let debug_file = "slack_response_debug.json";
-        //     if let Err(e) = fs::write(debug_file, &response_text) {
-        //         error!("Failed to write debug file: {}", e);
-        //     } else {
-        //         info!("API response saved to {} for debugging", debug_file);
-        //     }
-        // }
-
         #[derive(Deserialize)]
         struct ConversationsHistoryResponse {
             ok: bool,
             messages: Option<Vec<SlackMessage>>,
             error: Option<String>,
+            has_more: Option<bool>,
+            response_metadata: Option<ResponseMetadata>,
         }
 
-        let result: ConversationsHistoryResponse = serde_json::from_str(&response_text)?;
-
-        if !result.ok {
-            let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
-            error!("Slack API error: {}", error_msg);
-            return Err(anyhow!("Slack API error: {}", error_msg));
+        #[derive(Deserialize)]
+        struct ResponseMetadata {
+            next_cursor: Option<String>,
         }
 
-        let messages = result.messages.unwrap_or_default();
-        
-        // Debug logging to verify reactions are included
-        for msg in &messages {
-            if let Some(reactions) = &msg.reactions {
-                info!(
-                    "Message {} has {} reactions",
-                    msg.ts,
-                    reactions.len()
-                );
-                for reaction in reactions {
-                    debug!("  Reaction: {} (count: {})", reaction.name, reaction.count);
+        // Initialize variables for pagination
+        let mut all_messages = Vec::new();
+        let mut cursor: Option<String> = None;
+        let mut total_api_calls = 0;
+
+        loop {
+            let mut current_params = params.clone();
+
+            // Add cursor if we have one from previous iteration
+            if let Some(ref cursor_str) = cursor {
+                current_params.insert("cursor", cursor_str.clone());
+            }
+
+            total_api_calls += 1;
+            info!("API call {} for conversations.history with reactions (cursor: {:?})",
+                total_api_calls, cursor);
+
+            let response = self
+                .client
+                .get(&url)
+                .header("Authorization", format!("Bearer {}", self.token))
+                .query(&current_params)
+                .send()
+                .await?;
+
+            if !response.status().is_success() {
+                let status = response.status();
+                let text = response.text().await?;
+                error!("Failed to get channel messages with reactions: {} - {}", status, text);
+                return Err(anyhow!(
+                    "Failed to get channel messages with reactions: {} - {}",
+                    status,
+                    text
+                ));
+            }
+
+            let response_text = response.text().await?;
+            debug!("API Response size: {} bytes", response_text.len());
+
+            let result: ConversationsHistoryResponse = serde_json::from_str(&response_text)?;
+
+            if !result.ok {
+                let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
+                error!("Slack API error: {}", error_msg);
+                return Err(anyhow!("Slack API error: {}", error_msg));
+            }
+
+            let messages = result.messages.unwrap_or_default();
+            info!("Retrieved {} messages in this batch", messages.len());
+
+            // Debug logging to verify reactions are included
+            for msg in &messages {
+                if let Some(reactions) = &msg.reactions {
+                    debug!(
+                        "Message {} has {} reactions",
+                        msg.ts,
+                        reactions.len()
+                    );
+                    for reaction in reactions {
+                        debug!("  Reaction: {} (count: {})", reaction.name, reaction.count);
+                    }
+                }
+            }
+
+            // Add messages to our collection
+            all_messages.extend(messages);
+
+            // Check if there are more messages to fetch
+            let has_more = result.has_more.unwrap_or(false);
+            cursor = result.response_metadata.and_then(|m| m.next_cursor).filter(|c| !c.is_empty());
+
+            info!("Total messages so far: {}, has_more: {}, next_cursor: {:?}",
+                all_messages.len(), has_more, cursor);
+
+            // Break if no more messages or no cursor
+            if !has_more || cursor.is_none() {
+                break;
+            }
+
+            // Break if we've reached the requested limit
+            if all_messages.len() >= limit {
+                info!("Reached requested limit of {} messages (actual: {})", limit, all_messages.len());
+                break;
+            }
+
+            // Safety limit to prevent infinite loops
+            if total_api_calls > 10 {
+                warn!("Reached maximum API call limit (10) for conversations.history");
+                break;
+            }
+        }
+
+        // Truncate to the requested limit if we got more
+        if all_messages.len() > limit {
+            info!("Truncating from {} to {} messages (requested limit)", all_messages.len(), limit);
+            all_messages.truncate(limit);
+        }
+
+        info!("Retrieved total of {} messages with reactions from conversations.history in {} API calls",
+            all_messages.len(), total_api_calls);
+
+        // Fetch thread replies for each message that has them
+        let mut messages_with_replies = Vec::new();
+        for msg in &all_messages {
+            messages_with_replies.push(msg.clone());
+
+            // Check if message has thread replies
+            if let Some(reply_count) = msg.reply_count {
+                if reply_count > 0 {
+                    info!("[DEBUG] Message {} has {} thread replies, fetching them...",
+                        msg.ts, reply_count);
+
+                    // Fetch thread replies
+                    match self.get_thread_replies(channel_id, &msg.ts).await {
+                        Ok(replies) => {
+                            // Skip the first message as it's the parent message we already have
+                            let thread_replies: Vec<SlackMessage> = replies.into_iter()
+                                .skip(1)
+                                .collect();
+
+                            info!("[DEBUG] Retrieved {} thread replies", thread_replies.len());
+                            messages_with_replies.extend(thread_replies);
+                        }
+                        Err(e) => {
+                            warn!("[DEBUG] Failed to fetch thread replies: {}", e);
+                        }
+                    }
                 }
             }
         }
 
-        Ok(messages)
+        info!("[DEBUG] Total messages including thread replies: {} (was {} without replies)",
+            messages_with_replies.len(), all_messages.len());
+
+        // Sort messages by timestamp (newest first)
+        messages_with_replies.sort_by(|a, b| {
+            // Parse timestamps as floats for accurate comparison
+            let ts_a = a.ts.parse::<f64>().unwrap_or(0.0);
+            let ts_b = b.ts.parse::<f64>().unwrap_or(0.0);
+            // Reverse order for newest first
+            ts_b.partial_cmp(&ts_a).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        info!("[DEBUG] Messages sorted by timestamp (newest first)");
+
+        Ok(messages_with_replies)
     }
 
     pub async fn test_auth(&self) -> Result<(bool, Option<String>)> {
