@@ -158,9 +158,12 @@
   function handleKeyboardEvent(keyEvent: KeyboardEvent) {
     // Note: Escape is now handled by the focus trap
     if (keyEvent.ctrlKey && keyEvent.key === 'Enter') {
+      console.log('[PostDialog] Ctrl+Enter detected in handleKeyboardEvent');
       keyEvent.preventDefault();
       keyEvent.stopPropagation();
+      keyEvent.stopImmediatePropagation(); // Also stop immediate propagation
       handlePost();
+      return; // Ensure we exit after handling
     } else if (keyEvent.ctrlKey && keyEvent.key.toLowerCase() === 'u') {
       // Ctrl+U to open file picker
       keyEvent.preventDefault();
@@ -173,9 +176,12 @@
   function handleDialogKeydown(event: KeyboardEvent) {
     // Handle Ctrl+Enter for send
     if (event.ctrlKey && event.key === 'Enter') {
+      console.log('[PostDialog] Ctrl+Enter detected in handleDialogKeydown');
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation(); // Also stop immediate propagation
       handlePost();
+      return; // Ensure we exit after handling
     }
     // Handle Ctrl+U for file upload
     else if (event.ctrlKey && event.key.toLowerCase() === 'u') {

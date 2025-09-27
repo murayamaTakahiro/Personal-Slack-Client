@@ -93,6 +93,11 @@
       return;
     }
 
+    // Log Ctrl+Enter for debugging
+    if (event.ctrlKey && event.key === 'Enter') {
+      console.log('[MentionTextarea] Ctrl+Enter detected, dispatching to parent');
+    }
+
     // Pass other keyboard events to parent (including Ctrl+Enter)
     dispatch('keydown', event);
   }

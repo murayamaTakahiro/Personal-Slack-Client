@@ -590,17 +590,24 @@
       });
     }
 
-    // Handle Enter key to prevent it from reaching SearchBar when PostDialog is open
-    if (event.key === 'Enter') {
-      // If PostDialog is open and Enter is pressed in a textarea, stop it from reaching SearchBar
-      if (postDialogOpen) {
-        const target = event.target as HTMLElement;
-        if (target && target.tagName === 'TEXTAREA') {
-          // Don't prevent default (we want the line break), but stop propagation
-          event.stopPropagation();
-          event.stopImmediatePropagation();
-          return;
-        }
+    // Handle Enter and Ctrl+Enter keys when PostDialog is open
+    if (event.key === 'Enter' && postDialogOpen) {
+      const target = event.target as HTMLElement;
+
+      // For Ctrl+Enter, don't interfere - let PostDialog handle it
+      if (event.ctrlKey) {
+        console.log('[App] Ctrl+Enter detected with PostDialog open - not interfering');
+        // Don't stop propagation or prevent default
+        // Let the event bubble to PostDialog's handlers
+        return;
+      }
+
+      // For regular Enter in textarea, stop propagation to SearchBar
+      if (target && target.tagName === 'TEXTAREA') {
+        // Don't prevent default (we want the line break), but stop propagation
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        return;
       }
     }
 

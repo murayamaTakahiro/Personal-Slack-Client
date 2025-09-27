@@ -432,13 +432,20 @@
   }
 
   function handleUrlKeydown(e: KeyboardEvent) {
-    // Don't process if PostDialog is open
+    // Don't process ANY keys if PostDialog is open
     if ($isPostDialogOpen) {
+      // For Ctrl+Enter specifically, we need to stop propagation
+      // to prevent this handler from interfering with PostDialog
+      if (e.ctrlKey && e.key === 'Enter') {
+        // Do nothing - let the event bubble to PostDialog
+        return;
+      }
       return;
     }
 
-    // Handle both Enter and Ctrl+Enter
-    if ((e.key === 'Enter' || (e.ctrlKey && e.key === 'Enter')) && !urlLoading && urlInput.trim()) {
+    // Only handle Enter (not Ctrl+Enter) for URL paste
+    // This avoids conflict with PostDialog's Ctrl+Enter
+    if (e.key === 'Enter' && !e.ctrlKey && !urlLoading && urlInput.trim()) {
       e.preventDefault();
       handleUrlPaste();
     }
