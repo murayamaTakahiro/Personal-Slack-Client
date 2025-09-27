@@ -155,32 +155,22 @@
     selectedIndex = Math.max(0, filteredEmojis.length - 1);
   }
 
-  // Focus the selected emoji button when selectedIndex changes (for HJKL navigation)
-  $: if (pickerElement && selectedIndex >= 0) {
-    // Use requestAnimationFrame to ensure DOM is updated
-    requestAnimationFrame(() => {
-      const currentFocus = document.activeElement;
-      // Only focus if current focus is already an emoji button (not search input)
-      if (currentFocus?.classList.contains('emoji-button')) {
-        const allEmojis = pickerElement.querySelectorAll('.emoji-button:not([disabled])');
-        const targetEmoji = allEmojis[selectedIndex] as HTMLButtonElement;
-        if (targetEmoji && targetEmoji !== currentFocus) {
-          targetEmoji.focus();
-        }
-      }
-    });
-  }
-  
-  // Auto-scroll and focus selected emoji
-  $: if (emojiButtons[selectedIndex]) {
+  // Auto-scroll and focus selected emoji when index changes
+  $: if (emojiButtons[selectedIndex] && pickerElement) {
     const button = emojiButtons[selectedIndex];
-    button.scrollIntoView({ 
-      block: 'nearest', 
-      behavior: 'smooth' 
+    // Scroll the button into view
+    button.scrollIntoView({
+      block: 'nearest',
+      behavior: 'smooth'
     });
-    // Also focus the button when using arrow keys
-    if (document.activeElement && pickerElement?.contains(document.activeElement)) {
-      button.focus();
+
+    // Focus the button if we're not in the search input
+    const currentFocus = document.activeElement;
+    if (currentFocus !== searchInput) {
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        button.focus();
+      });
     }
   }
   
@@ -202,16 +192,32 @@
   }
   
   function handleKeydown(event: KeyboardEvent) {
+    // Always stop propagation to prevent global shortcuts
+    event.stopPropagation();
+
+    // Always prevent default for navigation keys to stop scrolling
+    const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'j', 'J', 'k', 'K', 'h', 'H', 'l', 'L'];
+    if (navigationKeys.includes(event.key)) {
+      event.preventDefault();
+    }
+
     // Handle Tab key for focus trap
     if (event.key === 'Tab') {
       handleTabKey(event, event.shiftKey);
       return;
     }
-    
-    // Don't handle other keydown if search input has focus and it's a character key
-    if (event.target === searchInput && 
-        !['Escape', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(event.key)) {
-      return;
+
+    // Check if we're in the search input
+    const inSearchInput = event.target === searchInput;
+
+    // Allow typing in search input, but still handle special keys
+    if (inSearchInput) {
+      // These are the only keys we handle when in search input
+      const searchHandledKeys = ['Escape', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'];
+      if (!searchHandledKeys.includes(event.key)) {
+        // Let the search input handle regular typing
+        return;
+      }
     }
     
     switch (event.key) {
@@ -268,19 +274,13 @@
       case 'h':
       case 'H':
         // Don't handle if in search input
-        if (event.target === searchInput) return;
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
+        if (inSearchInput) return;
         selectedIndex = Math.max(0, selectedIndex - 1);
         break;
       case 'j':
       case 'J':
         // Don't handle if in search input
-        if (event.target === searchInput) return;
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
+        if (inSearchInput) return;
         if (selectedIndex + 6 < filteredEmojis.length) {
           selectedIndex += 6; // Move down one row (6 columns)
         } else {
@@ -290,10 +290,7 @@
       case 'k':
       case 'K':
         // Don't handle if in search input
-        if (event.target === searchInput) return;
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
+        if (inSearchInput) return;
         if (selectedIndex > 5) {
           selectedIndex -= 6; // Move up one row (6 columns)
         } else {
@@ -303,10 +300,7 @@
       case 'l':
       case 'L':
         // Don't handle if in search input
-        if (event.target === searchInput) return;
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
+        if (inSearchInput) return;
         selectedIndex = Math.min(filteredEmojis.length - 1, selectedIndex + 1);
         break;
       case '1':
@@ -336,18 +330,26 @@
     }
   }
   
-  // Global escape handler to ensure Escape works from any focused element
-  function handleGlobalEscape(event: KeyboardEvent) {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      close();
+  // Global keydown handler to prevent all shortcuts from firing while picker is open
+  function handleGlobalKeydown(event: KeyboardEvent) {
+    // If the picker doesn't contain the event target, something's wrong
+    if (!pickerElement || !pickerElement.contains(event.target as Node)) {
+      // Still handle escape to close
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        close();
+      }
+      return;
     }
+
+    // Let the component's handleKeydown process everything
+    // The handleKeydown will stop propagation and prevent defaults as needed
   }
   
   onMount(() => {
-    // Add global escape listener
-    document.addEventListener('keydown', handleGlobalEscape, true);
+    // Add global keydown listener in capture phase to intercept all keyboard events
+    document.addEventListener('keydown', handleGlobalKeydown, true);
     
     // Add click outside listener with a slight delay to avoid immediate triggers
     const timeoutId = setTimeout(() => {
@@ -357,7 +359,7 @@
     return () => {
       clearTimeout(timeoutId);
       document.removeEventListener('click', handleClickOutside, true);
-      document.removeEventListener('keydown', handleGlobalEscape, true);
+      document.removeEventListener('keydown', handleGlobalKeydown, true);
       // Restore focus on cleanup if component unmounts unexpectedly
       restorePreviousFocus();
     };

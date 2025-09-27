@@ -157,19 +157,17 @@ export class KeyboardService {
     // Check if emoji/reaction picker is open - if so, block most keyboard shortcuts
     const reactionPicker = document.querySelector('.reaction-picker');
     if (reactionPicker) {
-      // Allow only specific keys that the picker handles
-      const allowedKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Escape'];
+      // Allow keys that the picker handles internally
+      const allowedKeys = [
+        'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+        'Enter', 'Escape', 'Tab',
+        'h', 'H', 'j', 'J', 'k', 'K', 'l', 'L', 'e', 'E' // HJKL navigation and E for compatibility
+      ];
       const isNumberKey = event.key >= '1' && event.key <= '9';
       const isAllowed = allowedKeys.includes(event.key) || isNumberKey;
 
-      // Block all other shortcuts (including 't', 'p', 'r', etc.)
-      if (!isAllowed) {
-        console.log('🔍 DEBUG: Reaction picker is open, blocking keyboard shortcut:', event.key);
-        return false;
-      }
-
-      // Let the picker handle its own keys
-      console.log('🔍 DEBUG: Reaction picker is open, allowing key for picker:', event.key);
+      // Always block all shortcuts when picker is open to let it handle everything
+      console.log('🔍 DEBUG: Reaction picker is open, blocking all keyboard shortcuts. Key:', event.key);
       return false;
     }
 
