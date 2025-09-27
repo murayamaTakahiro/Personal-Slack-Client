@@ -7,6 +7,7 @@
   import { getKeyboardService } from '../services/keyboardService';
   import { urlService } from '../services/urlService';
   import { showSuccess, showError, showInfo } from '../stores/toast';
+  import { searchResults } from '../stores/search';
   import ReactionPicker from './ReactionPicker.svelte';
   import EmojiImage from './EmojiImage.svelte';
   import FileAttachments from './files/FileAttachments.svelte';
@@ -224,14 +225,34 @@
   function handleClick() {
     dispatch('click');
   }
-  
+
+  // Helper function to update message reactions in the store
+  function updateMessageReactionsInStore(newReactions: EmojiReaction[]) {
+    // Update the searchResults store to reflect the new reactions
+    searchResults.update(results => {
+      if (!results) return results;
+
+      const updatedMessages = results.messages.map(msg => {
+        if (msg.ts === message.ts && msg.channel === message.channel) {
+          // Update this message's reactions
+          return { ...msg, reactions: newReactions };
+        }
+        return msg;
+      });
+
+      return { ...results, messages: updatedMessages };
+    });
+  }
+
   async function handleReactionClick(emoji: string) {
     if (!enableReactions) return;
-    
+
     try {
       await reactionService.toggleReaction(message.channel, message.ts, emoji, reactions);
       // Refresh reactions
       reactions = await reactionService.getReactions(message.channel, message.ts);
+      // Update the message in the store so ResultList reflects the change
+      updateMessageReactionsInStore(reactions);
     } catch (error) {
       console.error('Failed to toggle reaction:', error);
     }
@@ -239,13 +260,15 @@
   
   async function handleQuickReaction(shortcut: number) {
     if (!enableReactions || !selected) return;
-    
+
     try {
       // Get fresh reactions before toggling to ensure accurate state
       const currentReactions = await reactionService.getReactions(message.channel, message.ts);
       await reactionService.addReactionByShortcut(message.channel, message.ts, shortcut, currentReactions);
       // Refresh reactions after toggling
       reactions = await reactionService.getReactions(message.channel, message.ts);
+      // Update the message in the store so ResultList reflects the change
+      updateMessageReactionsInStore(reactions);
     } catch (error) {
       console.error('Failed to add reaction:', error);
     }
@@ -270,13 +293,15 @@
     const { emoji } = event.detail;
     showReactionPicker = false;
     isPickerOpen = false;
-    
+
     if (!enableReactions) return;
-    
+
     try {
       await reactionService.toggleReaction(message.channel, message.ts, emoji, reactions);
       // Refresh reactions
       reactions = await reactionService.getReactions(message.channel, message.ts);
+      // Update the message in the store so ResultList reflects the change
+      updateMessageReactionsInStore(reactions);
       // NOTE: No re-registration needed - handlers remain active for selected message
     } catch (error) {
       console.error('Failed to toggle reaction:', error);
