@@ -211,19 +211,17 @@
   }
   
   function handleKeydown(e: KeyboardEvent) {
-    // IMPORTANT: Don't handle Enter key if PostDialog is open
-    // This prevents search from being triggered while typing in PostDialog
-    if (e.key === 'Enter' && $isPostDialogOpen) {
-      return;
-    }
-
     // Handle arrow keys for keyword history navigation
     if (showKeywordHistory && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
       // Let the SearchKeywordHistory component handle navigation
       return;
     }
 
+    // Handle Enter and Ctrl+Enter for search when this input has focus
+    // Focus-based isolation: if this input has focus, we handle the event
     if (e.key === 'Enter' && !$searchLoading) {
+      // Stop propagation to prevent interference with other components
+      e.stopPropagation();
       handleSearch();
     }
   }
@@ -375,10 +373,9 @@
         }
       }
     } else if (e.key === 'Enter' && !$searchLoading) {
-      // Don't handle Enter key if PostDialog is open
-      if ($isPostDialogOpen) {
-        return;
-      }
+      // Handle Enter for search when this input has focus
+      // Focus-based isolation: if this input has focus, we handle the event
+      e.stopPropagation();
       handleSearch();
     }
     
@@ -432,21 +429,13 @@
   }
 
   function handleUrlKeydown(e: KeyboardEvent) {
-    // Don't process ANY keys if PostDialog is open
-    if ($isPostDialogOpen) {
-      // For Ctrl+Enter specifically, we need to stop propagation
-      // to prevent this handler from interfering with PostDialog
-      if (e.ctrlKey && e.key === 'Enter') {
-        // Do nothing - let the event bubble to PostDialog
-        return;
-      }
-      return;
-    }
-
-    // Only handle Enter (not Ctrl+Enter) for URL paste
-    // This avoids conflict with PostDialog's Ctrl+Enter
-    if (e.key === 'Enter' && !e.ctrlKey && !urlLoading && urlInput.trim()) {
+    // Handle Enter and Ctrl+Enter for URL paste when this input has focus
+    // Focus-based isolation: if this input has focus, PostDialog doesn't,
+    // so there's no conflict even if PostDialog is open
+    if (e.key === 'Enter' && !urlLoading && urlInput.trim()) {
+      // The URL input has focus, so we handle the event regardless of modifiers
       e.preventDefault();
+      e.stopPropagation(); // Prevent event from bubbling to other components
       handleUrlPaste();
     }
   }
