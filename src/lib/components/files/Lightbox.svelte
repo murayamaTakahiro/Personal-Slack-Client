@@ -394,11 +394,11 @@
   }
 
   function zoomIn() {
-    setZoom(Math.min(5, zoomLevel + 0.5));
+    setZoom(Math.min(5, zoomLevel + 0.15));
   }
 
   function zoomOut() {
-    setZoom(Math.max(0.5, zoomLevel - 0.5));
+    setZoom(Math.max(0.5, zoomLevel - 0.15));
   }
 
   function resetZoom() {
@@ -819,7 +819,7 @@
             alt={file.file.name}
             class="lightbox-image"
             class:loading={isLoadingFullImage}
-            style="transform: scale({zoomLevel})"
+            style="transform: scale({zoomLevel}); transform-origin: top left;"
             on:load={handleImageLoad}
             on:error={handleImageError}
           />
@@ -1105,21 +1105,21 @@
   .image-wrapper {
     width: 100%;
     height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     overflow: auto;
     cursor: zoom-in;
     position: relative;
+    /* Top-left alignment for consistent behavior */
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
   }
 
   .image-wrapper.zoomed {
-    align-items: flex-start;
-    justify-content: flex-start;
     cursor: zoom-out;
   }
 
   .lightbox-image {
+    /* Use actual dimensions for proper scaling */
     width: auto;
     height: auto;
     max-width: 100%;
@@ -1127,13 +1127,12 @@
     object-fit: contain;
     transition: transform 0.2s ease, opacity 0.3s ease;
     user-select: none;
-    transform-origin: top left;
+    /* Important: This allows the scaled image to create proper scroll area */
+    display: block;
   }
 
   .image-wrapper.zoomed .lightbox-image {
-    max-width: none;
-    max-height: none;
-    object-fit: none;
+    /* Keep same behavior when zoomed */
   }
   
   .lightbox-image.loading {
