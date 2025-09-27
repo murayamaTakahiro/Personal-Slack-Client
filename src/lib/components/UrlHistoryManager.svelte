@@ -137,6 +137,10 @@
 
       case 'Enter':
       case ' ':
+        // Don't handle Space key if a button is focused - let the button handle it
+        if (event.key === ' ' && document.activeElement?.tagName === 'BUTTON') {
+          return;
+        }
         event.preventDefault();
         if (highlightedIndex >= 0 && highlightedIndex < totalItems) {
           const url = flatUrlList[highlightedIndex];
@@ -185,9 +189,45 @@
         break;
 
       case 'Tab':
-        // Don't prevent default - let browser handle tab navigation naturally
-        // Just close the dropdown
-        close();
+        // Implement focus trap within the dropdown
+        event.preventDefault();
+        event.stopPropagation();
+
+        const focusableElements = dropdownElement?.querySelectorAll(
+          'button:not([tabindex="-1"]):not(:disabled), input:not([tabindex="-1"]):not(:disabled), [tabindex="0"]'
+        );
+
+        if (!focusableElements || focusableElements.length === 0) {
+          break;
+        }
+
+        const firstElement = focusableElements[0] as HTMLElement;
+        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+        const activeElement = document.activeElement as HTMLElement;
+
+        if (event.shiftKey) {
+          // Shift+Tab - move backwards
+          if (activeElement === firstElement || !dropdownElement?.contains(activeElement)) {
+            lastElement.focus();
+          } else {
+            // Find the previous focusable element
+            const currentIndex = Array.from(focusableElements).indexOf(activeElement);
+            if (currentIndex > 0) {
+              (focusableElements[currentIndex - 1] as HTMLElement).focus();
+            }
+          }
+        } else {
+          // Tab - move forwards
+          if (activeElement === lastElement || !dropdownElement?.contains(activeElement)) {
+            firstElement.focus();
+          } else {
+            // Find the next focusable element
+            const currentIndex = Array.from(focusableElements).indexOf(activeElement);
+            if (currentIndex < focusableElements.length - 1) {
+              (focusableElements[currentIndex + 1] as HTMLElement).focus();
+            }
+          }
+        }
         break;
     }
   }
@@ -236,6 +276,13 @@
       urlHistoryStore.clearAll();
       showToast('URL history cleared', 'success');
     }
+  }
+
+  function deleteUrl(urlId: string, event: MouseEvent) {
+    event.stopPropagation();
+    event.preventDefault();
+    urlHistoryStore.deleteUrl(urlId);
+    showToast('URL removed from history', 'success');
   }
 
   function close() {
@@ -377,32 +424,6 @@
           </button>
         {/if}
       </div>
-
-      <div class="header-controls">
-        <button
-          on:click={() => {
-            groupedUrls.favorites.forEach(url => {
-              urlHistoryStore.toggleFavorite(url.id);
-            });
-          }}
-          class="control-btn"
-          title="Toggle all favorites"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-        </svg>
-        </button>
-
-        <button
-          on:click={clearHistory}
-          class="control-btn"
-          title="Clear all history"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14zM10 11v6M14 11v6"/>
-          </svg>
-        </button>
-      </div>
     </div>
   {/if}
 
@@ -451,7 +472,6 @@
                 }}
                 class="edit-btn"
                 title="Edit alias (e)"
-                tabindex="-1"
                 style="opacity: 0.3;"
               >
                 ✏️
@@ -460,9 +480,15 @@
                 on:click={(e) => toggleFavorite(url.id, e)}
                 class="favorite-btn active"
                 title="Remove from favorites"
-                tabindex="-1"
               >
                 ⭐
+              </button>
+              <button
+                on:click={(e) => deleteUrl(url.id, e)}
+                class="delete-btn"
+                title="Delete from history"
+              >
+                🗑️
               </button>
             </div>
           {/each}
@@ -504,7 +530,6 @@
                 }}
                 class="edit-btn"
                 title="Edit alias (e)"
-                tabindex="-1"
                 style="opacity: 0.3;"
               >
                 ✏️
@@ -513,9 +538,15 @@
                 on:click={(e) => toggleFavorite(url.id, e)}
                 class="favorite-btn"
                 title="Add to favorites"
-                tabindex="-1"
               >
                 ☆
+              </button>
+              <button
+                on:click={(e) => deleteUrl(url.id, e)}
+                class="delete-btn"
+                title="Delete from history"
+              >
+                🗑️
               </button>
             </div>
           {/each}
@@ -557,7 +588,6 @@
                 }}
                 class="edit-btn"
                 title="Edit alias (e)"
-                tabindex="-1"
                 style="opacity: 0.3;"
               >
                 ✏️
@@ -566,9 +596,15 @@
                 on:click={(e) => toggleFavorite(url.id, e)}
                 class="favorite-btn"
                 title="Add to favorites"
-                tabindex="-1"
               >
                 ☆
+              </button>
+              <button
+                on:click={(e) => deleteUrl(url.id, e)}
+                class="delete-btn"
+                title="Delete from history"
+              >
+                🗑️
               </button>
             </div>
           {/each}
@@ -582,6 +618,25 @@
           {:else}
             No URL history yet
           {/if}
+        </div>
+      {/if}
+
+      {#if flatUrlList.length > 0}
+        <div class="dropdown-footer">
+          <button
+            on:click={clearHistory}
+            on:keydown|stopPropagation={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                clearHistory();
+              }
+            }}
+            class="clear-all-btn"
+            title="Clear all URL history"
+            tabindex="0"
+          >
+            Clear All
+          </button>
         </div>
       {/if}
     </div>
@@ -645,28 +700,6 @@
     color: var(--text-primary);
   }
 
-  .header-controls {
-    display: flex;
-    gap: 0.25rem;
-  }
-
-  .control-btn {
-    padding: 0.5rem;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: var(--text-secondary);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-  }
-
-  .control-btn:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-  }
 
   .url-dropdown {
     background: var(--bg-primary);
@@ -719,6 +752,12 @@
     background: var(--bg-hover);
   }
 
+  .url-item:hover .favorite-btn,
+  .url-item:hover .edit-btn,
+  .url-item:hover .delete-btn {
+    opacity: 0.8;
+  }
+
   .url-item.highlighted {
     background: var(--primary-bg);
   }
@@ -753,19 +792,33 @@
   }
 
   .favorite-btn,
-  .edit-btn {
+  .edit-btn,
+  .delete-btn {
     padding: 0.25rem;
     background: transparent;
     border: none;
     cursor: pointer;
     font-size: 1rem;
-    transition: opacity 0.2s;
-    opacity: 0.5;
+    transition: all 0.2s;
+    opacity: 0.7;
+    border-radius: 4px;
+    min-width: 28px;
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .favorite-btn:hover,
-  .edit-btn:hover {
+  .edit-btn:hover,
+  .delete-btn:hover {
     opacity: 1;
+    background: var(--bg-hover, #f5f5f5);
+  }
+
+  .delete-btn:hover {
+    color: var(--danger, #e74c3c);
+    background: rgba(231, 76, 60, 0.1);
   }
 
   .favorite-btn.active {
@@ -794,5 +847,29 @@
     text-align: center;
     color: var(--text-secondary);
     font-size: 0.875rem;
+  }
+
+  .dropdown-footer {
+    padding: 0.5rem 0.75rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    background: var(--bg-secondary, #f8f9fa);
+  }
+
+  .clear-all-btn {
+    padding: 0.375rem 0.75rem;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: color 0.2s;
+    font-weight: 500;
+  }
+
+  .clear-all-btn:hover {
+    color: var(--danger, #e74c3c);
+    text-decoration: underline;
   }
 </style>
