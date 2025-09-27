@@ -7,8 +7,9 @@ export interface SavedSearch {
   name: string;
   query?: string;
   channel?: string;
-  user?: string;
-  userId?: string;
+  user?: string;  // Display name of the user (deprecated, use userName instead)
+  userId?: string;  // Slack user ID (e.g., U04F9M6J2Q4)
+  userName?: string;  // Display name of the user
   fromDate?: string;
   toDate?: string;
   limit?: number;
@@ -114,8 +115,9 @@ function createSavedSearchesStore() {
     name?: string;
     query?: string;
     channel?: string;
-    user?: string;
+    user?: string;  // Deprecated, use userName
     userId?: string;
+    userName?: string;  // Display name of the user
     fromDate?: string;
     toDate?: string;
     limit?: number;
@@ -148,8 +150,9 @@ function createSavedSearchesStore() {
       name: searchParams.name || autoName,
       query: searchParams.query || undefined,
       channel: searchParams.channel || undefined,
-      user: searchParams.user || undefined,
+      user: searchParams.user || searchParams.userName || undefined,  // Keep for backward compatibility
       userId: searchParams.userId || undefined,
+      userName: searchParams.userName || searchParams.user || undefined,  // Prefer userName, fallback to user
       fromDate: searchParams.fromDate || undefined,
       toDate: searchParams.toDate || undefined,
       limit: searchParams.limit || undefined,
@@ -186,8 +189,8 @@ function createSavedSearchesStore() {
       }
     }
     
-    if (params.user || params.userId) {
-      parts.push(`from @${params.user || params.userId}`);
+    if (params.userName || params.user || params.userId) {
+      parts.push(`from @${params.userName || params.user || params.userId}`);
     }
     
     if (params.fromDate || params.toDate) {

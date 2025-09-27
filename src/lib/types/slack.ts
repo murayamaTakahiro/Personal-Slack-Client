@@ -13,7 +13,8 @@ export interface ReactionMapping {
 export interface SearchParams {
   query: string;
   channel?: string;
-  user?: string;
+  user?: string;  // User ID
+  userName?: string;  // User display name
   fromDate?: Date;
   toDate?: Date;
   limit?: number;

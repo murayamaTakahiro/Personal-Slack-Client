@@ -99,6 +99,7 @@
         query: $searchQuery.trim() || undefined,
         channel: channel || undefined,
         userId: userId || undefined,
+        userName: user || undefined,  // Save the display name
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
         limit
@@ -144,6 +145,7 @@
         query: $searchQuery.trim() || undefined,  // Make query optional
         channel: cleanChannel || undefined,
         user: resolvedUserId || undefined,
+        userName: user || undefined,  // Include the display name
         fromDate: fromDate || undefined,  // Send as string YYYY-MM-DD
         toDate: toDate || undefined,      // Send as string YYYY-MM-DD
         limit,
@@ -581,7 +583,7 @@
       query: $searchQuery.trim() || undefined,
       channel: channel || undefined,
       userId: userId || undefined,
-      user: user || undefined,
+      userName: user || undefined,  // Save the display name
       fromDate: fromDate || undefined,
       toDate: toDate || undefined,
       limit

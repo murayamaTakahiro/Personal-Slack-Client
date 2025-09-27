@@ -129,6 +129,7 @@
       query: currentQuery,
       channel: currentParams.channel,
       userId: currentParams.user,
+      userName: currentParams.userName,  // Save the display name if available
       // Handle both Date objects and string formats
       fromDate: currentParams.fromDate ? (currentParams.fromDate instanceof Date ? currentParams.fromDate.toISOString().split('T')[0] : currentParams.fromDate) : undefined,
       toDate: currentParams.toDate ? (currentParams.toDate instanceof Date ? currentParams.toDate.toISOString().split('T')[0] : currentParams.toDate) : undefined,
@@ -466,7 +467,11 @@
     const parts = [];
     if (search.query) parts.push(`Query: "${search.query}"`);
     if (search.channel) parts.push(`Channel: ${search.channel}`);
-    if (search.user) parts.push(`User: ${search.user}`);
+    // Display userName if available, fallback to user or userId
+    if (search.userName || search.user || search.userId) {
+      const displayName = search.userName || search.user || search.userId;
+      parts.push(`User: ${displayName}`);
+    }
     if (search.fromDate || search.toDate) {
       if (search.fromDate && search.toDate) {
         parts.push(`Date: ${search.fromDate} to ${search.toDate}`);
