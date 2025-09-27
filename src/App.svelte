@@ -902,7 +902,17 @@
         },
         allowInInput: true  // Allow from anywhere for better UX
       });
-    
+
+    // Toggle Live Mode
+    keyboardService.registerHandler('toggleLiveMode', {
+      action: () => {
+        if (!showSettings && searchBarElement && typeof searchBarElement.toggleLiveMode === 'function') {
+          searchBarElement.toggleLiveMode();
+        }
+      },
+      allowInInput: true  // Allow from anywhere to toggle live mode
+    });
+
     // Zoom controls
     keyboardService.registerHandler('zoomIn', {
       action: () => {

@@ -20,7 +20,7 @@
     },
     {
       name: 'Channel Management',
-      shortcuts: ['toggleChannelSelector', 'toggleMultiSelectMode', 'selectRecentChannels', 'selectAllFavorites', 'applySelectedChannels', 'toggleChannelFavorite']
+      shortcuts: ['toggleChannelSelector', 'toggleMultiSelectMode', 'selectRecentChannels', 'selectAllFavorites', 'applySelectedChannels', 'toggleLiveMode', 'toggleChannelFavorite']
     },
     {
       name: 'Message Actions',
@@ -49,11 +49,12 @@
     prevResult: ['k', 'ArrowUp'],
     openResult: 'Enter',
     clearSearch: 'Escape',
-    toggleChannelSelector: 'Ctrl+L',
+    toggleChannelSelector: 'Ctrl+H',
     toggleMultiSelectMode: 'Ctrl+M',
     selectRecentChannels: 'Ctrl+R',
     selectAllFavorites: 'Ctrl+F',
     applySelectedChannels: 'Ctrl+Shift+A',
+    toggleLiveMode: 'Ctrl+L',
     jumpToFirst: 'h',
     jumpToLast: 'e',
     postMessage: 'p',
@@ -96,8 +97,9 @@
     prevResult: 'Previous Result',
     openResult: 'Open Selected Result',
     clearSearch: 'Clear Search',
-    toggleChannelSelector: 'Toggle Channel Selector / Live Mode',
+    toggleChannelSelector: 'Toggle Channel List Visibility',
     toggleMultiSelectMode: 'Toggle Multi-Select Mode (Channels)',
+    toggleLiveMode: 'Toggle Live Mode (Real-time Updates)',
     selectRecentChannels: 'Select Recent Channels',
     selectAllFavorites: 'Select All Favorites',
     applySelectedChannels: 'Apply Selected Channels',

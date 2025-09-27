@@ -239,10 +239,10 @@
       {
         name: 'Channel Selection',
         shortcuts: [
-          { 
-            key: 'toggleChannelSelector', 
-            description: 'Toggle Channel Selector',
-            shortcut: shortcuts.toggleChannelSelector || 'Ctrl+L'
+          {
+            key: 'toggleChannelSelector',
+            description: 'Toggle Channel List Visibility',
+            shortcut: shortcuts.toggleChannelSelector || 'Ctrl+H'
           },
           { 
             key: 'toggleMultiSelectMode', 
@@ -259,13 +259,18 @@
             description: 'Select All Favorite Channels',
             shortcut: shortcuts.selectAllFavorites || 'Ctrl+F'
           },
-          { 
-            key: 'applySelectedChannels', 
+          {
+            key: 'applySelectedChannels',
             description: 'Apply Selected Channels',
             shortcut: shortcuts.applySelectedChannels || 'Ctrl+Shift+A'
           },
-          { 
-            key: 'toggleChannelFavorite', 
+          {
+            key: 'toggleLiveMode',
+            description: 'Toggle Live Mode (Real-time Updates)',
+            shortcut: shortcuts.toggleLiveMode || 'Ctrl+L'
+          },
+          {
+            key: 'toggleChannelFavorite',
             description: 'Toggle Channel Favorite',
             shortcut: shortcuts.toggleChannelFavorite || 'f'
           }

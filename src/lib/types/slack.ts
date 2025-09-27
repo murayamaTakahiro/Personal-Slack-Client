@@ -110,6 +110,7 @@ export interface KeyboardShortcuts {
   selectRecentChannels?: string | string[];
   selectAllFavorites?: string | string[];
   applySelectedChannels?: string | string[];
+  toggleLiveMode?: string | string[];
   jumpToFirst: string | string[];
   jumpToLast: string | string[];
   quoteMessage?: string | string[];

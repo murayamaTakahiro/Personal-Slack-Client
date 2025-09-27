@@ -93,14 +93,9 @@
         selectAllFavorites();
         return;
       }
-      
-      // Ctrl+L or Cmd+L to toggle LIVE mode
-      if ((event.ctrlKey || event.metaKey) && event.key === 'l') {
-        event.preventDefault();
-        toggleLiveMode();
-        return;
-      }
-      
+
+      // Note: Ctrl+L is now handled globally for Live mode
+
       // Ctrl+Shift+A or Cmd+Shift+A to apply selected channels
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === 'A' || event.key === 'a')) {
         event.preventDefault();
@@ -338,7 +333,7 @@
     }, 50);
   }
   
-  function toggleLiveMode() {
+  export function toggleLiveMode() {
     if (mode === 'multi' && selectedChannels.length > 0) {
       if ($realtimeStore.isEnabled) {
         realtimeStore.setEnabled(false);

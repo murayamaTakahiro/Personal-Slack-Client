@@ -494,7 +494,13 @@
       channelSelectorComponent.toggleDropdown();
     }
   }
-  
+
+  export function toggleLiveMode() {
+    if (channelSelectorComponent && channelSelectorComponent.toggleLiveMode) {
+      channelSelectorComponent.toggleLiveMode();
+    }
+  }
+
   export function clearAllFilters() {
     // Clear all search filters
     channel = '';

@@ -17,11 +17,12 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   prevResult: ['k', 'ArrowUp'],
   openResult: 'Enter',
   clearSearch: 'Escape',
-  toggleChannelSelector: 'Ctrl+L',
+  toggleChannelSelector: 'Ctrl+H',
   toggleMultiSelectMode: 'Ctrl+M',
   selectRecentChannels: 'Ctrl+R',
   selectAllFavorites: 'Ctrl+F',
   applySelectedChannels: 'Ctrl+Shift+A',
+  toggleLiveMode: 'Ctrl+L',
   jumpToFirst: 'h',
   jumpToLast: 'e',
   quoteMessage: 'q',
@@ -89,11 +90,11 @@ export const settings = writable<AppSettings>(initialSettings);
 // Migrate old shortcut format to new array format
 function migrateShortcuts(shortcuts: any): KeyboardShortcuts {
   const migrated = { ...defaultKeyboardShortcuts };
-  
+
   if (shortcuts) {
     for (const key in shortcuts) {
       const value = shortcuts[key];
-      
+
       // Special migration for nextResult and prevResult
       if (key === 'nextResult') {
         if (value === 'ArrowDown' || (typeof value === 'string' && !Array.isArray(value))) {
@@ -107,12 +108,16 @@ function migrateShortcuts(shortcuts: any): KeyboardShortcuts {
         } else {
           migrated.prevResult = value;
         }
+      } else if (key === 'toggleChannelSelector' && value === 'Ctrl+L') {
+        // Force migrate Ctrl+L from toggleChannelSelector to Ctrl+H
+        migrated.toggleChannelSelector = 'Ctrl+H';
+        // Note: toggleLiveMode will use Ctrl+L by default
       } else if (key in migrated) {
         (migrated as any)[key] = value;
       }
     }
   }
-  
+
   return migrated;
 }
 
