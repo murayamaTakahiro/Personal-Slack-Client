@@ -326,9 +326,15 @@
         break;
       case 'Enter':
       case ' ':
-        // Check if the active element is an icon button - if so, let it handle the event
+        // Check if the active element is a button or has explicit keyboard handling - if so, let it handle the event
         const activeEl = document.activeElement;
-        if (activeEl && activeEl.classList.contains('btn-icon')) {
+        if (activeEl && (
+          activeEl.tagName === 'BUTTON' ||
+          activeEl.classList.contains('btn-icon') ||
+          activeEl.classList.contains('btn-link') ||
+          activeEl.classList.contains('btn-action') ||
+          activeEl.classList.contains('tab')
+        )) {
           // Don't prevent default - let the button handle the click
           return;
         }
@@ -738,10 +744,31 @@
 
     {#if $savedSearchesStore.length > 0}
       <div class="dropdown-footer">
-        <button class="btn-link" on:click={clearAllSearches}>
+        <button
+          class="btn-link"
+          on:click={clearAllSearches}
+          on:keydown|stopPropagation={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              clearAllSearches();
+            }
+          }}
+          tabindex="0"
+        >
           Clear all searches
         </button>
-        <button class="btn-link" on:click={runCleanup} title="Fix duplicate searches across workspaces">
+        <button
+          class="btn-link"
+          on:click={runCleanup}
+          on:keydown|stopPropagation={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              runCleanup();
+            }
+          }}
+          title="Fix duplicate searches across workspaces"
+          tabindex="0"
+        >
           Fix Duplicates
         </button>
       </div>
