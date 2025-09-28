@@ -59,7 +59,7 @@
   import { cacheService } from './lib/services/cacheService';
   import { realtimeStore, timeUntilUpdate, formattedLastUpdate } from './lib/stores/realtime';
   import { zoomStore } from './lib/stores/zoom';
-  import { showToast } from './lib/stores/toast';
+  import { showToast, showInfo } from './lib/stores/toast';
   import { channelSelectorOpen } from './lib/stores/ui';
   import { performanceSettings, initializePerformanceSettings } from './lib/stores/performance';
   import { logger } from './lib/services/logger';
@@ -179,7 +179,8 @@
         console.log('[App] Full initialization completed successfully');
       }).catch(error => {
         console.error('[App] Workspace/UI initialization failed:', error);
-        showToast('Some features may not be available', 'warning');
+        // Removed unnecessary warning toast
+        // showToast('Some features may not be available', 'warning');
       });
       
     } catch (error) {
@@ -197,7 +198,8 @@
       
       // Try to show a toast notification if possible
       try {
-        showToast('App initialization partially failed - some features may not work properly', 'warning');
+        // Removed unnecessary warning toast
+        // showToast('App initialization partially failed - some features may not work properly', 'warning');
       } catch (toastError) {
         console.error('[App] Toast notification failed:', toastError);
       }
@@ -278,7 +280,8 @@
       return await initializeSettings();
     } catch (error) {
       console.error('[App] Settings initialization failed, using defaults:', error);
-      showToast('Settings could not be loaded, using defaults', 'warning');
+      // Removed unnecessary warning toast
+      // showToast('Settings could not be loaded, using defaults', 'warning');
       // Return default settings to prevent app crash
       return {
         maxResults: 1000,
@@ -405,14 +408,16 @@
             console.log('[App] Keyboard handlers setup successfully');
           } catch (handlerError) {
             console.error('[App] Failed to setup keyboard handlers (delayed):', handlerError);
-            showToast('Some keyboard shortcuts may not work properly', 'warning');
+            // Removed unnecessary warning toast
+            // showToast('Some keyboard shortcuts may not work properly', 'warning');
           }
         }, 100);
         
       } catch (error) {
         console.error('[App] Failed to initialize keyboard service:', error);
         // Don't let keyboard initialization failure crash the app
-        showToast('Keyboard shortcuts are not available', 'warning');
+        // Removed unnecessary warning toast
+        // showToast('Keyboard shortcuts are not available', 'warning');
       }
       
       // The reaction service already loads mappings from localStorage
@@ -445,7 +450,8 @@
     } catch (error) {
       console.error('[App] Error during workspace and UI initialization:', error);
       // Don't let this crash the app, but warn the user
-      showToast('Some features may not be available due to initialization errors', 'warning');
+      // Removed unnecessary warning toast
+      // showToast('Some features may not be available due to initialization errors', 'warning');
     }
   }
   
@@ -972,10 +978,10 @@
           
           // Show feedback to user
           const channelName = currentMessage.channelName || 'channel';
-          const message = willBeFavorite 
+          const message = willBeFavorite
             ? `⭐ Added #${channelName} to favorites`
             : `☆ Removed #${channelName} from favorites`;
-          showToast(message, 'success');
+          showToast('success', message);
         }
       },
       allowInInput: false  // Don't trigger when typing in inputs
@@ -1047,7 +1053,8 @@
     } catch (error) {
       console.error('[App] Failed to setup keyboard handlers:', error);
       // Don't let keyboard handler setup failure crash the app
-      showToast('Keyboard shortcuts may not work properly', 'warning');
+      // Removed unnecessary warning toast
+      // showToast('Keyboard shortcuts may not work properly', 'warning');
     }
   }
   
@@ -1329,17 +1336,32 @@
         });
       } else {
         // Normal search - immediate update
-        
+
         // DEBUG: Check if result has files
         searchResults.set(result);
-        
-        // Start loading reactions progressively for all messages
-        // This will load reactions in batches without blocking the UI
+
+        // Show success toast with search details
         if (result.messages && result.messages.length > 0) {
+          const queryText = params.query ? `"${params.query}"` : 'your search';
+          const channelInfo = params.channel ? ` in #${params.channel}` : '';
+          const userInfo = params.user ? ` from user` : '';
+          const dateInfo = params.fromDate || params.toDate ? ` within date range` : '';
+
+          showInfo(
+            `Found ${result.messages.length} message${result.messages.length > 1 ? 's' : ''}`,
+            `Search completed for ${queryText}${channelInfo}${userInfo}${dateInfo}`
+          );
+
           // Start progressive reaction loading in the background
           loadReactionsProgressive(result.messages).catch(err => {
             console.error('Failed to load reactions progressively:', err);
           });
+        } else {
+          // No results found
+          showInfo(
+            'No messages found',
+            `No results matching your search criteria${params.query ? ` for "${params.query}"` : ''}`
+          );
         }
       }
       
@@ -1394,7 +1416,8 @@
         await userStore.initUsers(cachedUsers);
 
         // Mark that we're using cached data
-        showToast('Loading workspace data...', 'info', 1000);
+        // Removed unnecessary toast notification during refresh
+        // showToast('Loading workspace data...', 'info', 1000);
       } else {
         console.log('[Performance] No valid cache found, loading fresh data...');
         // Clear existing channels while loading
@@ -1448,6 +1471,7 @@
         channels = cachedChannels;
         await channelStore.initChannels(channels);
         await userStore.initUsers(cachedUsers);
+        // Keep this one as it's important for offline mode awareness
         showToast('Using cached data (offline mode)', 'warning');
       } else {
         channels = [];

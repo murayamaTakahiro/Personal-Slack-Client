@@ -89,7 +89,7 @@
     dispatch('load', search);
 
     // Show success toast
-    showToast(`Loaded search: ${search.name}`, 'success');
+    showToast('success', `Loaded search: ${search.name}`);
 
     // Close the dropdown
     close();
@@ -136,7 +136,7 @@
       limit: currentParams.limit
     });
 
-    showToast(`Saved search: ${name}`, 'success');
+    showToast('success', `Saved search: ${name}`);
   }
 
   function startEditing(searchId: string, currentName: string = '') {
