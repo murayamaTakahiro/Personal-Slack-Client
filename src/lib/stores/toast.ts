@@ -29,7 +29,7 @@ export function showToast(
   type: ToastMessage['type'],
   title: string,
   message?: string,
-  duration = 5000
+  duration = 1000
 ) {
   const toast: ToastMessage = {
     id: generateId(),
