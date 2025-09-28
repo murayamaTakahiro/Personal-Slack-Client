@@ -334,12 +334,21 @@
   }
   
   export function toggleLiveMode() {
-    if (mode === 'multi' && selectedChannels.length > 0) {
-      if ($realtimeStore.isEnabled) {
-        realtimeStore.setEnabled(false);
-      } else {
+    // Always allow toggling Live mode, regardless of channel selection
+    if ($realtimeStore.isEnabled) {
+      // If Live mode is currently enabled, disable it
+      realtimeStore.setEnabled(false);
+      showToast('info', 'Live mode disabled');
+    } else {
+      // If Live mode is currently disabled, enable it
+      // Only enable if channels are selected in multi mode
+      if (mode === 'multi' && selectedChannels.length > 0) {
         realtimeStore.setEnabled(true);
         dispatch('enableRealtime');
+        showToast('success', 'Live mode enabled');
+      } else {
+        // Can't enable without channels selected
+        showToast('warning', 'Select channels first to enable Live mode');
       }
     }
   }
