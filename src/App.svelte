@@ -100,15 +100,24 @@
   let initializationStep = 'Starting...';
   let initializationProgress = 0;
   let initializationTimeout: NodeJS.Timeout | null = null;
+  let unsubscribeSettings: (() => void) | null = null;
   
   onMount(async () => {
+    // Subscribe to settings changes to update keyboard service
+    unsubscribeSettings = settings.subscribe($settings => {
+      if (keyboardService && $settings.keyboardShortcuts) {
+        keyboardService.updateShortcuts($settings.keyboardShortcuts);
+        console.log('[App] Keyboard shortcuts updated from settings');
+      }
+    });
+
     // Set a timeout to ensure the app initializes even if something hangs
     initializationTimeout = setTimeout(() => {
       console.warn('[App] Initialization timeout reached, forcing app to show');
       appInitialized = true;
       initializationError = null;
     }, 5000); // 5 second timeout
-    
+
     try {
       console.log('[App] Starting robust onMount initialization...');
       console.log('[App] Current window location:', window.location.href);
@@ -560,6 +569,11 @@
     if (initializationTimeout) {
       clearTimeout(initializationTimeout);
       initializationTimeout = null;
+    }
+    // Clean up settings subscription
+    if (unsubscribeSettings) {
+      unsubscribeSettings();
+      unsubscribeSettings = null;
     }
     // Clean up event listeners (make sure to use same capture flag as addEventListener)
     if (typeof document !== 'undefined') {

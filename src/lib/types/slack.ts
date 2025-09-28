@@ -129,6 +129,16 @@ export interface KeyboardShortcuts {
   reaction7?: string | string[];
   reaction8?: string | string[];
   reaction9?: string | string[];
+  // Shortcuts for adding reactions from other users
+  otherReaction1?: string | string[];
+  otherReaction2?: string | string[];
+  otherReaction3?: string | string[];
+  otherReaction4?: string | string[];
+  otherReaction5?: string | string[];
+  otherReaction6?: string | string[];
+  otherReaction7?: string | string[];
+  otherReaction8?: string | string[];
+  otherReaction9?: string | string[];
   toggleKeyboardHelp?: string | string[];
   toggleEmojiSearch?: string | string[];
   zoomIn?: string | string[];

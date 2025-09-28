@@ -273,6 +273,55 @@
       console.error('Failed to add reaction:', error);
     }
   }
+
+  // Handle adding reactions from other users
+  async function handleOtherReaction(index: number) {
+    if (!enableReactions || !selected) return;
+
+    // Get reactions from other users (not added by current user)
+    const otherReactions = getOtherUsersReactions();
+
+    if (index > 0 && index <= otherReactions.length) {
+      const reactionToAdd = otherReactions[index - 1];
+      try {
+        // Use addReaction directly since we know the user hasn't added this reaction yet
+        await reactionService.addReaction(message.channel, message.ts, reactionToAdd.name);
+        // Refresh reactions
+        reactions = await reactionService.getReactions(message.channel, message.ts);
+        // Update the message in the store
+        updateMessageReactionsInStore(reactions);
+      } catch (error) {
+        console.error('Failed to add reaction from others:', error);
+      }
+    }
+  }
+
+  // Get reactions from other users (not added by current user)
+  function getOtherUsersReactions() {
+    if (!reactions || !$currentUserId) return [];
+
+    // Filter reactions that current user hasn't added yet
+    const notAddedByMe = reactions.filter(r => !r.users.includes($currentUserId));
+
+    // Sort by count (most popular first)
+    return notAddedByMe.sort((a, b) => b.count - a.count);
+  }
+
+  // Get shortcut hint for a reaction
+  function getReactionShortcutHint(reaction: EmojiReaction): string | null {
+    if (!selected || !$currentUserId) return null;
+
+    // If user hasn't reacted, check if it's in the other reactions list
+    if (!reaction.users.includes($currentUserId)) {
+      const otherReactions = getOtherUsersReactions();
+      const index = otherReactions.findIndex(r => r.name === reaction.name);
+      if (index >= 0 && index < 9) {
+        return `⇧${index + 1}`;  // Show Shift+number
+      }
+    }
+
+    return null;
+  }
   
   function openReactionPicker(event: MouseEvent) {
     if (!enableReactions || isPickerOpen) return;
@@ -346,6 +395,14 @@
           allowInInput: false
         });
       }
+
+      // Register Shift+1 through Shift+9 for adding reactions from others
+      for (let i = 1; i <= 9; i++) {
+        keyboardService.registerHandler(`otherReaction${i}` as any, {
+          action: () => handleOtherReaction(i),
+          allowInInput: false
+        });
+      }
       
       // NOTE: We don't register Alt+Enter (openUrls) here because:
       // 1. ResultList already handles it for the focused message
@@ -373,6 +430,7 @@
       // NOTE: We don't unregister openUrls since we never register it
       for (let i = 1; i <= 9; i++) {
         keyboardService.unregisterHandler(`reaction${i}` as any);
+        keyboardService.unregisterHandler(`otherReaction${i}` as any);
       }
       handlersRegistered = false;
     } catch (error) {
@@ -477,12 +535,17 @@
     <div class="reactions">
       {#each reactions as reaction}
         {@const emojiData = parseEmoji(reaction.name)}
+        {@const shortcutHint = getReactionShortcutHint(reaction)}
         <button
           class="reaction-badge"
           class:user-reacted={$currentUserId && reaction.users.includes($currentUserId)}
+          class:has-shortcut={shortcutHint}
           on:click|stopPropagation={() => handleReactionClick(reaction.name)}
-          title={`${reaction.users.length} reaction${reaction.users.length > 1 ? 's' : ''}`}
+          title={`${reaction.users.length} reaction${reaction.users.length > 1 ? 's' : ''}${shortcutHint ? ` (${shortcutHint})` : ''}`}
         >
+          {#if shortcutHint}
+            <span class="reaction-shortcut">{shortcutHint}</span>
+          {/if}
           <span class="reaction-emoji">
             {#if emojiData.isCustom}
               <EmojiImage emoji={reaction.name} url={emojiData.value} size="small" />
@@ -716,11 +779,31 @@
     background: var(--primary-bg);
     border-color: var(--primary);
   }
-  
+
+  .reaction-badge.has-shortcut {
+    position: relative;
+  }
+
+  .reaction-shortcut {
+    position: absolute;
+    top: -6px;
+    left: -6px;
+    background: var(--primary);
+    color: white;
+    font-size: 0.625rem;
+    font-weight: bold;
+    padding: 0 3px;
+    border-radius: 4px;
+    line-height: 1.2;
+    min-width: 20px;
+    text-align: center;
+    z-index: 1;
+  }
+
   .reaction-emoji {
     font-size: 1rem;
   }
-  
+
   .reaction-count {
     color: var(--text-secondary);
     font-weight: 500;

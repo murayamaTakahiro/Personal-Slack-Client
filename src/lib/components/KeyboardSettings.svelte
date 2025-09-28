@@ -31,6 +31,10 @@
       shortcuts: ['reaction1', 'reaction2', 'reaction3', 'reaction4', 'reaction5', 'reaction6', 'reaction7', 'reaction8', 'reaction9']
     },
     {
+      name: 'Other User Reactions',
+      shortcuts: ['otherReaction1', 'otherReaction2', 'otherReaction3', 'otherReaction4', 'otherReaction5', 'otherReaction6', 'otherReaction7', 'otherReaction8', 'otherReaction9']
+    },
+    {
       name: 'UI Controls',
       shortcuts: ['toggleSettings', 'toggleKeyboardHelp', 'toggleEmojiSearch', 'zoomIn', 'zoomOut', 'zoomReset']
     }
@@ -71,6 +75,15 @@
     reaction7: '7',
     reaction8: '8',
     reaction9: '9',
+    otherReaction1: 'Shift+1',
+    otherReaction2: 'Shift+2',
+    otherReaction3: 'Shift+3',
+    otherReaction4: 'Shift+4',
+    otherReaction5: 'Shift+5',
+    otherReaction6: 'Shift+6',
+    otherReaction7: 'Shift+7',
+    otherReaction8: 'Shift+8',
+    otherReaction9: 'Shift+9',
     openUrls: 'Alt+Enter',
     toggleKeyboardHelp: '?',
     toggleEmojiSearch: 'Ctrl+e',
@@ -119,6 +132,15 @@
     reaction7: 'Quick Reaction 7',
     reaction8: 'Quick Reaction 8',
     reaction9: 'Quick Reaction 9',
+    otherReaction1: 'Add Reaction from Others (1st)',
+    otherReaction2: 'Add Reaction from Others (2nd)',
+    otherReaction3: 'Add Reaction from Others (3rd)',
+    otherReaction4: 'Add Reaction from Others (4th)',
+    otherReaction5: 'Add Reaction from Others (5th)',
+    otherReaction6: 'Add Reaction from Others (6th)',
+    otherReaction7: 'Add Reaction from Others (7th)',
+    otherReaction8: 'Add Reaction from Others (8th)',
+    otherReaction9: 'Add Reaction from Others (9th)',
     openUrls: 'Open URLs from Message',
     toggleKeyboardHelp: 'Toggle Keyboard Help',
     toggleEmojiSearch: 'Open Emoji Search',

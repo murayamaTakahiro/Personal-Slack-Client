@@ -66,8 +66,41 @@ export class KeyboardService {
    */
   private matchesSingleShortcut(event: KeyboardEvent, shortcut: string): boolean {
     const parsed = this.parseShortcut(shortcut);
-    const eventKey = event.key.toLowerCase();
-    
+    let eventKey = event.key.toLowerCase();
+
+    // Debug Shift+number shortcuts
+    if (event.shiftKey) {
+      console.log('🔍 DEBUG: matchesSingleShortcut with Shift', {
+        shortcut,
+        parsed,
+        eventKey: event.key,
+        eventCode: event.code,
+        event: {
+          key: event.key,
+          code: event.code,
+          shiftKey: event.shiftKey,
+          altKey: event.altKey,
+          ctrlKey: event.ctrlKey
+        }
+      });
+    }
+
+    // Special handling for Shift+number shortcuts
+    // When Shift is pressed, event.key might be a symbol (like "!" for Shift+1)
+    // So we need to check event.code instead
+    if (parsed.shift && event.shiftKey && /^[1-9]$/.test(parsed.key)) {
+      // Check if the event.code matches Digit1-Digit9
+      const digitMatch = event.code.match(/^Digit([1-9])$/);
+      if (digitMatch) {
+        eventKey = digitMatch[1]; // Use the digit from the code
+        console.log('🔍 DEBUG: Matched Shift+number using event.code', {
+          eventCode: event.code,
+          extractedDigit: eventKey,
+          parsedKey: parsed.key
+        });
+      }
+    }
+
     // Handle special keys
     const keyMatch = eventKey === parsed.key || 
                     (eventKey === 'escape' && parsed.key === 'escape') ||
@@ -134,12 +167,13 @@ export class KeyboardService {
     }
 
     // Log for navigation keys and important keys to debug
-    if (['i', 'r', 'p', 't', '1', '2', '3', '/', 'j', 'k', 'e', 'ArrowUp', 'ArrowDown'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || (event.key === '/' && event.ctrlKey)) {
+    if (['i', 'r', 'p', 't', '1', '2', '3', '/', 'j', 'k', 'e', 'ArrowUp', 'ArrowDown'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || (event.key === '/' && event.ctrlKey) || event.shiftKey) {
       console.log('🔍 DEBUG: KeyboardService handling key event', {
         key: event.key,
         ctrlKey: event.ctrlKey,
         metaKey: event.metaKey,
         altKey: event.altKey,
+        shiftKey: event.shiftKey,
         enabled: this.enabled,
         handlerCount: this.handlers.size,
         registeredKeys: Array.from(this.handlers.keys()),

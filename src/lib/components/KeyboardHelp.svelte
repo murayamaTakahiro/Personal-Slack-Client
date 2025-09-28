@@ -179,10 +179,60 @@
             description: 'Quick Reaction 8',
             shortcut: shortcuts.reaction8 || '8'
           },
-          { 
-            key: 'reaction9', 
+          {
+            key: 'reaction9',
             description: 'Quick Reaction 9',
             shortcut: shortcuts.reaction9 || '9'
+          }
+        ]
+      },
+      {
+        name: 'Other User Reactions',
+        shortcuts: [
+          {
+            key: 'otherReaction1',
+            description: 'Add 1st Reaction from Others',
+            shortcut: shortcuts.otherReaction1 || 'Shift+1'
+          },
+          {
+            key: 'otherReaction2',
+            description: 'Add 2nd Reaction from Others',
+            shortcut: shortcuts.otherReaction2 || 'Shift+2'
+          },
+          {
+            key: 'otherReaction3',
+            description: 'Add 3rd Reaction from Others',
+            shortcut: shortcuts.otherReaction3 || 'Shift+3'
+          },
+          {
+            key: 'otherReaction4',
+            description: 'Add 4th Reaction from Others',
+            shortcut: shortcuts.otherReaction4 || 'Shift+4'
+          },
+          {
+            key: 'otherReaction5',
+            description: 'Add 5th Reaction from Others',
+            shortcut: shortcuts.otherReaction5 || 'Shift+5'
+          },
+          {
+            key: 'otherReaction6',
+            description: 'Add 6th Reaction from Others',
+            shortcut: shortcuts.otherReaction6 || 'Shift+6'
+          },
+          {
+            key: 'otherReaction7',
+            description: 'Add 7th Reaction from Others',
+            shortcut: shortcuts.otherReaction7 || 'Shift+7'
+          },
+          {
+            key: 'otherReaction8',
+            description: 'Add 8th Reaction from Others',
+            shortcut: shortcuts.otherReaction8 || 'Shift+8'
+          },
+          {
+            key: 'otherReaction9',
+            description: 'Add 9th Reaction from Others',
+            shortcut: shortcuts.otherReaction9 || 'Shift+9'
           }
         ]
       },
