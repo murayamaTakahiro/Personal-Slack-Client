@@ -7,6 +7,7 @@
   import WorkspaceSwitcher from './lib/components/WorkspaceSwitcher.svelte';
   import './styles/zoom.css';
   import './styles/theme-improvements.css';
+  import './styles/live-mode-smooth.css';
   import { 
     searchResults, 
     searchLoading, 
@@ -57,6 +58,7 @@
   import { searchOptimizer } from './lib/services/searchOptimizer';
   import { initializeConfig, watchConfigFile } from './lib/services/configService';
   import { cacheService } from './lib/services/cacheService';
+  import { messageReconciler } from './lib/services/messageReconciler';
   import { realtimeStore, timeUntilUpdate, formattedLastUpdate } from './lib/stores/realtime';
   import { zoomStore } from './lib/stores/zoom';
   import { showToast, showInfo } from './lib/stores/toast';
@@ -1284,21 +1286,28 @@
   }
 
   async function handleSearch(event?: CustomEvent) {
+    // Use params from event if available, otherwise from store
+    const params = event?.detail || $searchParams;
+
     try {
-      searchLoading.set(true);
+      // Don't show loading state for realtime updates - keep UI stable
+      if (!params.isRealtimeUpdate) {
+        searchLoading.set(true);
+      }
       searchError.set(null);
       console.log('[App] Starting search...');
       // First ensure the token is initialized in the backend
       const tokenInitialized = await initTokenFromStorage();
       if (!tokenInitialized) {
         searchError.set('No Slack token configured. Please add your token in Settings.');
+        if (!params.isRealtimeUpdate) {
+          searchLoading.set(false);
+        }
         return;
       }
-      
-      // Use params from event if available, otherwise from store
-      const params = event?.detail || $searchParams;
+
       // Search params being sent
-      
+
       // For realtime incremental updates, get last timestamp
       if (params.isRealtimeUpdate && $realtimeStore.isEnabled) {
         const lastTimestamp = realtimeStore.getLastSearchTimestamp();
@@ -1312,41 +1321,50 @@
       // Use batched search for multi-channel searches when enabled
       const result = await searchMessagesWithBatching(params);
       
-      // Handle incremental updates
+      // Handle incremental updates with reconciliation
       if (params.isRealtimeUpdate && $realtimeStore.isEnabled && $searchResults?.messages) {
-        // Merge new messages with existing ones
         const existingMessages = $searchResults.messages;
-        const newMessages = result.messages.filter(msg => 
-          !previousMessageIds.has(msg.id)
+
+        // Use reconciler for seamless updates
+        const reconciled = messageReconciler.reconcile(
+          existingMessages,
+          result.messages,
+          true // isRealtimeUpdate
         );
-        
-        if (newMessages.length > 0) {
-          // Combine and sort messages by timestamp (newest first)
-          const allMessages = [...newMessages, ...existingMessages];
-          allMessages.sort((a, b) => parseFloat(b.ts) - parseFloat(a.ts));
-          
-          // Update the result with merged messages
-          result.messages = allMessages;
-          result.total = allMessages.length;
-          
-          // Update last search timestamp to the newest message
-          const newestTimestamp = newMessages[0].ts;
-          realtimeStore.recordUpdate(newMessages.length, newestTimestamp);
-          
+
+        // Update result with reconciled messages
+        result.messages = reconciled.messages;
+        result.total = reconciled.messages.length;
+
+        // Track new messages for notifications
+        if (reconciled.changes.added.size > 0) {
+          const newestMessage = result.messages[0];
+          if (newestMessage) {
+            realtimeStore.recordUpdate(reconciled.changes.added.size, newestMessage.ts);
+          }
+
           // Show notification for new messages
-          if ($realtimeStore.showNotifications && newMessages.length > 0) {
-            showNotification(`${newMessages.length} new message${newMessages.length > 1 ? 's' : ''}`);
+          if ($realtimeStore.showNotifications) {
+            const count = reconciled.changes.added.size;
+            showNotification(`${count} new message${count > 1 ? 's' : ''}`);
           }
         } else {
           // No new messages, just record the update
           realtimeStore.recordUpdate(0);
         }
-        
-        // For realtime updates, batch the UI update to reduce thrashing
-        // Use requestAnimationFrame for smoother rendering
+
+        // Apply updates based on strategy
+        const strategy = messageReconciler.getUpdateStrategy(reconciled.changes);
+
+        if (strategy === 'none') {
+          // No changes, skip update
+          console.log('[App] No changes detected, skipping update');
+          return;
+        }
+
+        // Use requestAnimationFrame for smooth UI update
         requestAnimationFrame(() => {
           searchResults.set(result);
-          // Don't load reactions progressively for realtime updates (they should already have reactions)
         });
       } else {
         // Normal search - immediate update
@@ -1406,7 +1424,10 @@
       searchError.set(errorMessage);
       // Search error
     } finally {
-      searchLoading.set(false);
+      // Don't change loading state for realtime updates
+      if (!params.isRealtimeUpdate) {
+        searchLoading.set(false);
+      }
     }
   }
   

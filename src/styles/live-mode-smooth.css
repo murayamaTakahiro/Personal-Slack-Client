@@ -1,0 +1,105 @@
+/* Live mode smooth refresh styles - Minimal approach */
+
+/* Smooth fade transition for the entire message list */
+.messages {
+  transition: opacity 0.2s ease-in-out;
+}
+
+/* During realtime updates, maintain full opacity */
+.messages.realtime-updating {
+  opacity: 1;
+}
+
+/* Individual message items with subtle entry animation */
+@keyframes messageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Apply animation only to new messages in realtime mode */
+.realtime-mode .message-new {
+  animation: messageSlideIn 0.3s ease-out;
+}
+
+/* Preserve scroll anchoring */
+.messages {
+  overflow-anchor: auto;
+}
+
+/* Subtle loading indicator bar at the top */
+.realtime-loading-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(29, 155, 209, 0.6) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+  z-index: 1000;
+}
+
+.realtime-loading-bar.active {
+  opacity: 1;
+  animation: slideProgress 1s ease-in-out;
+}
+
+@keyframes slideProgress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Smooth transition for message content updates */
+.message-content {
+  transition: background-color 0.3s ease-out;
+}
+
+/* Highlight updated messages briefly */
+.message-updated {
+  animation: messageHighlight 0.6s ease-out;
+}
+
+@keyframes messageHighlight {
+  0% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(29, 155, 209, 0.1);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* Prevent layout shift during updates */
+.messages > * {
+  contain: layout style;
+}
+
+/* Smooth opacity for loading state transitions */
+.result-list {
+  transition: opacity 0.2s ease-in-out;
+}
+
+/* Keep interactive elements stable during updates */
+.messages.realtime-updating button,
+.messages.realtime-updating a,
+.messages.realtime-updating input {
+  pointer-events: auto;
+}

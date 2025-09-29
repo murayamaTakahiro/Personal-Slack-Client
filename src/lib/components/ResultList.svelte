@@ -19,6 +19,7 @@
   import { savedSearchOpen } from '../stores/savedSearchOpen';
   import { lightboxOpen, filePreviewStore } from '../stores/filePreview';
   import { processFileMetadata } from '../services/fileService';
+  import { realtimeStore } from '../stores/realtime';
 
   export let messages: Message[] = [];
   export let loading = false;
@@ -30,6 +31,8 @@
   let listContainer: HTMLDivElement;
   let messageElements: HTMLElement[] = [];
   let isExpanded = false;
+  let isRealtimeUpdating = false;
+  let previousMessageIds = new Set<string>();
   
   // Post dialog state
   let showPostDialog = false;
@@ -84,13 +87,38 @@
   // Reset display count when messages change (new search)
   let previousMessageLength = 0;
   $: if (messages && messages.length !== previousMessageLength) {
-    // Reset progressive loading when messages change
-    displayedCount = Math.min(INITIAL_LOAD, messages.length);
-    
-    // Only reset focus if it's a completely new set of messages (not just updates)
-    if (previousMessageLength === 0 || messages.length === 0) {
-      focusedIndex = -1;
+    // Check if this is a realtime update
+    const isRealtimeMode = $realtimeStore.isEnabled && previousMessageLength > 0;
+
+    if (isRealtimeMode) {
+      // For realtime updates, briefly show updating state
+      isRealtimeUpdating = true;
+      setTimeout(() => {
+        isRealtimeUpdating = false;
+      }, 300);
+
+      // Preserve scroll position
+      if (listContainer && $realtimeStore.autoScroll === false) {
+        const scrollTop = listContainer.scrollTop;
+        requestAnimationFrame(() => {
+          if (listContainer) {
+            listContainer.scrollTop = scrollTop;
+          }
+        });
+      }
+    } else {
+      // Normal search - reset progressive loading
+      displayedCount = Math.min(INITIAL_LOAD, messages.length);
+
+      // Only reset focus if it's a completely new set of messages (not just updates)
+      if (previousMessageLength === 0 || messages.length === 0) {
+        focusedIndex = -1;
+      }
     }
+
+    // Update tracking variables
+    const currentIds = new Set(messages.map(m => m.ts));
+    previousMessageIds = currentIds;
     previousMessageLength = messages.length;
   }
   
@@ -982,7 +1010,11 @@
       {/if}
     </div>
   {:else}
-    <div class="results-container">
+    <div class="results-container" class:realtime-mode={$realtimeStore.isEnabled}>
+      <!-- Subtle loading bar for realtime updates -->
+      {#if $realtimeStore.isEnabled}
+        <div class="realtime-loading-bar" class:active={isRealtimeUpdating}></div>
+      {/if}
       <div class="results-header">
         <h3>
           {#if !$searchParams?.query}
@@ -1009,6 +1041,7 @@
       <div
         class="messages"
         class:expanded={isExpanded}
+        class:realtime-updating={isRealtimeUpdating}
         bind:this={listContainer}
         tabindex="0"
         role="list"
@@ -1018,7 +1051,11 @@
         on:keydown={handleKeyDown}>
         {#each visibleMessages as message, visibleIndex (message.ts)}
           {@const actualIndex = messages.findIndex(m => m.ts === message.ts)}
-          <div data-message-ts={message.ts} data-message-index={actualIndex}>
+          {@const isNewMessage = $realtimeStore.isEnabled && !previousMessageIds.has(message.ts)}
+          <div
+            data-message-ts={message.ts}
+            data-message-index={actualIndex}
+            class:message-new={isNewMessage}>
             {#if $performanceSettings.useOptimizedMessageItem}
               <OptimizedMessageItem
                 {message}
