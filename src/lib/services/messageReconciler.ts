@@ -45,11 +45,29 @@ export class MessageReconciler {
         } else {
           // Check if message was updated (reactions, edits, etc.)
           const current = currentMap.get(id);
-          if (current && this.hasChanged(current, msg)) {
+          if (current) {
             const index = reconciled.findIndex(m => m.ts === id);
             if (index !== -1) {
-              reconciled[index] = msg;
-              updated.add(id);
+              // Smart merge: preserve existing reactions if new message doesn't have them
+              // This prevents reactions from disappearing during updates
+              const mergedMessage = { ...msg };
+
+              // If the current message has reactions but new message doesn't, preserve them
+              if (current.reactions && current.reactions.length > 0 && (!msg.reactions || msg.reactions.length === 0)) {
+                mergedMessage.reactions = current.reactions;
+              }
+
+              // If the current message has more reactions than the new message, use the current ones
+              if (current.reactions && msg.reactions && current.reactions.length > msg.reactions.length) {
+                mergedMessage.reactions = current.reactions;
+              }
+
+              reconciled[index] = mergedMessage;
+
+              // Check if actually changed
+              if (this.hasChanged(current, mergedMessage)) {
+                updated.add(id);
+              }
             }
           }
         }
@@ -96,6 +114,34 @@ export class MessageReconciler {
 
     // Check files
     if (JSON.stringify(oldMsg.files) !== JSON.stringify(newMsg.files)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if the new message has more data than the old message
+   * This prevents overwriting messages that have reactions with messages that don't
+   */
+  private hasMoreData(newMsg: Message, oldMsg: Message): boolean {
+    // New message has reactions but old doesn't
+    if (newMsg.reactions && newMsg.reactions.length > 0 && (!oldMsg.reactions || oldMsg.reactions.length === 0)) {
+      return true;
+    }
+
+    // New message has more reactions than old
+    if (newMsg.reactions && oldMsg.reactions && newMsg.reactions.length > oldMsg.reactions.length) {
+      return true;
+    }
+
+    // New message has thread replies but old doesn't
+    if (newMsg.reply_count && newMsg.reply_count > 0 && !oldMsg.reply_count) {
+      return true;
+    }
+
+    // New message has more thread replies
+    if (newMsg.reply_count && oldMsg.reply_count && newMsg.reply_count > oldMsg.reply_count) {
       return true;
     }
 
