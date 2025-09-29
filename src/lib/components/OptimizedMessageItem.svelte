@@ -263,21 +263,21 @@
     }
   }
 
-  // Get reactions added by other users (not the current user)
-  function getOtherUsersReactions(): EmojiReaction[] {
+  // Get reactions added by other users (not the current user) - made reactive
+  $: otherUsersReactions = (() => {
     if (!$reactionsStore || !$currentUserId) return [];
 
+    // Keep the original order (left-to-right as displayed)
     return $reactionsStore
-      .filter(reaction => !reaction.users.includes($currentUserId))
-      .sort((a, b) => b.users.length - a.users.length);
-  }
+      .filter(reaction => !reaction.users.includes($currentUserId));
+  })();
 
   // Handle adding a reaction from other users using Shift+number
   async function handleOtherReaction(index: number) {
     if (!enableReactions || !selected) return;
 
     // Get reactions from other users (not added by current user)
-    const otherReactions = getOtherUsersReactions();
+    const otherReactions = otherUsersReactions;
 
     if (index > 0 && index <= otherReactions.length) {
       const reactionToAdd = otherReactions[index - 1];
@@ -292,21 +292,20 @@
     }
   }
 
-  // Get shortcut hint for a reaction
-  function getReactionShortcutHint(reaction: EmojiReaction): string | null {
+  // Get shortcut hint for a reaction - made reactive
+  $: getReactionShortcutHint = (reaction: EmojiReaction): string | null => {
     if (!selected || !$currentUserId) return null;
 
     // If user hasn't reacted, check if it's in the other reactions list
     if (!reaction.users.includes($currentUserId)) {
-      const otherReactions = getOtherUsersReactions();
-      const index = otherReactions.findIndex(r => r.name === reaction.name);
+      const index = otherUsersReactions.findIndex(r => r.name === reaction.name);
       if (index >= 0 && index < 9) {
         return `⇧${index + 1}`;  // Show Shift+number
       }
     }
 
     return null;
-  }
+  };
 
   function openReactionPicker(event: MouseEvent) {
     if (!enableReactions || isPickerOpen) return;
