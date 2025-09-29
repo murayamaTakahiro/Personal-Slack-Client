@@ -16,6 +16,11 @@ export class KeyboardService {
 
   constructor(shortcuts: KeyboardShortcuts) {
     this.shortcuts = shortcuts;
+    console.log('🔍 DEBUG: KeyboardService constructor - shortcuts:', {
+      hasToggleLiveMode: 'toggleLiveMode' in shortcuts,
+      toggleLiveModeValue: shortcuts.toggleLiveMode || 'NOT PRESENT',
+      allKeys: Object.keys(shortcuts)
+    });
   }
 
   /**
@@ -67,6 +72,20 @@ export class KeyboardService {
   private matchesSingleShortcut(event: KeyboardEvent, shortcut: string): boolean {
     const parsed = this.parseShortcut(shortcut);
     let eventKey = event.key.toLowerCase();
+
+    // Debug Ctrl+L shortcut specifically
+    if ((event.ctrlKey && event.key.toLowerCase() === 'l') || shortcut.toLowerCase() === 'ctrl+l') {
+      console.log('🔍 DEBUG: Ctrl+L detection', {
+        shortcut,
+        parsed,
+        eventKey: event.key,
+        eventCtrl: event.ctrlKey,
+        eventMeta: event.metaKey,
+        parsedCtrl: parsed.ctrl,
+        parsedKey: parsed.key,
+        willMatch: event.ctrlKey === parsed.ctrl && eventKey === parsed.key
+      });
+    }
 
     // Debug Shift+number shortcuts
     if (event.shiftKey) {
@@ -272,14 +291,19 @@ export class KeyboardService {
     for (const [shortcutKey, handler] of this.handlers.entries()) {
       const shortcut = this.shortcuts[shortcutKey as keyof KeyboardShortcuts];
 
-      // Special debug for navigation and quote keys
-      if (['nextResult', 'prevResult', 'jumpToLast', 'quoteMessage'].includes(shortcutKey) && ['j', 'k', 'e', 'q', 'ArrowUp', 'ArrowDown'].includes(event.key.toLowerCase())) {
+      // Special debug for navigation, quote keys, and Ctrl+L (Live mode toggle)
+      if (['nextResult', 'prevResult', 'jumpToLast', 'quoteMessage', 'toggleLiveMode'].includes(shortcutKey) &&
+          ['j', 'k', 'e', 'q', 'l', 'ArrowUp', 'ArrowDown'].includes(event.key.toLowerCase())) {
         console.log('🔍 DEBUG: Checking handler', shortcutKey, 'for key', event.key, 'with shortcut', shortcut);
       }
 
       if (shortcut && this.matchesShortcut(event, shortcut)) {
-        // Log for navigation and relevant keys to reduce noise
-        if (['i', 'r', 'p', 't', 'q', '1', '2', '3', '/', 'j', 'k', 'e', 'ArrowUp', 'ArrowDown'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || (event.key === '/' && event.ctrlKey) || ['openLightbox', 'openReactionPicker', 'postMessage', 'replyInThread', 'quoteMessage', 'openUrls', 'focusThread', 'focusResults', 'focusSearchBar', 'toggleSavedSearches', 'nextResult', 'prevResult', 'jumpToLast'].includes(shortcutKey)) {
+        // Log for navigation and relevant keys to reduce noise - INCLUDING Ctrl+L for Live mode
+        if (['i', 'r', 'p', 't', 'q', 'l', '1', '2', '3', '/', 'j', 'k', 'e', 'ArrowUp', 'ArrowDown'].includes(event.key.toLowerCase()) ||
+            (event.key === 'Enter' && event.altKey) ||
+            (event.key === '/' && event.ctrlKey) ||
+            (event.key.toLowerCase() === 'l' && event.ctrlKey) ||
+            ['openLightbox', 'openReactionPicker', 'postMessage', 'replyInThread', 'quoteMessage', 'openUrls', 'focusThread', 'focusResults', 'focusSearchBar', 'toggleSavedSearches', 'nextResult', 'prevResult', 'jumpToLast', 'toggleLiveMode'].includes(shortcutKey)) {
           console.log('🔍 DEBUG: Handler MATCHED!', {
             shortcutKey,
             shortcut,
@@ -304,11 +328,13 @@ export class KeyboardService {
         if (handler.stopPropagation !== false) {
           event.stopPropagation();
         }
-        
-        if (['i', 'r', 'p', 't', '1', '2', '3'].includes(event.key.toLowerCase()) || ['openLightbox', 'focusThread', 'focusResults', 'focusSearchBar'].includes(shortcutKey)) {
-          console.log('🔍 DEBUG: Executing handler action for', shortcutKey);
+
+        // Add debug log for Live mode toggle and other important handlers
+        if (['i', 'r', 'p', 't', 'l', '1', '2', '3'].includes(event.key.toLowerCase()) ||
+            ['openLightbox', 'focusThread', 'focusResults', 'focusSearchBar', 'toggleLiveMode'].includes(shortcutKey)) {
+          console.log('🔍 DEBUG: Executing handler action for', shortcutKey, 'with key', event.key);
         }
-        
+
         // Execute the action
         Promise.resolve(handler.action()).catch(console.error);
         return true;

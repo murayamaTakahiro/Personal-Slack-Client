@@ -409,7 +409,12 @@
     
       // Initialize keyboard service with error handling
       try {
-        keyboardService = initKeyboardService(currentSettings.keyboardShortcuts || {});
+        const shortcuts = currentSettings.keyboardShortcuts || {};
+        console.log('[App] Initializing keyboard service with shortcuts:', {
+          hasToggleLiveMode: 'toggleLiveMode' in shortcuts,
+          toggleLiveModeValue: shortcuts.toggleLiveMode || 'NOT FOUND'
+        });
+        keyboardService = initKeyboardService(shortcuts);
         console.log('[App] Keyboard service initialized successfully');
         
         // Register keyboard handlers with a slight delay to ensure components are mounted
@@ -929,12 +934,25 @@
     // Toggle Live Mode
     keyboardService.registerHandler('toggleLiveMode', {
       action: () => {
+        console.log('🔍 DEBUG: toggleLiveMode handler triggered', {
+          showSettings,
+          searchBarElement: !!searchBarElement,
+          hasToggleFunction: searchBarElement && typeof searchBarElement.toggleLiveMode === 'function'
+        });
         if (!showSettings && searchBarElement && typeof searchBarElement.toggleLiveMode === 'function') {
+          console.log('🔍 DEBUG: Calling searchBarElement.toggleLiveMode()');
           searchBarElement.toggleLiveMode();
+        } else {
+          console.log('🔍 DEBUG: Cannot toggle Live mode', {
+            reason: showSettings ? 'Settings is open' :
+                    !searchBarElement ? 'SearchBar not mounted' :
+                    'toggleLiveMode function not available'
+          });
         }
       },
       allowInInput: true  // Allow from anywhere to toggle live mode
     });
+    console.log('✅ Live Mode handler registered for Ctrl+L');
 
     // Zoom controls
     keyboardService.registerHandler('zoomIn', {
@@ -1316,11 +1334,24 @@
           // Set from date to just after the last message timestamp
           const lastDate = new Date(parseFloat(lastTimestamp) * 1000);
           params.fromDate = new Date(lastDate.getTime() + 1000); // Add 1 second to avoid duplicates
+        } else {
+          // Fallback: Get messages from last 5 minutes if no timestamp available
+          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+          params.fromDate = fiveMinutesAgo.toISOString();
         }
 
         // Clear reaction cache for realtime updates to ensure fresh data
         console.log('[App] Clearing reaction cache for realtime update');
         await clearReactionCache();
+
+        // Debug log
+        console.log('[App] Realtime update params:', {
+          isRealtimeUpdate: params.isRealtimeUpdate,
+          fromDate: params.fromDate,
+          force_refresh: true,
+          channel: params.channel,
+          query: params.query
+        });
       }
 
       // Use batched search for multi-channel searches when enabled
