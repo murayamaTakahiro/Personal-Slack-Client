@@ -26,12 +26,13 @@
   import { settings, initializeSettings, toggleDebugMode } from './lib/stores/settings';
   import { isPostDialogOpen } from './lib/stores/postDialog';
   import { maskTokenClient } from './lib/api/secure';
-  import { 
-    searchMessages, 
+  import {
+    searchMessages,
     getUserChannels,
-    getUsers, 
+    getUsers,
     testConnection,
-    initTokenFromStorage 
+    initTokenFromStorage,
+    clearReactionCache
   } from './lib/api/slack';
   import { searchMessagesWithBatching } from './lib/api/batchedSearch';
   import { initKeyboardService, type KeyboardService } from './lib/services/keyboardService';
@@ -1316,8 +1317,12 @@
           const lastDate = new Date(parseFloat(lastTimestamp) * 1000);
           params.fromDate = new Date(lastDate.getTime() + 1000); // Add 1 second to avoid duplicates
         }
+
+        // Clear reaction cache for realtime updates to ensure fresh data
+        console.log('[App] Clearing reaction cache for realtime update');
+        await clearReactionCache();
       }
-      
+
       // Use batched search for multi-channel searches when enabled
       const result = await searchMessagesWithBatching(params);
       

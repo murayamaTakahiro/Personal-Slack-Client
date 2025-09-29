@@ -20,7 +20,7 @@ export async function searchMessagesFast(params: SearchParams): Promise<SearchRe
     fromDate: params.fromDate instanceof Date ? params.fromDate.toISOString() : params.fromDate,
     toDate: params.toDate instanceof Date ? params.toDate.toISOString() : params.toDate,
     limit: params.limit,
-    forceRefresh: params.isRealtimeUpdate || false
+    force_refresh: params.isRealtimeUpdate || false  // Using snake_case for Rust
   });
   
   console.log(`[FastSearch] Got ${result.messages.length} messages instantly`);
@@ -138,16 +138,21 @@ async function loadReactionsUltraFast(messages: any[]) {
  * Check if fast search should be used based on message count estimate
  */
 export function shouldUseFastSearch(params: SearchParams): boolean {
+  // NEVER use fast search for realtime updates - we need fresh reactions
+  if (params.isRealtimeUpdate) {
+    return false;
+  }
+
   // Use fast search for:
   // 1. Multi-channel searches (likely to have many results)
   // 2. No query (channel browse - lots of messages)
   // 3. Large limit requests
   // 4. Date range searches (potentially many results)
-  
+
   const hasMultipleChannels = params.channel && params.channel.includes(',');
   const hasNoQuery = !params.query || params.query.trim() === '';
   const hasLargeLimit = (params.limit || 100) >= 100;
   const hasDateRange = params.fromDate || params.toDate;
-  
+
   return hasMultipleChannels || (hasNoQuery && params.channel) || hasLargeLimit || hasDateRange;
 }

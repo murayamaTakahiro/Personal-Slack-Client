@@ -10,9 +10,12 @@ import { searchMessagesFast, shouldUseFastSearch } from './fastSearch';
  */
 export async function searchMessagesWithBatching(params: SearchParams): Promise<SearchResult> {
   const settings = get(performanceSettings);
-  
-  // Use ultra-fast search for large result sets
-  if (shouldUseFastSearch(params)) {
+
+  // NEVER use fast search for realtime updates - we need fresh reactions
+  if (params.isRealtimeUpdate) {
+    console.log('[BatchedSearch] Realtime update - skipping fast search to get fresh reactions');
+  } else if (shouldUseFastSearch(params)) {
+    // Use ultra-fast search for large result sets (but not for realtime)
     console.log('[BatchedSearch] Using ultra-fast search for optimal performance');
     return searchMessagesFast(params);
   }
@@ -31,7 +34,7 @@ export async function searchMessagesWithBatching(params: SearchParams): Promise<
       fromDate: params.fromDate instanceof Date ? params.fromDate.toISOString() : params.fromDate,
       toDate: params.toDate instanceof Date ? params.toDate.toISOString() : params.toDate,
       limit: params.limit,
-      forceRefresh: params.isRealtimeUpdate || false
+      force_refresh: params.isRealtimeUpdate || false  // Using snake_case for Rust
     });
     
     return result;
@@ -58,7 +61,7 @@ export async function searchMessagesWithBatching(params: SearchParams): Promise<
           fromDate: params.fromDate instanceof Date ? params.fromDate.toISOString() : params.fromDate,
           toDate: params.toDate instanceof Date ? params.toDate.toISOString() : params.toDate,
           limit: params.limit,
-          forceRefresh: params.isRealtimeUpdate || false
+          force_refresh: params.isRealtimeUpdate || false  // Using snake_case for Rust
         });
         
         return batchResult.messages || [];

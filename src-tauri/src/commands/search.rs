@@ -2221,10 +2221,15 @@ pub async fn search_messages_fast(
     }
     
     // Check cache for any already-fetched reactions (instant)
-    for message in messages.iter_mut() {
-        if let Some(cached_reactions) = state.get_cached_reactions(&message.channel, &message.ts).await {
-            message.reactions = Some(cached_reactions);
+    // BUT skip cache for force_refresh (used in realtime updates)
+    if !force_refresh.unwrap_or(false) {
+        for message in messages.iter_mut() {
+            if let Some(cached_reactions) = state.get_cached_reactions(&message.channel, &message.ts).await {
+                message.reactions = Some(cached_reactions);
+            }
         }
+    } else {
+        info!("Fast search: Skipping reaction cache due to force_refresh=true");
     }
     
     let execution_time_ms = start_time.elapsed().as_millis() as u64;

@@ -15,7 +15,7 @@ export interface RealtimeState {
 
 const defaultState: RealtimeState = {
   isEnabled: false,
-  updateInterval: 30, // 30 seconds default
+  updateInterval: 5, // 5 seconds default for better responsiveness
   lastUpdateTime: null,
   nextUpdateTime: null,
   autoScroll: true,
