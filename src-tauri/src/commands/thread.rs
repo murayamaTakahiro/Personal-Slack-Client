@@ -243,6 +243,9 @@ pub async fn get_thread(
                 ts: thread_ts.clone(),
                 thread_ts: Some(thread_ts.clone()), // Parent has thread_ts equal to ts
                 user: Some("system".to_string()),
+                username: Some("System".to_string()),
+                bot_id: None,
+                bot_profile: None,
                 text: "[Thread parent message is unavailable - may have been deleted or is inaccessible]".to_string(),
                 reply_count: Some(reply_count), // Set the actual reply count
                 reply_users: None,
@@ -260,14 +263,26 @@ pub async fn get_thread(
     let mut converted_messages = Vec::new();
 
     for msg in messages {
+        // Debug log to understand the message structure
+        info!("Thread message data: user={:?}, username={:?}, bot_id={:?}, bot_profile={:?}",
+            msg.user, msg.username, msg.bot_id, msg.bot_profile);
+
         let user_name = if let Some(user_id) = &msg.user {
             user_cache_simple
                 .get(user_id)
                 .cloned()
                 .unwrap_or_else(|| user_id.clone())
+        } else if let Some(bot_profile) = &msg.bot_profile {
+            // For bot/app messages, use bot profile name
+            bot_profile.name.clone().unwrap_or_else(|| {
+                msg.username.clone().unwrap_or_else(|| "Unknown".to_string())
+            })
         } else {
-            "Unknown".to_string()
+            // Fallback to username field
+            msg.username.clone().unwrap_or_else(|| "Unknown".to_string())
         };
+
+        info!("Thread message final user_name: {}", user_name);
 
         // Get channel name from cache
         let channel_name = channel_cache
@@ -288,7 +303,10 @@ pub async fn get_thread(
         converted_messages.push(Message {
             ts: msg.ts.clone(),
             thread_ts: msg.thread_ts.clone(),
-            user: msg.user.clone().unwrap_or_else(|| "Unknown".to_string()),
+            user: msg.user.clone()
+                .or_else(|| msg.bot_id.clone())
+                .or_else(|| msg.username.clone())
+                .unwrap_or_else(|| String::new()),
             user_name,
             text: processed_text,
             channel: channel_id.clone(),

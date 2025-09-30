@@ -125,6 +125,8 @@ pub struct SlackMessage {
     pub thread_ts: Option<String>,
     pub user: Option<String>,
     pub username: Option<String>,
+    pub bot_id: Option<String>,
+    pub bot_profile: Option<SlackBotProfile>,
     pub subtype: Option<String>,  // Add subtype to identify bot messages
     pub text: String,
     #[serde(default, deserialize_with = "deserialize_channel_info")]
@@ -194,6 +196,9 @@ pub struct SlackReplyMessage {
     pub ts: String,
     pub thread_ts: Option<String>,
     pub user: Option<String>,
+    pub username: Option<String>,
+    pub bot_id: Option<String>,
+    pub bot_profile: Option<SlackBotProfile>,
     pub text: String,
     pub reply_count: Option<usize>,
     pub reply_users: Option<Vec<String>>,
@@ -264,6 +269,22 @@ pub struct SlackUsersListResponse {
     pub members: Option<Vec<SlackUserInfo>>,
     pub error: Option<String>,
     pub response_metadata: Option<SlackResponseMetadata>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlackBotProfile {
+    pub id: Option<String>,
+    pub name: Option<String>,
+    pub app_id: Option<String>,
+    pub team_id: Option<String>,
+    pub icons: Option<SlackBotIcons>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlackBotIcons {
+    pub image_36: Option<String>,
+    pub image_48: Option<String>,
+    pub image_72: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

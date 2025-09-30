@@ -733,12 +733,24 @@ pub async fn search_messages(
                     }
                     Err(e) => {
                         error!("Failed to get user info for {}: {}", user_id, e);
-                        slack_msg.username.unwrap_or_else(|| user_id.clone())
+                        // Check bot profile first, then username
+                        if let Some(bot_profile) = &slack_msg.bot_profile {
+                            bot_profile.name.clone().unwrap_or_else(|| {
+                                slack_msg.username.clone().unwrap_or_else(|| user_id.clone())
+                            })
+                        } else {
+                            slack_msg.username.clone().unwrap_or_else(|| user_id.clone())
+                        }
                     }
                 }
             }
+        } else if let Some(bot_profile) = &slack_msg.bot_profile {
+            // For bot/app messages, use bot profile name
+            bot_profile.name.clone().unwrap_or_else(|| {
+                slack_msg.username.clone().unwrap_or_else(|| "Unknown".to_string())
+            })
         } else {
-            slack_msg.username.unwrap_or_else(|| "Unknown".to_string())
+            slack_msg.username.clone().unwrap_or_else(|| "Unknown".to_string())
         };
 
         // Get channel name from cache or use the one from the message
@@ -768,7 +780,10 @@ pub async fn search_messages(
         messages.push(Message {
             ts: slack_msg.ts.clone(),
             thread_ts: slack_msg.thread_ts.clone(),
-            user: slack_msg.user.unwrap_or_else(|| "Unknown".to_string()),
+            user: slack_msg.user.clone().unwrap_or_else(|| {
+                // For bot messages, use bot_id if available, otherwise use empty string
+                slack_msg.bot_id.clone().unwrap_or_else(|| String::new())
+            }),
             user_name,
             text: processed_text,
             channel: channel_id,
@@ -2218,8 +2233,13 @@ pub async fn search_messages_fast(
     for slack_msg in all_slack_messages {
         let user_name = if let Some(user_id) = &slack_msg.user {
             user_cache_simple.get(user_id).cloned().unwrap_or_else(|| user_id.clone())
+        } else if let Some(bot_profile) = &slack_msg.bot_profile {
+            // For bot/app messages, use bot profile name
+            bot_profile.name.clone().unwrap_or_else(|| {
+                slack_msg.username.clone().unwrap_or_else(|| "Unknown".to_string())
+            })
         } else {
-            slack_msg.username.unwrap_or_else(|| "Unknown".to_string())
+            slack_msg.username.clone().unwrap_or_else(|| "Unknown".to_string())
         };
         
         let (channel_id, channel_name) = if let Some(channel_info) = &slack_msg.channel {
@@ -2238,7 +2258,10 @@ pub async fn search_messages_fast(
         messages.push(Message {
             ts: slack_msg.ts.clone(),
             thread_ts: slack_msg.thread_ts.clone(),
-            user: slack_msg.user.unwrap_or_else(|| "Unknown".to_string()),
+            user: slack_msg.user.clone().unwrap_or_else(|| {
+                // For bot messages, use bot_id if available, otherwise use empty string
+                slack_msg.bot_id.clone().unwrap_or_else(|| String::new())
+            }),
             user_name,
             text: processed_text,
             channel: channel_id,
