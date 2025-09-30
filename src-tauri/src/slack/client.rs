@@ -1299,44 +1299,6 @@ impl SlackClient {
         Ok((result.ok, result.user_id))
     }
 
-    /// Check if the token has specific scopes/permissions
-    /// Returns (is_authorized, scopes_list)
-    pub async fn check_token_scopes(&self) -> Result<(bool, Vec<String>)> {
-        let url = format!("{}/auth.test", SLACK_API_BASE);
-
-        info!("Checking Slack token scopes/permissions");
-
-        let response = self.client.get(&url).send().await?;
-
-        if !response.status().is_success() {
-            error!("Failed to check token scopes with status: {}", response.status());
-            return Ok((false, Vec::new()));
-        }
-
-        // Note: auth.test doesn't return scopes directly
-        // We'll need to use conversations.list with im type to test im:read permission
-        // For now, we'll return a basic check
-        #[derive(Deserialize)]
-        struct AuthTestResponse {
-            ok: bool,
-            #[serde(default)]
-            error: Option<String>,
-        }
-
-        let result: AuthTestResponse = response.json().await?;
-
-        if result.ok {
-            info!("Token is valid, checking im:read scope by attempting to list DMs");
-            // The actual scope check will happen when we try to list DMs
-            // If it fails with missing_scope, we know we don't have im:read
-            Ok((true, Vec::new()))
-        } else {
-            let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
-            error!("Token validation failed: {}", error_msg);
-            Ok((false, Vec::new()))
-        }
-    }
-
     pub async fn add_reaction(&self, channel: &str, timestamp: &str, emoji: &str) -> Result<()> {
         let _ = self.rate_limiter.acquire().await;
 

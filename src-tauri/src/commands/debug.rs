@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 // Extended SlackUserInfo with bot and deleted fields
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct SlackUserInfoFull {
     pub id: String,
     pub name: String,
@@ -17,6 +18,7 @@ struct SlackUserInfoFull {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct SlackUserProfileFull {
     pub display_name: Option<String>,
     pub real_name: Option<String>,

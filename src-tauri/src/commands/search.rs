@@ -246,7 +246,7 @@ pub async fn search_messages(
         } else {
             // Single channel search
             // Check if we have a text query or just filters
-            let is_multi_user = user.as_ref().map_or(false, |u| u.contains(','));
+            let _is_multi_user = user.as_ref().map_or(false, |u| u.contains(','));
             if query.trim().is_empty() {
                 // No text query - use conversations.history for better results
                 // This works for both with and without user filter
