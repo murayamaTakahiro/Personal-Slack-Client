@@ -63,8 +63,9 @@
   }
   
   async function handleSearch(isRealtimeUpdate: boolean = false) {
-    // If realtime mode is enabled and this is a realtime update, auto-set today's date
-    if ($realtimeStore.isEnabled && isRealtimeUpdate) {
+    // If realtime mode is enabled (for both initial and updates), auto-set today's date
+    // This ensures we always search for today's messages in Live mode
+    if ($realtimeStore.isEnabled) {
       // Use local date instead of UTC to get today in user's timezone
       const today = new Date();
       const year = today.getFullYear();
@@ -150,7 +151,8 @@
         toDate: toDate || undefined,      // Send as string YYYY-MM-DD
         limit,
         isRealtimeUpdate, // Pass this flag through
-        isDMSearch: dmSearchMode && selectedDMId ? true : undefined // Add flag for DM search
+        isDMSearch: dmSearchMode && selectedDMId ? true : undefined, // Add flag for DM search
+        lastSearchTimestamp: isRealtimeUpdate ? realtimeStore.getLastSearchTimestamp() : undefined // For incremental updates
       };
       searchParams.set(params);
       dispatch('search', params);
@@ -209,6 +211,8 @@
       }
       // Note: fromDate and toDate are set fresh in handleSearch for realtime mode
     }
+    // Pass isRealtimeUpdate: true to enable reconciliation even for initial search
+    // This ensures smooth updates without visible refresh
     handleSearch(true);
   }
   

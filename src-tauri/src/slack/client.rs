@@ -795,6 +795,13 @@ impl SlackClient {
             let response_text = response.text().await?;
             debug!("API Response size: {} bytes", response_text.len());
 
+            // Debug: Check if raw response contains reactions
+            if response_text.contains("\"reactions\"") {
+                info!("[REACTIONS DEBUG] Raw API response DOES contain reactions!");
+            } else {
+                info!("[REACTIONS DEBUG] Raw API response does NOT contain reactions");
+            }
+
             let result: ConversationsHistoryResponse = serde_json::from_str(&response_text)?;
 
             if !result.ok {
@@ -1000,8 +1007,8 @@ impl SlackClient {
         params.insert("inclusive", "true".to_string());
 
         info!("[DEBUG] Using limit {} per API request for reactions (total limit requested: {})", per_request_limit, limit);
-        // Include all metadata to get reactions
-        params.insert("include_all_metadata", "true".to_string());
+        // NOTE: conversations.history DOES return reactions by default
+        // There is no include_all_metadata parameter - removing it
 
         if let Some(oldest_ts) = oldest {
             params.insert("oldest", oldest_ts);
@@ -1012,7 +1019,7 @@ impl SlackClient {
         }
 
         info!(
-            "Getting channel messages with reactions for channel: {}, limit: {}",
+            "[REACTIONS DEBUG] Getting channel messages with reactions for channel: {}, limit: {}, include_all_metadata: true",
             channel_id, limit
         );
 
@@ -1069,6 +1076,13 @@ impl SlackClient {
             let response_text = response.text().await?;
             debug!("API Response size: {} bytes", response_text.len());
 
+            // Debug: Check if raw response contains reactions
+            if response_text.contains("\"reactions\"") {
+                info!("[REACTIONS DEBUG] Raw API response DOES contain reactions!");
+            } else {
+                info!("[REACTIONS DEBUG] Raw API response does NOT contain reactions");
+            }
+
             let result: ConversationsHistoryResponse = serde_json::from_str(&response_text)?;
 
             if !result.ok {
@@ -1081,15 +1095,18 @@ impl SlackClient {
             info!("Retrieved {} messages in this batch", messages.len());
 
             // Debug logging to verify reactions are included
+            let messages_with_reactions = messages.iter().filter(|m| m.reactions.is_some()).count();
+            info!("[REACTIONS DEBUG] Messages with reactions: {}/{}", messages_with_reactions, messages.len());
+
             for msg in &messages {
                 if let Some(reactions) = &msg.reactions {
-                    debug!(
-                        "Message {} has {} reactions",
+                    info!(
+                        "[REACTIONS DEBUG] Message {} has {} reactions",
                         msg.ts,
                         reactions.len()
                     );
                     for reaction in reactions {
-                        debug!("  Reaction: {} (count: {})", reaction.name, reaction.count);
+                        info!("  Reaction: {} (count: {})", reaction.name, reaction.count);
                     }
                 }
             }
@@ -1128,8 +1145,79 @@ impl SlackClient {
             all_messages.truncate(limit);
         }
 
-        info!("Retrieved total of {} messages with reactions from conversations.history in {} API calls",
+        info!("Retrieved total of {} messages from conversations.history in {} API calls",
             all_messages.len(), total_api_calls);
+
+        // PERFORMANCE FIX: conversations.history DOES return reactions!
+        // We already have them, so we only need to fetch for messages that don't have them
+        // (which should be none if the API is working correctly)
+        let messages_without_reactions = all_messages.iter().filter(|m| m.reactions.is_none()).count();
+        info!("[REACTIONS OPTIMIZATION] {} of {} messages need reaction fetch (should be 0!)",
+              messages_without_reactions, all_messages.len());
+
+        // Only fetch reactions if some are missing (shouldn't happen with modern API)
+        if messages_without_reactions > 0 {
+            info!("[REACTIONS FALLBACK] Some messages missing reactions, fetching separately...");
+
+            use futures::future::join_all;
+            use std::sync::Arc;
+
+            // Process in batches to avoid overwhelming the API
+            const REACTION_BATCH_SIZE: usize = 20; // Increased batch size
+            let channel_id_arc = Arc::new(channel_id.to_string());
+
+            for chunk_start in (0..all_messages.len()).step_by(REACTION_BATCH_SIZE) {
+                let chunk_end = std::cmp::min(chunk_start + REACTION_BATCH_SIZE, all_messages.len());
+                let chunk = &mut all_messages[chunk_start..chunk_end];
+
+                // Prepare futures for parallel fetching
+                let mut futures = Vec::new();
+                let mut indices = Vec::new();
+
+                for (i, msg) in chunk.iter().enumerate() {
+                    // Only fetch if not already present
+                    if msg.reactions.is_none() {
+                        let client = self.clone();
+                        let channel = channel_id_arc.clone();
+                        let ts = msg.ts.clone();
+
+                        futures.push(async move {
+                            client.get_reactions(&channel, &ts).await
+                        });
+                        indices.push(i);
+                    }
+                }
+
+                // Execute all futures in parallel
+                if !futures.is_empty() {
+                    let results = join_all(futures).await;
+
+                    // Apply results
+                    for (idx, result) in indices.iter().zip(results.iter()) {
+                        match result {
+                            Ok(reactions) if !reactions.is_empty() => {
+                                debug!("[REACTIONS FALLBACK] Found {} reactions for message {}",
+                                      reactions.len(), chunk[*idx].ts);
+                                chunk[*idx].reactions = Some(reactions.clone());
+                            }
+                            Ok(_) => {
+                                // No reactions
+                            }
+                            Err(e) => {
+                                debug!("Failed to get reactions: {}", e);
+                            }
+                        }
+                    }
+                }
+
+                // Reduced delay between batches
+                if chunk_end < all_messages.len() {
+                    sleep(Duration::from_millis(50)).await; // Reduced from 100ms
+                }
+            }
+        } else {
+            info!("[REACTIONS OPTIMIZATION] All reactions already included in API response!");
+        }
 
         // Fetch thread replies for each message that has them
         let mut messages_with_replies = Vec::new();

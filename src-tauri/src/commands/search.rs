@@ -27,9 +27,13 @@ pub async fn search_messages(
     to_date: Option<String>,
     limit: Option<usize>,
     force_refresh: Option<bool>, // Add this parameter
+    last_timestamp: Option<String>, // For incremental updates
     state: State<'_, AppState>,
 ) -> AppResult<SearchResult> {
     let start_time = Instant::now();
+
+    info!("[SEARCH DEBUG] search_messages called with force_refresh: {:?}, query: '{}', channel: {:?}",
+          force_refresh, query, channel);
 
     // Check cache first (skip if force_refresh is true)
     if !force_refresh.unwrap_or(false) {
@@ -252,7 +256,8 @@ pub async fn search_messages(
                 );
 
                 // Convert date filters to timestamps if needed
-                let oldest = from_date.as_ref().and_then(|d| {
+                // Use last_timestamp for incremental updates if provided (live mode optimization)
+                let oldest = last_timestamp.as_ref().or(from_date.as_ref()).and_then(|d| {
                     // Parse ISO date and convert to Unix timestamp
                     if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(d) {
                         Some(dt.timestamp().to_string())
@@ -318,7 +323,8 @@ pub async fn search_messages(
 
                 // Debug logging for timestamps
                 if let Some(ref oldest_ts) = oldest {
-                    info!("[DEBUG] search.rs: oldest timestamp = {}", oldest_ts);
+                    info!("[DEBUG] search.rs: oldest timestamp = {} (incremental: {})",
+                          oldest_ts, last_timestamp.is_some());
                 }
                 if let Some(ref latest_ts) = latest {
                     info!("[DEBUG] search.rs: latest timestamp = {}", latest_ts);
@@ -343,11 +349,13 @@ pub async fn search_messages(
                 // Use the appropriate method based on whether it's a realtime update
                 let messages_result = if force_refresh.unwrap_or(false) {
                     // For Live mode, use the method that includes reactions
+                    info!("[REALTIME DEBUG] Using get_channel_messages_with_reactions for channel: {}, force_refresh: true", clean_channel);
                     (*client)
                         .clone()
                         .get_channel_messages_with_reactions(clean_channel, oldest, latest, fetch_limit)
                         .await
                 } else {
+                    info!("[REALTIME DEBUG] Using get_channel_messages for channel: {}, force_refresh: false", clean_channel);
                     (*client)
                         .clone()
                         .get_channel_messages(clean_channel, oldest, latest, fetch_limit)
@@ -846,6 +854,16 @@ pub async fn search_messages(
         query: display_query,
         execution_time_ms,
     };
+
+    // Invalidate stale cache entries when new messages are found in live mode
+    if force_refresh.unwrap_or(false) && last_timestamp.is_some() {
+        // Find the newest message timestamp for cache invalidation
+        let newest_timestamp = result.messages.first().map(|m| m.ts.as_str());
+        if let (Some(ref ch), Some(ts)) = (&channel, newest_timestamp) {
+            info!("Invalidating cache for channel {} after timestamp {}", ch, ts);
+            state.invalidate_channel_cache(ch, Some(ts)).await;
+        }
+    }
 
     // Cache the result for future use (skip if force_refresh was used)
     if !force_refresh.unwrap_or(false) {
@@ -1599,9 +1617,22 @@ pub async fn search_messages_fast(
 ) -> AppResult<SearchResult> {
     // This is an optimized version that returns messages immediately without reactions
     // Reactions will be loaded progressively by the frontend
-    
+
     let start_time = Instant::now();
-    
+
+    // Check cache first (skip if force_refresh is true)
+    if !force_refresh.unwrap_or(false) {
+        if let Some(cached_result) = state
+            .get_cached_search(&query, &channel, &user, &from_date, &to_date, &limit)
+            .await
+        {
+            info!("Fast search: returning cached result in {}ms", start_time.elapsed().as_millis());
+            return Ok(cached_result);
+        }
+    } else {
+        info!("Fast search: Skipping cache due to force_refresh=true");
+    }
+
     // Get the Slack client from app state
     let client = state.get_client().await?;
     let client = Arc::new(client);

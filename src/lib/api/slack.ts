@@ -18,7 +18,8 @@ export async function searchMessages(params: SearchParams): Promise<SearchResult
     fromDate: params.fromDate instanceof Date ? params.fromDate.toISOString() : params.fromDate,
     toDate: params.toDate instanceof Date ? params.toDate.toISOString() : params.toDate,
     limit: params.limit,
-    force_refresh: params.isRealtimeUpdate || false  // Add force refresh for realtime updates - using snake_case for Rust
+    force_refresh: params.isRealtimeUpdate || false,  // Add force refresh for realtime updates - using snake_case for Rust
+    last_timestamp: params.lastSearchTimestamp || undefined  // For incremental fetching in live mode
   });
 
   // Debug: Check if reactions are included in the response

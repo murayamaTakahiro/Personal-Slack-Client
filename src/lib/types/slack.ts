@@ -19,6 +19,7 @@ export interface SearchParams {
   toDate?: Date;
   limit?: number;
   isRealtimeUpdate?: boolean;
+  lastSearchTimestamp?: string | null; // For incremental updates in live mode
 }
 
 export interface Message {

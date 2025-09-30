@@ -247,11 +247,21 @@ impl AppState {
         let cache = self.search_cache.read().await;
 
         if let Some(cached) = cache.get(&cache_key) {
-            // Check if cache is still valid (5 minutes for search results)
-            const SEARCH_CACHE_DURATION_SECS: u64 = 300; // 5 minutes
+            // Much shorter cache duration for live mode to ensure fresh data
+            // Standard search can use longer cache
+            const LIVE_MODE_CACHE_SECS: u64 = 2; // 2 seconds for live mode
+            const STANDARD_CACHE_SECS: u64 = 30; // 30 seconds for standard search
+
+            // Use shorter cache if query is empty (live mode)
+            let cache_duration = if query.is_empty() || query == "*" {
+                LIVE_MODE_CACHE_SECS
+            } else {
+                STANDARD_CACHE_SECS
+            };
+
             let now = Self::current_timestamp();
-            if now - cached.cached_at < SEARCH_CACHE_DURATION_SECS {
-                info!("Search result cache hit for query: {}", query);
+            if now - cached.cached_at < cache_duration {
+                info!("Search result cache hit for query: {} (cache age: {}s)", query, now - cached.cached_at);
                 return Some(cached.result.clone());
             }
         }
@@ -301,10 +311,10 @@ impl AppState {
     ) -> Option<Vec<SlackReaction>> {
         let cache_key = format!("{}:{}", channel, timestamp);
         let cache = self.reaction_cache.read().await;
-        
+
         if let Some(cached) = cache.get(&cache_key) {
-            // Check if cache is still valid (30 minutes for reactions)
-            const REACTION_CACHE_DURATION_SECS: u64 = 1800; // 30 minutes
+            // Much shorter cache duration for reactions to see updates quickly
+            const REACTION_CACHE_DURATION_SECS: u64 = 60; // 1 minute (was 30 minutes!)
             let now = Self::current_timestamp();
             if now - cached.cached_at < REACTION_CACHE_DURATION_SECS {
                 debug!("Reaction cache hit for {}:{}", channel, timestamp);
@@ -348,6 +358,30 @@ impl AppState {
         let mut cache = self.reaction_cache.write().await;
         cache.clear();
         info!("Reaction cache cleared");
+    }
+
+    // Invalidate cache entries for specific channel after a timestamp
+    pub async fn invalidate_channel_cache(&self, channel: &str, after_timestamp: Option<&str>) {
+        // Clear search cache for this channel
+        let mut search_cache = self.search_cache.write().await;
+        search_cache.clear(); // For now, clear all search cache
+
+        // Clear reaction cache for this channel
+        if let Some(ts) = after_timestamp {
+            let mut reaction_cache = self.reaction_cache.write().await;
+            let prefix = format!("{}:", channel);
+            let threshold = format!("{}:{}", channel, ts);
+            let keys_to_remove: Vec<String> = reaction_cache
+                .keys()
+                .filter(|k| k.starts_with(&prefix) && **k > threshold)
+                .cloned()
+                .collect();
+
+            for key in keys_to_remove {
+                reaction_cache.remove(&key);
+            }
+            info!("Invalidated cache for channel {} after timestamp {}", channel, ts);
+        }
     }
 }
 
