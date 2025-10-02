@@ -14,20 +14,24 @@
       { key: 'PageDown', description: 'Next page (PDF) / Scroll page down' }
     ]},
     { category: 'Scrolling', items: [
-      { key: '↑ / k', description: 'Scroll up' },
-      { key: '↓ / j', description: 'Scroll down' },
+      { key: '↑ / k', description: 'Scroll up (all file types)' },
+      { key: '↓ / j', description: 'Scroll down (all file types)' },
       { key: 'h', description: 'Scroll left' },
       { key: 'l', description: 'Scroll right' },
       { key: 'Home', description: 'First page (PDF) / Scroll to top' },
       { key: 'End', description: 'Last page (PDF) / Scroll to bottom' }
     ]},
     { category: 'Zoom', items: [
-      { key: '+ / =', description: 'Zoom in' },
-      { key: '-', description: 'Zoom out' },
+      { key: '+ / =', description: 'Zoom in (all file types)' },
+      { key: '-', description: 'Zoom out (all file types)' },
       { key: 'Ctrl+0', description: 'Reset zoom' },
       { key: 'f', description: 'Fit to viewport' },
       { key: 'Double-click', description: 'Toggle zoom (images only)' },
       { key: 'Scroll wheel', description: 'Zoom in/out (images only)' }
+    ]},
+    { category: 'Download', items: [
+      { key: 'd', description: 'Download current file' },
+      { key: 'Shift+d', description: 'Download all files' }
     ]},
     { category: 'General', items: [
       { key: 'ESC', description: 'Close lightbox' },

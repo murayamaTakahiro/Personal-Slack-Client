@@ -66,16 +66,17 @@
   }
 
   function handleKeydown(event: KeyboardEvent) {
+    // Prevent default behavior for navigation keys FIRST
+    // This ensures the App.svelte handler sees defaultPrevented = true
+    const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'j', 'k', 'h', 'l', 'J', 'K', 'H', 'L', 'PageUp', 'PageDown', 'Home', 'End', 'd', 'D', '+', '-', '=', '0', '?', 'Escape', 'f', 'F'];
+    if (navigationKeys.includes(event.key) || (event.key === '0' && (event.ctrlKey || event.metaKey))) {
+      event.preventDefault();
+    }
+
     // Block ALL keyboard events from propagating to background components
     // when lightbox is open - we handle everything here
     event.stopPropagation();
     event.stopImmediatePropagation();
-
-    // Prevent default behavior for navigation keys
-    const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'j', 'k', 'h', 'l', 'J', 'K', 'H', 'L', 'PageUp', 'PageDown', 'Home', 'End', 'd', 'D'];
-    if (navigationKeys.includes(event.key)) {
-      event.preventDefault();
-    }
     
     // Handle PDF-specific navigation for arrow keys only (not h/l)
     if (isPdf) {
@@ -231,6 +232,35 @@
       if (container) {
         container.scrollTop = Math.max(0, container.scrollTop - scrollSpeed);
       }
+    } else if (isText) {
+      // For text files, scroll the text content
+      const textContent = containerDiv?.querySelector('.text-content');
+      if (textContent) {
+        textContent.scrollTop = Math.max(0, textContent.scrollTop - scrollSpeed);
+      }
+    } else if (isCsv) {
+      // For CSV files, try table container first, then wrapper
+      const tableContainer = containerDiv?.querySelector('.csv-preview-wrapper .table-container');
+      const wrapper = containerDiv?.querySelector('.csv-preview-wrapper');
+      const scrollTarget = tableContainer || wrapper;
+
+      if (scrollTarget) {
+        console.log('[Lightbox] Scrolling CSV up', {
+          targetClass: scrollTarget.className,
+          currentScroll: scrollTarget.scrollTop,
+          scrollHeight: scrollTarget.scrollHeight,
+          clientHeight: scrollTarget.clientHeight
+        });
+        scrollTarget.scrollTop = Math.max(0, scrollTarget.scrollTop - scrollSpeed);
+      } else {
+        console.log('[Lightbox] No scrollable CSV element found');
+      }
+    } else if (isOffice) {
+      // For Office files, scroll the wrapper itself
+      const wrapper = containerDiv?.querySelector('.office-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = Math.max(0, wrapper.scrollTop - scrollSpeed);
+      }
     }
   }
   
@@ -253,6 +283,44 @@
           container.scrollTop + scrollSpeed
         );
       }
+    } else if (isText) {
+      // For text files, scroll the text content
+      const textContent = containerDiv?.querySelector('.text-content');
+      if (textContent) {
+        textContent.scrollTop = Math.min(
+          textContent.scrollHeight - textContent.clientHeight,
+          textContent.scrollTop + scrollSpeed
+        );
+      }
+    } else if (isCsv) {
+      // For CSV files, try table container first, then wrapper
+      const tableContainer = containerDiv?.querySelector('.csv-preview-wrapper .table-container');
+      const wrapper = containerDiv?.querySelector('.csv-preview-wrapper');
+      const scrollTarget = tableContainer || wrapper;
+
+      if (scrollTarget) {
+        console.log('[Lightbox] Scrolling CSV down', {
+          targetClass: scrollTarget.className,
+          currentScroll: scrollTarget.scrollTop,
+          scrollHeight: scrollTarget.scrollHeight,
+          clientHeight: scrollTarget.clientHeight
+        });
+        scrollTarget.scrollTop = Math.min(
+          scrollTarget.scrollHeight - scrollTarget.clientHeight,
+          scrollTarget.scrollTop + scrollSpeed
+        );
+      } else {
+        console.log('[Lightbox] No scrollable CSV element found');
+      }
+    } else if (isOffice) {
+      // For Office files, scroll the wrapper itself
+      const wrapper = containerDiv?.querySelector('.office-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = Math.min(
+          wrapper.scrollHeight - wrapper.clientHeight,
+          wrapper.scrollTop + scrollSpeed
+        );
+      }
     }
   }
   
@@ -268,6 +336,27 @@
       const container = imageElement.parentElement;
       if (container) {
         container.scrollLeft = Math.max(0, container.scrollLeft - scrollSpeed);
+      }
+    } else if (isText) {
+      // For text files, scroll the text content horizontally
+      const textContent = containerDiv?.querySelector('.text-content');
+      if (textContent) {
+        textContent.scrollLeft = Math.max(0, textContent.scrollLeft - scrollSpeed);
+      }
+    } else if (isCsv) {
+      // For CSV files, try table container first, then wrapper
+      const tableContainer = containerDiv?.querySelector('.csv-preview-wrapper .table-container');
+      const wrapper = containerDiv?.querySelector('.csv-preview-wrapper');
+      const scrollTarget = tableContainer || wrapper;
+
+      if (scrollTarget) {
+        scrollTarget.scrollLeft = Math.max(0, scrollTarget.scrollLeft - scrollSpeed);
+      }
+    } else if (isOffice) {
+      // For Office files, scroll the wrapper itself horizontally
+      const wrapper = containerDiv?.querySelector('.office-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollLeft = Math.max(0, wrapper.scrollLeft - scrollSpeed);
       }
     }
   }
@@ -291,6 +380,36 @@
           container.scrollLeft + scrollSpeed
         );
       }
+    } else if (isText) {
+      // For text files, scroll the text content horizontally
+      const textContent = containerDiv?.querySelector('.text-content');
+      if (textContent) {
+        textContent.scrollLeft = Math.min(
+          textContent.scrollWidth - textContent.clientWidth,
+          textContent.scrollLeft + scrollSpeed
+        );
+      }
+    } else if (isCsv) {
+      // For CSV files, try table container first, then wrapper
+      const tableContainer = containerDiv?.querySelector('.csv-preview-wrapper .table-container');
+      const wrapper = containerDiv?.querySelector('.csv-preview-wrapper');
+      const scrollTarget = tableContainer || wrapper;
+
+      if (scrollTarget) {
+        scrollTarget.scrollLeft = Math.min(
+          scrollTarget.scrollWidth - scrollTarget.clientWidth,
+          scrollTarget.scrollLeft + scrollSpeed
+        );
+      }
+    } else if (isOffice) {
+      // For Office files, scroll the wrapper itself horizontally
+      const wrapper = containerDiv?.querySelector('.office-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollLeft = Math.min(
+          wrapper.scrollWidth - wrapper.clientWidth,
+          wrapper.scrollLeft + scrollSpeed
+        );
+      }
     }
   }
   
@@ -309,6 +428,23 @@
       const container = imageElement.parentElement;
       if (container) {
         container.scrollTop = Math.max(0, container.scrollTop - container.clientHeight);
+      }
+    } else if (isText) {
+      const textContent = containerDiv?.querySelector('.text-content');
+      if (textContent) {
+        textContent.scrollTop = Math.max(0, textContent.scrollTop - textContent.clientHeight);
+      }
+    } else if (isCsv) {
+      const tableContainer = containerDiv?.querySelector('.csv-preview-wrapper .table-container');
+      const wrapper = containerDiv?.querySelector('.csv-preview-wrapper');
+      const scrollTarget = tableContainer || wrapper;
+      if (scrollTarget) {
+        scrollTarget.scrollTop = Math.max(0, scrollTarget.scrollTop - scrollTarget.clientHeight);
+      }
+    } else if (isOffice) {
+      const wrapper = containerDiv?.querySelector('.office-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = Math.max(0, wrapper.scrollTop - wrapper.clientHeight);
       }
     }
   }
@@ -335,6 +471,32 @@
           container.scrollTop + container.clientHeight
         );
       }
+    } else if (isText) {
+      const textContent = containerDiv?.querySelector('.text-content');
+      if (textContent) {
+        textContent.scrollTop = Math.min(
+          textContent.scrollHeight - textContent.clientHeight,
+          textContent.scrollTop + textContent.clientHeight
+        );
+      }
+    } else if (isCsv) {
+      const tableContainer = containerDiv?.querySelector('.csv-preview-wrapper .table-container');
+      const wrapper = containerDiv?.querySelector('.csv-preview-wrapper');
+      const scrollTarget = tableContainer || wrapper;
+      if (scrollTarget) {
+        scrollTarget.scrollTop = Math.min(
+          scrollTarget.scrollHeight - scrollTarget.clientHeight,
+          scrollTarget.scrollTop + scrollTarget.clientHeight
+        );
+      }
+    } else if (isOffice) {
+      const wrapper = containerDiv?.querySelector('.office-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = Math.min(
+          wrapper.scrollHeight - wrapper.clientHeight,
+          wrapper.scrollTop + wrapper.clientHeight
+        );
+      }
     }
   }
   
@@ -356,6 +518,23 @@
       if (container) {
         container.scrollTop = 0;
       }
+    } else if (isText) {
+      const textContent = containerDiv?.querySelector('.text-content');
+      if (textContent) {
+        textContent.scrollTop = 0;
+      }
+    } else if (isCsv) {
+      const tableContainer = containerDiv?.querySelector('.csv-preview-wrapper .table-container');
+      const wrapper = containerDiv?.querySelector('.csv-preview-wrapper');
+      const scrollTarget = tableContainer || wrapper;
+      if (scrollTarget) {
+        scrollTarget.scrollTop = 0;
+      }
+    } else if (isOffice) {
+      const wrapper = containerDiv?.querySelector('.office-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = 0;
+      }
     }
   }
   
@@ -376,6 +555,23 @@
       const container = imageElement.parentElement;
       if (container) {
         container.scrollTop = container.scrollHeight - container.clientHeight;
+      }
+    } else if (isText) {
+      const textContent = containerDiv?.querySelector('.text-content');
+      if (textContent) {
+        textContent.scrollTop = textContent.scrollHeight - textContent.clientHeight;
+      }
+    } else if (isCsv) {
+      const tableContainer = containerDiv?.querySelector('.csv-preview-wrapper .table-container');
+      const wrapper = containerDiv?.querySelector('.csv-preview-wrapper');
+      const scrollTarget = tableContainer || wrapper;
+      if (scrollTarget) {
+        scrollTarget.scrollTop = scrollTarget.scrollHeight - scrollTarget.clientHeight;
+      }
+    } else if (isOffice) {
+      const wrapper = containerDiv?.querySelector('.office-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = wrapper.scrollHeight - wrapper.clientHeight;
       }
     }
   }
@@ -870,7 +1066,7 @@
           {/if}
         </div>
       {:else if isText}
-        <div class="text-preview-wrapper">
+        <div class="text-preview-wrapper" style="zoom: {zoomLevel}; transform-origin: top left;">
           <TextPreview
             file={file.file}
             workspaceId={$activeWorkspace?.id || 'default'}
@@ -878,7 +1074,7 @@
           />
         </div>
       {:else if isCsv}
-        <div class="csv-preview-wrapper">
+        <div class="csv-preview-wrapper" style="zoom: {zoomLevel}; transform-origin: top left;">
           <CsvPreview
             file={file.file}
             workspaceId={$activeWorkspace?.id || 'default'}
@@ -886,7 +1082,7 @@
           />
         </div>
       {:else if isOffice}
-        <div class="office-preview-wrapper">
+        <div class="office-preview-wrapper" style="zoom: {zoomLevel}; transform-origin: top left;">
           <OfficePreview
             file={file.file}
             workspaceId={$activeWorkspace?.id || 'default'}

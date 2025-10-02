@@ -701,6 +701,12 @@
         return;
       }
 
+      // Check if the event was already handled (e.g., by Lightbox in capture phase)
+      if (event.defaultPrevented) {
+        console.log('[App] Event already handled by another component, skipping keyboardService');
+        return;
+      }
+
       // Additional log for "i" key
       if (event.key.toLowerCase() === 'i') {
         console.log('[App] About to call keyboardService for "i" key', {
