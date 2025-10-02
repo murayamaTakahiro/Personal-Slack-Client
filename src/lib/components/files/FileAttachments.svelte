@@ -12,6 +12,9 @@
   import { showSuccess, showError, showInfo } from '$lib/stores/toast';
   import ImagePreview from './ImagePreview.svelte';
   import PdfPreview from './PdfPreview.svelte';
+  import TextPreview from './TextPreview.svelte';
+  import CsvPreview from './CsvPreview.svelte';
+  import OfficePreview from './OfficePreview.svelte';
   import GenericFilePreview from './GenericFilePreview.svelte';
 
   export let files: SlackFile[] = [];
@@ -85,17 +88,6 @@
     }
   }
 
-  function getComponentForFile(file: SlackFile) {
-    const mimeType = file.mimetype?.toLowerCase() || '';
-    
-    if (mimeType.startsWith('image/')) {
-      return ImagePreview;
-    } else if (mimeType === 'application/pdf') {
-      return PdfPreview;
-    } else {
-      return GenericFilePreview;
-    }
-  }
   
   async function downloadAllFiles() {
     if (!files.length || isDownloading) return;
@@ -187,22 +179,40 @@
           {/if}
           
           <div class="files-grid" class:image-grid={group.type === 'image'}>
-            {#each group.files as metadata}
+            {#each group.files as metadata (metadata.file.id)}
               <div class="file-item">
                 {#if group.type === 'image'}
-                  <ImagePreview 
+                  <ImagePreview
                     file={metadata.file}
                     {workspaceId}
                     showMetadata={!compact}
                   />
                 {:else if group.type === 'pdf'}
-                  <PdfPreview 
+                  <PdfPreview
+                    file={metadata.file}
+                    {workspaceId}
+                    {compact}
+                  />
+                {:else if group.type === 'text'}
+                  <TextPreview
+                    file={metadata.file}
+                    {workspaceId}
+                    {compact}
+                  />
+                {:else if group.type === 'csv'}
+                  <CsvPreview
+                    file={metadata.file}
+                    {workspaceId}
+                    {compact}
+                  />
+                {:else if group.type === 'excel' || group.type === 'word'}
+                  <OfficePreview
                     file={metadata.file}
                     {workspaceId}
                     {compact}
                   />
                 {:else}
-                  <GenericFilePreview 
+                  <GenericFilePreview
                     file={metadata.file}
                     {workspaceId}
                     {compact}

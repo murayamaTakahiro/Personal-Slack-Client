@@ -283,9 +283,17 @@ export function isPreviewSupported(file: SlackFile): boolean {
     'image',
     'pdf',
     'text',
+    'txt',
+    'csv',
+    'tsv',
+    'excel',
+    'xlsx',
+    'xls',
+    'word',
+    'docx',
+    'doc',
     'code',
     'zip',
-    'csv',
     'json',
     'xml',
     'markdown'
@@ -297,18 +305,24 @@ export function isPreviewSupported(file: SlackFile): boolean {
     /^application\/pdf$/,
     /^application\/json$/,
     /^application\/xml$/,
-    /^application\/zip$/
+    /^application\/zip$/,
+    /^text\/csv$/,
+    /^text\/tab-separated-values$/,
+    /^application\/vnd\.ms-excel/,
+    /^application\/vnd\.openxmlformats-officedocument\.spreadsheetml/,
+    /^application\/msword$/,
+    /^application\/vnd\.openxmlformats-officedocument\.wordprocessingml/
   ];
 
   // Check by pretty_type
-  if (supportedTypes.some(type => 
+  if (supportedTypes.some(type =>
     file.pretty_type?.toLowerCase().includes(type)
   )) {
     return true;
   }
 
   // Check by mimetype
-  return mimeTypePatterns.some(pattern => 
+  return mimeTypePatterns.some(pattern =>
     pattern.test(file.mimetype)
   );
 }
@@ -413,4 +427,28 @@ export function getFileIcon(file: SlackFile): string {
   
   // Default icon
   return '📎';
+}
+
+/**
+ * Get file content as text with encoding support
+ */
+export async function getFileContent(
+  url: string,
+  maxSize: number = 10 * 1024 * 1024, // 10MB default
+  encoding?: string
+): Promise<string> {
+  try {
+    console.log('[getFileContent] Fetching file content', { url, maxSize, encoding });
+
+    const content = await invoke<string>('get_file_content', {
+      url,
+      maxSize,
+      encoding
+    });
+
+    return content;
+  } catch (error) {
+    console.error('[getFileContent] Failed to fetch file content:', error);
+    throw error;
+  }
 }

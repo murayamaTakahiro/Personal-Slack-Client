@@ -9,6 +9,9 @@
   import { showSuccess, showError, showInfo } from '$lib/stores/toast';
   import LightboxHelp from './LightboxHelp.svelte';
   import PdfRenderer from './PdfRenderer.svelte';
+  import TextPreview from './TextPreview.svelte';
+  import CsvPreview from './CsvPreview.svelte';
+  import OfficePreview from './OfficePreview.svelte';
 
   export let file: FileMetadata;
   export let allFiles: FileMetadata[] = [];
@@ -45,6 +48,9 @@
   $: hasPrevious = currentIndex > 0;
   $: isImage = file.type === 'image';
   $: isPdf = file.type === 'pdf';
+  $: isText = file.type === 'text';
+  $: isCsv = file.type === 'csv';
+  $: isOffice = file.type === 'excel' || file.type === 'word';
   // For lightbox, prioritize full size image (downloadUrl) over thumbnail
   $: displayUrl = fullImageUrl || file.downloadUrl || file.thumbnailUrl;
   
@@ -863,6 +869,30 @@
             />
           {/if}
         </div>
+      {:else if isText}
+        <div class="text-preview-wrapper">
+          <TextPreview
+            file={file.file}
+            workspaceId={$activeWorkspace?.id || 'default'}
+            compact={false}
+          />
+        </div>
+      {:else if isCsv}
+        <div class="csv-preview-wrapper">
+          <CsvPreview
+            file={file.file}
+            workspaceId={$activeWorkspace?.id || 'default'}
+            compact={false}
+          />
+        </div>
+      {:else if isOffice}
+        <div class="office-preview-wrapper">
+          <OfficePreview
+            file={file.file}
+            workspaceId={$activeWorkspace?.id || 'default'}
+            compact={false}
+          />
+        </div>
       {:else}
         <div class="generic-preview">
           <div class="file-icon">{file.icon}</div>
@@ -1270,6 +1300,16 @@
   .file-size {
     color: var(--color-text-secondary);
     font-size: 0.75rem;
+  }
+
+  .text-preview-wrapper,
+  .csv-preview-wrapper,
+  .office-preview-wrapper {
+    max-width: 90vw;
+    max-height: 70vh;
+    overflow: auto;
+    background: var(--color-surface);
+    border-radius: 8px;
   }
 
   .error-message {

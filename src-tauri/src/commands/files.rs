@@ -328,6 +328,114 @@ pub async fn select_download_folder(app_handle: AppHandle) -> AppResult<Option<S
     Ok(dialog_result.map(|p| p.as_path().unwrap().to_string_lossy().to_string()))
 }
 
+/// Get file content as text with size limit and encoding options
+#[tauri::command]
+pub async fn get_file_content(
+    url: String,
+    max_size: usize,
+    encoding: Option<String>,
+    state: State<'_, AppState>,
+) -> AppResult<String> {
+    let token = state.get_token().await?;
+
+    info!("Fetching file content from URL: {} (max_size: {}, encoding: {:?})", url, max_size, encoding);
+
+    // Create a temporary client for file fetching
+    let client = reqwest::Client::new();
+
+    // Fetch the file content
+    let response = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        error!("Failed to fetch file content: {}", status);
+        return Err(anyhow::anyhow!("Failed to fetch file content: {}", status).into());
+    }
+
+    // Get content length to check size
+    if let Some(content_length) = response.content_length() {
+        if content_length as usize > max_size {
+            info!("File too large: {} bytes (max: {})", content_length, max_size);
+            return Err(anyhow::anyhow!("File too large: {} bytes (max: {})", content_length, max_size).into());
+        }
+    }
+
+    let bytes = response.bytes().await?;
+
+    // Check actual size
+    if bytes.len() > max_size {
+        info!("File too large after download: {} bytes (max: {})", bytes.len(), max_size);
+        return Err(anyhow::anyhow!("File too large: {} bytes (max: {})", bytes.len(), max_size).into());
+    }
+
+    // Convert to string with specified encoding
+    let content = match encoding.as_deref() {
+        Some("utf-16") => {
+            // UTF-16 decoding
+            let (decoded, _, had_errors) = encoding_rs::UTF_16LE.decode(&bytes);
+            if had_errors {
+                // Try UTF-16BE
+                let (decoded, _, _) = encoding_rs::UTF_16BE.decode(&bytes);
+                decoded.to_string()
+            } else {
+                decoded.to_string()
+            }
+        }
+        Some("shift-jis") | Some("shift_jis") | Some("sjis") => {
+            // Shift-JIS decoding (common for Japanese files)
+            let (decoded, _, _) = encoding_rs::SHIFT_JIS.decode(&bytes);
+            decoded.to_string()
+        }
+        Some("euc-jp") | Some("euc_jp") => {
+            // EUC-JP decoding (common for Japanese files)
+            let (decoded, _, _) = encoding_rs::EUC_JP.decode(&bytes);
+            decoded.to_string()
+        }
+        Some("iso-8859-1") | Some("latin1") => {
+            // ISO-8859-1 / Latin-1 decoding
+            let (decoded, _, _) = encoding_rs::WINDOWS_1252.decode(&bytes);
+            decoded.to_string()
+        }
+        None => {
+            // Auto-detect encoding
+            let (decoded, _, _) = encoding_rs::SHIFT_JIS.decode(&bytes);
+            let decoded_str = decoded.to_string();
+
+            // Check if Shift-JIS decoding looks valid
+            if !decoded_str.contains('\u{fffd}') && !decoded_str.contains('�') {
+                info!("Auto-detected encoding as Shift-JIS");
+                decoded_str
+            } else {
+                // Try UTF-8
+                match String::from_utf8(bytes.to_vec()) {
+                    Ok(utf8_str) => {
+                        info!("Auto-detected encoding as UTF-8");
+                        utf8_str
+                    }
+                    Err(_) => {
+                        // Fallback to Shift-JIS even if it has some issues
+                        info!("Falling back to Shift-JIS with possible encoding issues");
+                        decoded_str
+                    }
+                }
+            }
+        }
+        _ => {
+            // Default to UTF-8
+            String::from_utf8(bytes.to_vec())
+                .map_err(|e| anyhow::anyhow!("Failed to decode file as UTF-8: {}", e))?
+        }
+    };
+
+    info!("Successfully fetched file content: {} characters", content.len());
+
+    Ok(content)
+}
+
 /// Create a data URL from file content for embedding in HTML
 #[tauri::command]
 pub async fn create_file_data_url(
@@ -336,33 +444,33 @@ pub async fn create_file_data_url(
     state: State<'_, AppState>,
 ) -> AppResult<String> {
     let token = state.get_token().await?;
-    
+
     info!("Creating data URL for file: {}", url);
-    
+
     // Create a temporary client for file fetching
     let client = reqwest::Client::new();
-    
+
     // Fetch the file content
     let response = client
         .get(&url)
         .header("Authorization", format!("Bearer {}", token))
         .send()
         .await?;
-    
+
     if !response.status().is_success() {
         let status = response.status();
         error!("Failed to fetch file for data URL: {}", status);
         return Err(anyhow::anyhow!("Failed to fetch file: {}", status).into());
     }
-    
+
     let bytes = response.bytes().await?;
-    
+
     // Encode as base64
     use base64::{Engine as _, engine::general_purpose};
     let base64_data = general_purpose::STANDARD.encode(&bytes);
-    
+
     // Create data URL
     let data_url = format!("data:{};base64,{}", mime_type, base64_data);
-    
+
     Ok(data_url)
 }

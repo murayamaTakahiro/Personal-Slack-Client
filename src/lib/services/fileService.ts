@@ -10,17 +10,20 @@ import {
   getFileIcon
 } from '$lib/api/files';
 
-export type FileType = 
-  | 'image' 
-  | 'pdf' 
-  | 'video' 
-  | 'audio' 
-  | 'document' 
-  | 'spreadsheet' 
-  | 'presentation' 
-  | 'code' 
-  | 'archive' 
-  | 'text' 
+export type FileType =
+  | 'image'
+  | 'pdf'
+  | 'text'         // Plain text files (txt, log, etc.)
+  | 'csv'          // CSV and TSV files
+  | 'excel'        // Excel files (xlsx, xls)
+  | 'word'         // Word documents (docx, doc)
+  | 'video'
+  | 'audio'
+  | 'document'     // Generic documents
+  | 'spreadsheet'  // Generic spreadsheets
+  | 'presentation'
+  | 'code'
+  | 'archive'
   | 'unknown';
 
 export interface FileMetadata {
@@ -54,6 +57,45 @@ export function getFileType(file: SlackFile): FileType {
   // PDF files
   if (mimeType === 'application/pdf' || prettyType.includes('pdf')) {
     return 'pdf';
+  }
+
+  // Text files (specific handling for plain text)
+  const textExtensions = ['txt', 'log', 'text', 'md', 'markdown', 'rst'];
+  if (textExtensions.includes(fileExt) || mimeType === 'text/plain') {
+    return 'text';
+  }
+
+  // CSV/TSV files (specific handling)
+  const csvExtensions = ['csv', 'tsv'];
+  if (csvExtensions.includes(fileExt) ||
+      mimeType === 'text/csv' ||
+      mimeType === 'text/tab-separated-values' ||
+      mimeType === 'application/csv' ||
+      prettyType.includes('csv')) {
+    return 'csv';
+  }
+
+  // Excel files (specific handling)
+  const excelExtensions = ['xlsx', 'xls', 'xlsm', 'xlsb'];
+  const excelMimeTypes = [
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel.sheet.macroEnabled.12',
+    'application/vnd.ms-excel.sheet.binary.macroEnabled.12'
+  ];
+  if (excelExtensions.includes(fileExt) || excelMimeTypes.includes(mimeType)) {
+    return 'excel';
+  }
+
+  // Word documents (specific handling)
+  const wordExtensions = ['docx', 'doc', 'docm'];
+  const wordMimeTypes = [
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-word.document.macroEnabled.12'
+  ];
+  if (wordExtensions.includes(fileExt) || wordMimeTypes.includes(mimeType)) {
+    return 'word';
   }
 
   // Video files
@@ -184,13 +226,16 @@ export function groupFilesByType(files: SlackFile[]): FileGroup[] {
   const typeOrder: FileType[] = [
     'image',
     'pdf',
+    'text',
+    'csv',
+    'excel',
+    'word',
     'document',
     'spreadsheet',
     'presentation',
     'video',
     'audio',
     'code',
-    'text',
     'archive',
     'unknown'
   ];
@@ -240,6 +285,10 @@ export function getFileTypeDisplayName(type: FileType): string {
   const displayNames: Record<FileType, string> = {
     image: 'Images',
     pdf: 'PDFs',
+    text: 'Text Files',
+    csv: 'CSV/TSV Files',
+    excel: 'Excel Files',
+    word: 'Word Documents',
     video: 'Videos',
     audio: 'Audio',
     document: 'Documents',
@@ -247,7 +296,6 @@ export function getFileTypeDisplayName(type: FileType): string {
     presentation: 'Presentations',
     code: 'Code',
     archive: 'Archives',
-    text: 'Text Files',
     unknown: 'Other Files'
   };
 
