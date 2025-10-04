@@ -474,3 +474,37 @@ pub async fn create_file_data_url(
 
     Ok(data_url)
 }
+
+/// Download file as binary data for Excel/Office file parsing
+#[tauri::command]
+pub async fn download_file_binary(
+    workspace_id: String,
+    url: String,
+    state: State<'_, AppState>,
+) -> AppResult<Vec<u8>> {
+    let token = state.get_token().await?;
+
+    info!("Downloading binary file from workspace {}: {}", workspace_id, url);
+
+    // Create a temporary client for file fetching
+    let client = reqwest::Client::new();
+
+    // Slack file URLs require authentication
+    let response = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        error!("Failed to fetch binary file: {}", status);
+        return Err(anyhow::anyhow!("Failed to fetch binary file: {}", status).into());
+    }
+
+    let bytes = response.bytes().await?;
+
+    info!("Downloaded {} bytes successfully", bytes.len());
+
+    Ok(bytes.to_vec())
+}

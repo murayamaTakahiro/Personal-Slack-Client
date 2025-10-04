@@ -17,6 +17,7 @@ export type FileType =
   | 'csv'          // CSV and TSV files
   | 'excel'        // Excel files (xlsx, xls)
   | 'word'         // Word documents (docx, doc)
+  | 'powerpoint'   // PowerPoint presentations (pptx, ppt)
   | 'video'
   | 'audio'
   | 'document'     // Generic documents
@@ -60,7 +61,7 @@ export function getFileType(file: SlackFile): FileType {
   }
 
   // Text files (specific handling for plain text)
-  const textExtensions = ['txt', 'log', 'text', 'md', 'markdown', 'rst'];
+  const textExtensions = ['txt', 'log', 'text', 'md', 'markdown', 'rst', 'sh', 'bash', 'ps1', 'bat', 'cmd'];
   if (textExtensions.includes(fileExt) || mimeType === 'text/plain') {
     return 'text';
   }
@@ -96,6 +97,17 @@ export function getFileType(file: SlackFile): FileType {
   ];
   if (wordExtensions.includes(fileExt) || wordMimeTypes.includes(mimeType)) {
     return 'word';
+  }
+
+  // PowerPoint presentations (specific handling - before generic presentation)
+  const powerpointExtensions = ['pptx', 'ppt', 'pptm'];
+  const powerpointMimeTypes = [
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/vnd.ms-powerpoint.presentation.macroEnabled.12'
+  ];
+  if (powerpointExtensions.includes(fileExt) || powerpointMimeTypes.includes(mimeType)) {
+    return 'powerpoint';
   }
 
   // Video files
@@ -289,6 +301,7 @@ export function getFileTypeDisplayName(type: FileType): string {
     csv: 'CSV/TSV Files',
     excel: 'Excel Files',
     word: 'Word Documents',
+    powerpoint: 'PowerPoint Presentations',
     video: 'Videos',
     audio: 'Audio',
     document: 'Documents',

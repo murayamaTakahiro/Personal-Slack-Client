@@ -24,8 +24,9 @@
   // Get file type specific info
   $: isExcel = fileType === 'excel';
   $: isWord = fileType === 'word';
-  $: fileTypeLabel = isExcel ? 'Excel Spreadsheet' : isWord ? 'Word Document' : 'Office Document';
-  $: fileTypeColor = isExcel ? '#22863a' : isWord ? '#0366d6' : '#586069';
+  $: isPowerPoint = fileType === 'powerpoint';
+  $: fileTypeLabel = isExcel ? 'Excel Spreadsheet' : isWord ? 'Word Document' : isPowerPoint ? 'PowerPoint Presentation' : 'Office Document';
+  $: fileTypeColor = isExcel ? '#22863a' : isWord ? '#0366d6' : isPowerPoint ? '#d24726' : '#586069';
 
   onMount(() => {
     // Try to get thumbnail from Slack
@@ -146,7 +147,7 @@
               </svg>
             {/if}
             <span class="button-text">
-              {isDownloading ? 'Downloading...' : `Download ${isExcel ? 'Excel' : isWord ? 'Word' : 'Office'} File`}
+              {isDownloading ? 'Downloading...' : `Download ${isExcel ? 'Excel' : isWord ? 'Word' : isPowerPoint ? 'PowerPoint' : 'Office'} File`}
             </span>
           </button>
 

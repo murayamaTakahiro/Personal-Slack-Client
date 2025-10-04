@@ -98,6 +98,7 @@ pub fn run() {
             commands::files::download_slack_files_batch,
             commands::files::select_download_folder,
             commands::files::create_file_data_url,
+            commands::files::download_file_binary,
             commands::files::get_file_content,
             commands::upload::upload_file_to_slack,
             commands::upload::upload_clipboard_image,

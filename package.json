@@ -25,7 +25,8 @@
     "@types/papaparse": "^5.3.16",
     "lru-cache": "^11.2.1",
     "papaparse": "^5.5.3",
-    "pdfjs-dist": "^5.4.149"
+    "pdfjs-dist": "^5.4.149",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",

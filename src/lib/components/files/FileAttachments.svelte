@@ -14,6 +14,7 @@
   import PdfPreview from './PdfPreview.svelte';
   import TextPreview from './TextPreview.svelte';
   import CsvPreview from './CsvPreview.svelte';
+  import ExcelPreview from './ExcelPreview.svelte';
   import OfficePreview from './OfficePreview.svelte';
   import GenericFilePreview from './GenericFilePreview.svelte';
 
@@ -205,7 +206,13 @@
                     {workspaceId}
                     {compact}
                   />
-                {:else if group.type === 'excel' || group.type === 'word'}
+                {:else if group.type === 'excel'}
+                  <ExcelPreview
+                    file={metadata.file}
+                    {workspaceId}
+                    {compact}
+                  />
+                {:else if group.type === 'word' || group.type === 'powerpoint'}
                   <OfficePreview
                     file={metadata.file}
                     {workspaceId}
