@@ -138,8 +138,9 @@
         throw new Error('No sheets found in Excel file');
       }
 
-      // Load first sheet by default
-      loadSheet(workbook.Sheets[sheetNames[0]]);
+      // Load the current sheet (or first sheet if currentSheetIndex is out of bounds)
+      const sheetIndex = Math.min(currentSheetIndex, sheetNames.length - 1);
+      loadSheet(workbook.Sheets[sheetNames[sheetIndex]]);
 
     } catch (err) {
       console.error('[ExcelPreview] Error loading Excel content:', err);
@@ -205,6 +206,19 @@
     // For now, we'll need to reload the entire file
     // A better approach would be to keep the workbook in memory
     loadExcelContent();
+  }
+
+  // Export functions for external control (e.g., keyboard shortcuts in Lightbox)
+  export function nextSheet() {
+    if (currentSheetIndex < sheetNames.length - 1) {
+      switchSheet(currentSheetIndex + 1);
+    }
+  }
+
+  export function previousSheet() {
+    if (currentSheetIndex > 0) {
+      switchSheet(currentSheetIndex - 1);
+    }
   }
 
   async function handleDownload() {

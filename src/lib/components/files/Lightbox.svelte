@@ -45,6 +45,9 @@
   let isPdfLoading = false;
   let pdfError: string | null = null;
 
+  // Excel-specific state
+  let excelPreviewRef: any;
+
   $: hasNext = currentIndex < allFiles.length - 1;
   $: hasPrevious = currentIndex > 0;
   $: isImage = file.type === 'image';
@@ -131,7 +134,16 @@
         scrollRight();
         break;
       case 'Tab':
-        if (event.shiftKey) {
+        // Ctrl+Tab for Excel sheet navigation
+        if (event.ctrlKey && isExcel && excelPreviewRef) {
+          if (event.shiftKey) {
+            // Ctrl+Shift+Tab - previous sheet
+            excelPreviewRef.previousSheet();
+          } else {
+            // Ctrl+Tab - next sheet
+            excelPreviewRef.nextSheet();
+          }
+        } else if (event.shiftKey) {
           // Shift+Tab - previous image
           if (hasPrevious) onPrevious();
         } else {
@@ -247,10 +259,10 @@
         bodyContainer.scrollTop = Math.max(0, bodyContainer.scrollTop - scrollSpeed);
       }
     } else if (isExcel) {
-      // For Excel files, scroll the body container
-      const bodyContainer = containerDiv?.querySelector('.excel-preview-wrapper .table-body-wrapper');
-      if (bodyContainer) {
-        bodyContainer.scrollTop = Math.max(0, bodyContainer.scrollTop - scrollSpeed);
+      // For Excel files, scroll the wrapper (due to transform: scale() affecting inner scroll)
+      const wrapper = containerDiv?.querySelector('.excel-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = Math.max(0, wrapper.scrollTop - scrollSpeed);
       }
     } else if (isOffice) {
       // For Office files, scroll the wrapper itself
@@ -299,12 +311,12 @@
         );
       }
     } else if (isExcel) {
-      // For Excel files, scroll the body container
-      const bodyContainer = containerDiv?.querySelector('.excel-preview-wrapper .table-body-wrapper');
-      if (bodyContainer) {
-        bodyContainer.scrollTop = Math.min(
-          bodyContainer.scrollHeight - bodyContainer.clientHeight,
-          bodyContainer.scrollTop + scrollSpeed
+      // For Excel files, scroll the wrapper (due to transform: scale() affecting inner scroll)
+      const wrapper = containerDiv?.querySelector('.excel-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = Math.min(
+          wrapper.scrollHeight - wrapper.clientHeight,
+          wrapper.scrollTop + scrollSpeed
         );
       }
     } else if (isOffice) {
@@ -464,9 +476,9 @@
         bodyContainer.scrollTop = Math.max(0, bodyContainer.scrollTop - bodyContainer.clientHeight);
       }
     } else if (isExcel) {
-      const bodyContainer = containerDiv?.querySelector('.excel-preview-wrapper .table-body-wrapper');
-      if (bodyContainer) {
-        bodyContainer.scrollTop = Math.max(0, bodyContainer.scrollTop - bodyContainer.clientHeight);
+      const wrapper = containerDiv?.querySelector('.excel-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = Math.max(0, wrapper.scrollTop - wrapper.clientHeight);
       }
     } else if (isOffice) {
       const wrapper = containerDiv?.querySelector('.office-preview-wrapper');
@@ -515,11 +527,11 @@
         );
       }
     } else if (isExcel) {
-      const bodyContainer = containerDiv?.querySelector('.excel-preview-wrapper .table-body-wrapper');
-      if (bodyContainer) {
-        bodyContainer.scrollTop = Math.min(
-          bodyContainer.scrollHeight - bodyContainer.clientHeight,
-          bodyContainer.scrollTop + bodyContainer.clientHeight
+      const wrapper = containerDiv?.querySelector('.excel-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = Math.min(
+          wrapper.scrollHeight - wrapper.clientHeight,
+          wrapper.scrollTop + wrapper.clientHeight
         );
       }
     } else if (isOffice) {
@@ -562,9 +574,9 @@
         bodyContainer.scrollTop = 0;
       }
     } else if (isExcel) {
-      const bodyContainer = containerDiv?.querySelector('.excel-preview-wrapper .table-body-wrapper');
-      if (bodyContainer) {
-        bodyContainer.scrollTop = 0;
+      const wrapper = containerDiv?.querySelector('.excel-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = 0;
       }
     } else if (isOffice) {
       const wrapper = containerDiv?.querySelector('.office-preview-wrapper');
@@ -603,9 +615,9 @@
         bodyContainer.scrollTop = bodyContainer.scrollHeight - bodyContainer.clientHeight;
       }
     } else if (isExcel) {
-      const bodyContainer = containerDiv?.querySelector('.excel-preview-wrapper .table-body-wrapper');
-      if (bodyContainer) {
-        bodyContainer.scrollTop = bodyContainer.scrollHeight - bodyContainer.clientHeight;
+      const wrapper = containerDiv?.querySelector('.excel-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = wrapper.scrollHeight - wrapper.clientHeight;
       }
     } else if (isOffice) {
       const wrapper = containerDiv?.querySelector('.office-preview-wrapper');
@@ -1121,8 +1133,9 @@
           />
         </div>
       {:else if isExcel}
-        <div class="excel-preview-wrapper" style="zoom: {zoomLevel};">
+        <div class="excel-preview-wrapper" style="transform: scale({zoomLevel}); transform-origin: top left;">
           <ExcelPreview
+            bind:this={excelPreviewRef}
             file={file.file}
             workspaceId={$activeWorkspace?.id || 'default'}
             compact={false}
