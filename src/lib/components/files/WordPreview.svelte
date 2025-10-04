@@ -72,8 +72,19 @@
           "p[style-name='Balloon Text'] => !",
           "p[style-name='Instruction'] => !",
           "p[style-name='Placeholder'] => !",
-          "p[style-name='Form Field Help Text'] => !"
-        ]
+          "p[style-name='Form Field Help Text'] => !",
+          // Additional Japanese-specific instruction patterns
+          "p[style-name='指示'] => !",
+          "p[style-name='説明'] => !",
+          "p[style-name='ヘルプ'] => !"
+        ],
+        // Convert form fields to just their values, ignoring help text
+        convertFormField: function(field: any) {
+          // Return empty string for form fields (hides placeholder/help text)
+          return {
+            value: ''
+          };
+        }
       });
 
       // Debug: Log conversion messages and HTML output
@@ -81,20 +92,82 @@
       console.log('[WordPreview] Conversion messages:', result.messages);
       console.log('[WordPreview] HTML preview (first 500 chars):', result.value.substring(0, 500));
 
-      // Check for potential hidden content patterns in the output
-      const suspiciousPatterns = [
-        '記入してください',
-        '押印してください',
-        'してください。'
-      ];
-      suspiciousPatterns.forEach(pattern => {
-        if (result.value.includes(pattern)) {
-          console.warn(`[WordPreview] Found suspicious pattern: "${pattern}"`);
+      // Filter out form field instructions and placeholder text using heuristics
+      // Create a temporary DOM element to parse HTML
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = result.value;
+
+      // Collect all paragraph texts to detect repetition
+      const paragraphs = Array.from(tempDiv.querySelectorAll('p'));
+      const paragraphTexts = paragraphs.map(p => p.textContent?.trim() || '');
+
+      // Count occurrences of each text
+      const textCounts = new Map<string, number>();
+      paragraphTexts.forEach(text => {
+        if (text) {
+          textCounts.set(text, (textCounts.get(text) || 0) + 1);
         }
       });
 
+      // Heuristic criteria for detecting form field instructions
+      function isLikelyFormFieldInstruction(text: string, occurrenceCount: number): boolean {
+        if (!text || text.length === 0) return false;
+
+        // Criterion 1: Text appears 3+ times (repeated instructions)
+        if (occurrenceCount >= 3) {
+          console.log(`[WordPreview] Detected repeated text (${occurrenceCount}x):`, text);
+          return true;
+        }
+
+        // Criterion 2: Short instructional phrases ending with specific patterns
+        const instructionEndings = [
+          /してください。?$/,
+          /ください。?$/,
+          /記入$/,
+          /押印$/,
+          /入力$/,
+          /選択$/
+        ];
+
+        const hasInstructionEnding = instructionEndings.some(pattern => pattern.test(text));
+
+        // Criterion 3: Contains form field related keywords
+        const formFieldKeywords = [
+          '記入', '押印', '入力', '選択', '記載', '記す',
+          '申請書', '印鑑', '実印', '登録'
+        ];
+
+        const hasFormFieldKeyword = formFieldKeywords.some(keyword => text.includes(keyword));
+
+        // Short text (< 100 chars) + instruction ending + form keyword = likely instruction
+        if (text.length < 100 && hasInstructionEnding && hasFormFieldKeyword) {
+          console.log('[WordPreview] Detected form field instruction:', text);
+          return true;
+        }
+
+        // Criterion 4: Very short standalone instructional phrases
+        if (text.length < 30 && hasInstructionEnding) {
+          console.log('[WordPreview] Detected short instruction:', text);
+          return true;
+        }
+
+        return false;
+      }
+
+      // Remove paragraphs that match heuristic criteria
+      paragraphs.forEach(p => {
+        const text = p.textContent?.trim() || '';
+        const count = textCounts.get(text) || 0;
+
+        if (isLikelyFormFieldInstruction(text, count)) {
+          p.remove();
+        }
+      });
+
+      const filteredHtml = tempDiv.innerHTML;
+
       // Sanitize HTML to prevent XSS
-      htmlContent = DOMPurify.sanitize(result.value, {
+      htmlContent = DOMPurify.sanitize(filteredHtml, {
         ALLOWED_TAGS: [
           'p', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
           'strong', 'em', 'u', 's', 'ul', 'ol', 'li',
