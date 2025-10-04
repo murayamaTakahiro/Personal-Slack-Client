@@ -18,6 +18,8 @@
   let isTruncated = false;
   let totalRows = 0;
   let totalColumns = 0;
+  let headerContainer: HTMLDivElement;
+  let bodyContainer: HTMLDivElement;
 
   const MAX_PREVIEW_SIZE = 5 * 1024 * 1024; // 5MB
   const MAX_PREVIEW_ROWS = 100;
@@ -34,9 +36,74 @@
     loadCsvContent();
   }
 
+  // Sync horizontal scroll between header and body
+  function handleBodyScroll() {
+    if (headerContainer && bodyContainer) {
+      headerContainer.scrollLeft = bodyContainer.scrollLeft;
+    }
+  }
+
+  // Sync column widths between header and body tables
+  function syncColumnWidths() {
+    if (!headerContainer || !bodyContainer) return;
+
+    const headerTable = headerContainer.querySelector('.header-table');
+    const bodyTable = bodyContainer.querySelector('.body-table');
+
+    if (!headerTable || !bodyTable) return;
+
+    // Get all th and td elements
+    const headerCells = Array.from(headerTable.querySelectorAll('th'));
+    const bodyFirstRow = bodyTable.querySelector('tr');
+
+    if (!bodyFirstRow) return;
+
+    const bodyCells = Array.from(bodyFirstRow.querySelectorAll('td'));
+
+    // Calculate max width for each column
+    const columnWidths: number[] = [];
+
+    headerCells.forEach((th, index) => {
+      const td = bodyCells[index];
+      if (!td) return;
+
+      // Get natural width of content
+      const thWidth = th.scrollWidth;
+      const tdWidth = td.scrollWidth;
+      const maxWidth = Math.max(thWidth, tdWidth, 100); // Minimum 100px
+
+      columnWidths.push(maxWidth);
+    });
+
+    // Apply widths to both header and body cells
+    headerCells.forEach((th, index) => {
+      th.style.width = `${columnWidths[index]}px`;
+      th.style.minWidth = `${columnWidths[index]}px`;
+      th.style.maxWidth = `${columnWidths[index]}px`;
+    });
+
+    // Apply to all body rows
+    const bodyRows = bodyTable.querySelectorAll('tr');
+    bodyRows.forEach(row => {
+      const cells = Array.from(row.querySelectorAll('td'));
+      cells.forEach((td, index) => {
+        if (columnWidths[index]) {
+          td.style.width = `${columnWidths[index]}px`;
+          td.style.minWidth = `${columnWidths[index]}px`;
+          td.style.maxWidth = `${columnWidths[index]}px`;
+        }
+      });
+    });
+  }
+
   onMount(() => {
     loadCsvContent();
   });
+
+  // Sync column widths after data loads
+  $: if (tableData.length > 0 && headerContainer && bodyContainer) {
+    setTimeout(syncColumnWidths, 100);
+  }
 
   async function loadCsvContent() {
     isLoading = true;
@@ -273,24 +340,30 @@
       {/if}
 
       <div class="table-container">
-        <table class="data-table">
-          <thead>
-            <tr>
-              {#each headers as header}
-                <th>{header}</th>
-              {/each}
-            </tr>
-          </thead>
-          <tbody>
-            {#each tableData as row, rowIndex}
-              <tr class:even={rowIndex % 2 === 0}>
-                {#each row as cell}
-                  <td>{cell}</td>
+        <div class="header-container" bind:this={headerContainer}>
+          <table class="data-table header-table">
+            <thead>
+              <tr>
+                {#each headers as header}
+                  <th>{header}</th>
                 {/each}
               </tr>
-            {/each}
-          </tbody>
-        </table>
+            </thead>
+          </table>
+        </div>
+        <div class="body-container" bind:this={bodyContainer} on:scroll={handleBodyScroll}>
+          <table class="data-table body-table">
+            <tbody>
+              {#each tableData as row, rowIndex}
+                <tr class:even={rowIndex % 2 === 0}>
+                  {#each row as cell}
+                    <td>{cell}</td>
+                  {/each}
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {#if isTruncated && !compact}
@@ -451,25 +524,61 @@
   }
 
   .table-container {
-    overflow: auto;
     max-height: 400px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   .compact .table-container {
     max-height: 200px;
   }
 
-  .data-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.8125rem;
-  }
-
-  .data-table thead {
+  .header-container {
     position: sticky;
     top: 0;
+    z-index: 100;
     background: var(--color-header-bg);
-    z-index: 1;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    overflow-x: auto;
+    overflow-y: visible;
+    /* Ensure header has enough height */
+    min-height: fit-content;
+    /* Hide scrollbar for header */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .header-container::-webkit-scrollbar {
+    display: none;
+  }
+
+  .body-container {
+    flex: 1;
+    overflow: auto;
+    /* Ensure scrollbars are always visible when needed */
+    overflow-x: auto;
+    overflow-y: auto;
+  }
+
+  .data-table {
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+    /* Use fixed layout for consistent column widths */
+    table-layout: fixed;
+    /* Remove auto width to prevent centering */
+    width: auto;
+  }
+
+  .header-table {
+    margin-bottom: 0;
+    display: table;
+  }
+
+  .body-table {
+    margin-top: 0;
+    display: table;
   }
 
   .data-table th {
@@ -479,13 +588,15 @@
     color: var(--color-text-primary);
     border-bottom: 2px solid var(--color-border);
     white-space: nowrap;
+    background: var(--color-header-bg);
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .data-table td {
     padding: 0.375rem 0.75rem;
     color: var(--color-text-primary);
     border-bottom: 1px solid var(--color-border-light);
-    max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
