@@ -1199,19 +1199,23 @@
         </div>
       {:else if isWord}
         <div class="word-preview-wrapper" style="transform: scale({zoomLevel}); transform-origin: top left;">
-          <WordPreview
-            file={file.file}
-            workspaceId={$activeWorkspace?.id || 'default'}
-            compact={false}
-          />
+          {#key file.file.id}
+            <WordPreview
+              file={file.file}
+              workspaceId={$activeWorkspace?.id || 'default'}
+              compact={false}
+            />
+          {/key}
         </div>
       {:else if isOffice}
         <div class="office-preview-wrapper" style="transform: scale({zoomLevel}); transform-origin: top left;">
-          <OfficePreview
-            file={file.file}
-            workspaceId={$activeWorkspace?.id || 'default'}
-            compact={false}
-          />
+          {#key file.file.id}
+            <OfficePreview
+              file={file.file}
+              workspaceId={$activeWorkspace?.id || 'default'}
+              compact={false}
+            />
+          {/key}
         </div>
       {:else}
         <div class="generic-preview">

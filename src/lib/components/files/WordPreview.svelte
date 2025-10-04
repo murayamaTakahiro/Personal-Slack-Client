@@ -22,11 +22,6 @@
   $: formattedSize = formatFileSize(file.size);
   $: fileName = file.name || file.title || 'Untitled';
 
-  // Reload content when file changes
-  $: if (file && file.id) {
-    loadWordContent();
-  }
-
   onMount(() => {
     loadWordContent();
   });
@@ -34,6 +29,12 @@
   async function loadWordContent() {
     isLoading = true;
     error = null;
+
+    console.log('[WordPreview] Loading Word content:', {
+      name: file.name,
+      id: file.id,
+      size: file.size
+    });
 
     try {
       if (file.size > MAX_PREVIEW_SIZE) {
@@ -76,7 +77,8 @@
       });
 
       // Debug: Log conversion messages and HTML output
-      console.log('[WordPreview] Mammoth conversion messages:', result.messages);
+      console.log('[WordPreview] Mammoth conversion complete for:', file.name);
+      console.log('[WordPreview] Conversion messages:', result.messages);
       console.log('[WordPreview] HTML preview (first 500 chars):', result.value.substring(0, 500));
 
       // Check for potential hidden content patterns in the output
@@ -101,6 +103,8 @@
         ],
         ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id']
       });
+
+      console.log('[WordPreview] htmlContent set, length:', htmlContent.length);
 
       // Log warnings if any
       if (result.messages.length > 0) {
