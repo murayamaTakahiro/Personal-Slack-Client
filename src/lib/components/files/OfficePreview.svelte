@@ -14,6 +14,7 @@
   let downloadError: string | null = null;
   let thumbnailUrl: string | undefined;
   let thumbnailError = false;
+  let isLoadingThumbnail = false;
 
   $: fileType = getFileType(file);
   $: fileIcon = getFileIcon(file);
@@ -28,15 +29,50 @@
   $: fileTypeLabel = isExcel ? 'Excel Spreadsheet' : isWord ? 'Word Document' : isPowerPoint ? 'PowerPoint Presentation' : 'Office Document';
   $: fileTypeColor = isExcel ? '#22863a' : isWord ? '#0366d6' : isPowerPoint ? '#d24726' : '#586069';
 
-  onMount(() => {
+  onMount(async () => {
+    // Debug: Log file object to check for preview fields
+    console.log('[OfficePreview] File object:', {
+      name: file.name,
+      filetype: file.filetype,
+      preview: file.preview ? `${file.preview.substring(0, 100)}...` : undefined,
+      preview_highlight: file.preview_highlight ? `${file.preview_highlight.substring(0, 100)}...` : undefined,
+      has_rich_preview: file.has_rich_preview,
+      preview_is_truncated: file.preview_is_truncated,
+      thumb_360: file.thumb_360,
+      thumb_480: file.thumb_480,
+      thumb_pdf: file.thumb_pdf
+    });
+
     // Try to get thumbnail from Slack
-    thumbnailUrl = getBestThumbnailUrl(file, 360);
+    let thumbUrl = getBestThumbnailUrl(file, 360);
 
     // For Office files, Slack sometimes provides thumb_360 or thumb_480
-    if (!thumbnailUrl && file.thumb_360) {
-      thumbnailUrl = file.thumb_360;
-    } else if (!thumbnailUrl && file.thumb_480) {
-      thumbnailUrl = file.thumb_480;
+    if (!thumbUrl && file.thumb_360) {
+      thumbUrl = file.thumb_360;
+    } else if (!thumbUrl && file.thumb_480) {
+      thumbUrl = file.thumb_480;
+    } else if (!thumbUrl && file.thumb_pdf) {
+      thumbUrl = file.thumb_pdf;
+      console.log('[OfficePreview] Using thumb_pdf for preview:', thumbUrl);
+    }
+
+    // If we have a Slack thumbnail URL, convert it to an authenticated data URL
+    if (thumbUrl && thumbUrl.startsWith('https://files.slack.com')) {
+      isLoadingThumbnail = true;
+      try {
+        const { createFileDataUrl } = await import('$lib/api/files');
+        const dataUrl = await createFileDataUrl(thumbUrl, 'image/png');
+        thumbnailUrl = dataUrl;
+        console.log('[OfficePreview] Successfully converted thumb_pdf to data URL');
+      } catch (error) {
+        console.error('[OfficePreview] Failed to fetch authenticated thumbnail:', error);
+        thumbnailUrl = undefined;
+        thumbnailError = true;
+      } finally {
+        isLoadingThumbnail = false;
+      }
+    } else {
+      thumbnailUrl = thumbUrl;
     }
   });
 
@@ -90,7 +126,17 @@
 
 <div class="office-preview" class:compact>
   <div class="preview-container">
-    {#if thumbnailUrl && !thumbnailError}
+    {#if isLoadingThumbnail}
+      <div class="file-icon-container">
+        <div class="loading-spinner">
+          <svg class="spinner" width="40" height="40" viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="3" fill="none" opacity="0.25"/>
+            <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="3" fill="none"
+              stroke-dasharray="113" stroke-dashoffset="28" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+    {:else if thumbnailUrl && !thumbnailError}
       <div class="thumbnail-container">
         <img
           src={thumbnailUrl}
@@ -120,12 +166,15 @@
       </div>
 
       {#if !compact}
-        <div class="preview-notice">
-          <svg width="16" height="16" viewBox="0 0 16 16">
-            <path fill="currentColor" d="M8 1C4.134 1 1 4.134 1 8s3.134 7 7 7 7-3.134 7-7-3.134-7-7-7zm0 13c-3.314 0-6-2.686-6-6s2.686-6 6-6 6 2.686 6 6-2.686 6-6 6zm-.75-3.5h1.5V6h-1.5v4.5zm0-5.5h1.5v-1.5h-1.5V5z"/>
-          </svg>
-          <span>Full preview not available. Download to open in Office application.</span>
-        </div>
+        <!-- Only show notice if no thumbnail is available -->
+        {#if !thumbnailUrl || thumbnailError}
+          <div class="preview-notice">
+            <svg width="16" height="16" viewBox="0 0 16 16">
+              <path fill="currentColor" d="M8 1C4.134 1 1 4.134 1 8s3.134 7 7 7 7-3.134 7-7-3.134-7-7-7zm0 13c-3.314 0-6-2.686-6-6s2.686-6 6-6 6 2.686 6 6-2.686 6-6 6zm-.75-3.5h1.5V6h-1.5v4.5zm0-5.5h1.5v-1.5h-1.5V5z"/>
+            </svg>
+            <span>Full preview not available. Download to open in Office application.</span>
+          </div>
+        {/if}
 
         <div class="file-actions">
           <button
@@ -238,10 +287,26 @@
     height: 60px;
   }
 
+  /* Larger thumbnail for non-compact mode (Lightbox display) */
+  .preview-container:not(.compact) .thumbnail-container {
+    width: auto;
+    height: auto;
+    max-width: 800px;
+    max-height: 600px;
+  }
+
   .thumbnail {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+  }
+
+  /* In non-compact mode, let thumbnail scale to its natural size */
+  .preview-container:not(.compact) .thumbnail {
+    width: auto;
+    height: auto;
+    max-width: 800px;
+    max-height: 600px;
   }
 
   .file-icon-container {
@@ -446,6 +511,16 @@
     to {
       transform: rotate(360deg);
     }
+  }
+
+  .loading-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .loading-spinner .spinner {
+    animation: spin 1s linear infinite;
   }
 
   .button-text {
