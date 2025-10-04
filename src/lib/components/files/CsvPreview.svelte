@@ -23,7 +23,7 @@
 
   const MAX_PREVIEW_SIZE = 5 * 1024 * 1024; // 5MB
   const MAX_PREVIEW_ROWS = 100;
-  const MAX_DISPLAY_COLUMNS = 10;
+  const MAX_DISPLAY_COLUMNS = 50; // Reasonable limit for performance while showing most CSVs in full
 
   $: formattedSize = formatFileSize(file.size);
   $: fileName = file.name || file.title || 'Untitled';
