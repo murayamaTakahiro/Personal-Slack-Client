@@ -15,6 +15,7 @@
   import TextPreview from './TextPreview.svelte';
   import CsvPreview from './CsvPreview.svelte';
   import ExcelPreview from './ExcelPreview.svelte';
+  import WordPreview from './WordPreview.svelte';
   import OfficePreview from './OfficePreview.svelte';
   import GenericFilePreview from './GenericFilePreview.svelte';
 
@@ -212,7 +213,21 @@
                     {workspaceId}
                     {compact}
                   />
-                {:else if group.type === 'word' || group.type === 'powerpoint'}
+                {:else if group.type === 'word'}
+                  {#if metadata.file.name?.toLowerCase().endsWith('.docx') || metadata.file.mimetype?.includes('openxmlformats')}
+                    <WordPreview
+                      file={metadata.file}
+                      {workspaceId}
+                      {compact}
+                    />
+                  {:else}
+                    <OfficePreview
+                      file={metadata.file}
+                      {workspaceId}
+                      {compact}
+                    />
+                  {/if}
+                {:else if group.type === 'powerpoint'}
                   <OfficePreview
                     file={metadata.file}
                     {workspaceId}

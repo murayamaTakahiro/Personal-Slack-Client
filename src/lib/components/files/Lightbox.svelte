@@ -12,6 +12,7 @@
   import TextPreview from './TextPreview.svelte';
   import CsvPreview from './CsvPreview.svelte';
   import ExcelPreview from './ExcelPreview.svelte';
+  import WordPreview from './WordPreview.svelte';
   import OfficePreview from './OfficePreview.svelte';
 
   export let file: FileMetadata;
@@ -55,7 +56,9 @@
   $: isText = file.type === 'text';
   $: isCsv = file.type === 'csv';
   $: isExcel = file.type === 'excel';
-  $: isOffice = file.type === 'word' || file.type === 'powerpoint';
+  // Only .docx files can be previewed with Mammoth.js (.doc files need to fall back to OfficePreview)
+  $: isWord = file.type === 'word' && (file.file.name?.toLowerCase().endsWith('.docx') || file.file.mimetype?.includes('openxmlformats'));
+  $: isOffice = file.type === 'powerpoint' || (file.type === 'word' && !isWord);
   // For lightbox, prioritize full size image (downloadUrl) over thumbnail
   $: displayUrl = fullImageUrl || file.downloadUrl || file.thumbnailUrl;
   
@@ -264,6 +267,12 @@
       if (wrapper) {
         wrapper.scrollTop = Math.max(0, wrapper.scrollTop - scrollSpeed);
       }
+    } else if (isWord) {
+      // For Word files, scroll the wrapper (due to transform: scale() affecting inner scroll)
+      const wrapper = containerDiv?.querySelector('.word-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = Math.max(0, wrapper.scrollTop - scrollSpeed);
+      }
     } else if (isOffice) {
       // For Office files, scroll the wrapper itself
       const wrapper = containerDiv?.querySelector('.office-preview-wrapper');
@@ -313,6 +322,15 @@
     } else if (isExcel) {
       // For Excel files, scroll the wrapper (due to transform: scale() affecting inner scroll)
       const wrapper = containerDiv?.querySelector('.excel-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = Math.min(
+          wrapper.scrollHeight - wrapper.clientHeight,
+          wrapper.scrollTop + scrollSpeed
+        );
+      }
+    } else if (isWord) {
+      // For Word files, scroll the wrapper (due to transform: scale() affecting inner scroll)
+      const wrapper = containerDiv?.querySelector('.word-preview-wrapper');
       if (wrapper) {
         wrapper.scrollTop = Math.min(
           wrapper.scrollHeight - wrapper.clientHeight,
@@ -371,6 +389,12 @@
         if (headerContainer) {
           headerContainer.scrollLeft = newScrollLeft;
         }
+      }
+    } else if (isWord) {
+      // For Word files, scroll the wrapper horizontally
+      const wrapper = containerDiv?.querySelector('.word-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollLeft = Math.max(0, wrapper.scrollLeft - scrollSpeed);
       }
     } else if (isOffice) {
       // For Office files, scroll the wrapper itself horizontally
@@ -437,6 +461,15 @@
           headerContainer.scrollLeft = newScrollLeft;
         }
       }
+    } else if (isWord) {
+      // For Word files, scroll the wrapper horizontally
+      const wrapper = containerDiv?.querySelector('.word-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollLeft = Math.min(
+          wrapper.scrollWidth - wrapper.clientWidth,
+          wrapper.scrollLeft + scrollSpeed
+        );
+      }
     } else if (isOffice) {
       // For Office files, scroll the wrapper itself horizontally
       const wrapper = containerDiv?.querySelector('.office-preview-wrapper');
@@ -477,6 +510,11 @@
       }
     } else if (isExcel) {
       const wrapper = containerDiv?.querySelector('.excel-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = Math.max(0, wrapper.scrollTop - wrapper.clientHeight);
+      }
+    } else if (isWord) {
+      const wrapper = containerDiv?.querySelector('.word-preview-wrapper');
       if (wrapper) {
         wrapper.scrollTop = Math.max(0, wrapper.scrollTop - wrapper.clientHeight);
       }
@@ -534,6 +572,14 @@
           wrapper.scrollTop + wrapper.clientHeight
         );
       }
+    } else if (isWord) {
+      const wrapper = containerDiv?.querySelector('.word-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = Math.min(
+          wrapper.scrollHeight - wrapper.clientHeight,
+          wrapper.scrollTop + wrapper.clientHeight
+        );
+      }
     } else if (isOffice) {
       const wrapper = containerDiv?.querySelector('.office-preview-wrapper');
       if (wrapper) {
@@ -578,6 +624,11 @@
       if (wrapper) {
         wrapper.scrollTop = 0;
       }
+    } else if (isWord) {
+      const wrapper = containerDiv?.querySelector('.word-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = 0;
+      }
     } else if (isOffice) {
       const wrapper = containerDiv?.querySelector('.office-preview-wrapper');
       if (wrapper) {
@@ -616,6 +667,11 @@
       }
     } else if (isExcel) {
       const wrapper = containerDiv?.querySelector('.excel-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = wrapper.scrollHeight - wrapper.clientHeight;
+      }
+    } else if (isWord) {
+      const wrapper = containerDiv?.querySelector('.word-preview-wrapper');
       if (wrapper) {
         wrapper.scrollTop = wrapper.scrollHeight - wrapper.clientHeight;
       }
@@ -1141,6 +1197,14 @@
             compact={false}
           />
         </div>
+      {:else if isWord}
+        <div class="word-preview-wrapper" style="transform: scale({zoomLevel}); transform-origin: top left;">
+          <WordPreview
+            file={file.file}
+            workspaceId={$activeWorkspace?.id || 'default'}
+            compact={false}
+          />
+        </div>
       {:else if isOffice}
         <div class="office-preview-wrapper" style="transform: scale({zoomLevel}); transform-origin: top left;">
           <OfficePreview
@@ -1561,6 +1625,7 @@
   .text-preview-wrapper,
   .csv-preview-wrapper,
   .excel-preview-wrapper,
+  .word-preview-wrapper,
   .office-preview-wrapper {
     max-width: 90vw;
     max-height: 70vh;
