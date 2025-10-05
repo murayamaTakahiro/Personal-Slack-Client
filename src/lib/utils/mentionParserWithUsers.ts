@@ -66,12 +66,32 @@ export function parseMessageWithMentionsUsingUserStore(text: string): ParsedSegm
       lastIndex = match.index + match[0].length;
     } else if (match[2]) {
       // Generic angle bracket link <...> (http://, https://, mailto:, etc.)
-      // Treat as URL - this prevents @domain.com in mailto links from being treated as mentions
+      // Parse the link to extract display text and URL
       const linkContent = match[2];
+      let displayText: string;
+      let linkUrl: string;
+
+      // Check for Slack format with pipe: <URL|display_text>
+      const pipeIndex = linkContent.indexOf('|');
+      if (pipeIndex !== -1) {
+        // Has display text after pipe
+        linkUrl = linkContent.substring(0, pipeIndex);
+        displayText = linkContent.substring(pipeIndex + 1);
+      } else {
+        // No pipe, use the link as both URL and display
+        linkUrl = linkContent;
+        displayText = linkContent;
+      }
+
+      // Special handling for mailto links: remove "mailto:" prefix from display
+      if (displayText.startsWith('mailto:')) {
+        displayText = displayText.substring(7); // Remove "mailto:" prefix
+      }
+
       segments.push({
         type: 'url',
-        content: linkContent,
-        url: linkContent
+        content: displayText,
+        url: linkUrl
       });
       lastIndex = match.index + match[0].length;
     } else if (match[3]) {
