@@ -18,10 +18,13 @@ export function parseMessageWithMentionsUsingUserStore(text: string): ParsedSegm
     .sort((a, b) => b.length - a.length);
 
   // Combined regex to match all potential patterns
+  // Priority order is crucial:
   // 1. Slack format mentions: <@USERID> or <@USERID|username>
-  // 2. Regular mentions starting with @
-  // 3. URLs with or without angle brackets
-  const combinedRegex = /(<@[A-Z0-9]+(?:\|[^>]+)?>)|(@[^\s]*)|<(https?:\/\/[^>]+)>|(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g;
+  // 2. Generic angle bracket links: <...> (including mailto:, http://, etc.)
+  // 3. Email addresses (to exclude from mention matching)
+  // 4. Regular mentions starting with @
+  // 5. Plain URLs without brackets
+  const combinedRegex = /(<@[A-Z0-9]+(?:\|[^>]+)?>)|<([^>]+)>|([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})|(@[^\s@<]*)|(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g;
 
   let lastIndex = 0;
   let match;
@@ -62,8 +65,25 @@ export function parseMessageWithMentionsUsingUserStore(text: string): ParsedSegm
 
       lastIndex = match.index + match[0].length;
     } else if (match[2]) {
+      // Generic angle bracket link <...> (http://, https://, mailto:, etc.)
+      // Treat as URL - this prevents @domain.com in mailto links from being treated as mentions
+      const linkContent = match[2];
+      segments.push({
+        type: 'url',
+        content: linkContent,
+        url: linkContent
+      });
+      lastIndex = match.index + match[0].length;
+    } else if (match[3]) {
+      // Email address - treat as plain text, not a mention
+      segments.push({
+        type: 'text',
+        content: match[3]
+      });
+      lastIndex = match.index + match[0].length;
+    } else if (match[4]) {
       // Regular @mention - need to find the exact username
-      const atMention = match[2];
+      const atMention = match[4];
       const remainingText = text.substring(match.index);
 
       // Remove the @ for comparison
@@ -95,20 +115,12 @@ export function parseMessageWithMentionsUsingUserStore(text: string): ParsedSegm
         });
         lastIndex = match.index + match[0].length;
       }
-    } else if (match[3]) {
-      // URL wrapped in angle brackets <URL>
-      segments.push({
-        type: 'url',
-        content: match[3],
-        url: match[3]
-      });
-      lastIndex = match.index + match[0].length;
-    } else if (match[4]) {
+    } else if (match[5]) {
       // Plain URL without brackets
       segments.push({
         type: 'url',
-        content: match[4],
-        url: match[4]
+        content: match[5],
+        url: match[5]
       });
       lastIndex = match.index + match[0].length;
     }
