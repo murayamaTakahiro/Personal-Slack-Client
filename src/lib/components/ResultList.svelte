@@ -20,19 +20,24 @@
   import { lightboxOpen, filePreviewStore } from '../stores/filePreview';
   import { processFileMetadata } from '../services/fileService';
   import { realtimeStore } from '../stores/realtime';
+  import { settings } from '../stores/settings';
+  import { searchHistoryTracker } from '../services/searchHistoryTracker';
 
   export let messages: Message[] = [];
   export let loading = false;
   export let error: string | null = null;
-  
+
   // DEBUG: Log messages received
-  
+
   let focusedIndex = -1;
   let listContainer: HTMLDivElement;
   let messageElements: HTMLElement[] = [];
   let isExpanded = false;
   let isRealtimeUpdating = false;
   let previousMessageIds = new Set<string>();
+
+  // Search history tracking for new message highlighting (experimental feature)
+  let previousSearchMessageIds = new Set<string>();
   
   // Post dialog state
   let showPostDialog = false;
@@ -113,6 +118,22 @@
       // Only reset focus if it's a completely new set of messages (not just updates)
       if (previousMessageLength === 0 || messages.length === 0) {
         focusedIndex = -1;
+      }
+
+      // Experimental feature: Track search history for new message highlighting
+      if ($settings.experimentalFeatures?.highlightNewSearchResults && $searchParams) {
+        // Load previous search results
+        previousSearchMessageIds = searchHistoryTracker.getPreviousMessageIds($searchParams);
+
+        // Save current search results for next time
+        const currentMessageIds = messages.map(m => m.ts);
+        searchHistoryTracker.saveSearchHistory($searchParams, currentMessageIds);
+
+        console.log('[ResultList] Search history tracking:', {
+          previousCount: previousSearchMessageIds.size,
+          currentCount: currentMessageIds.length,
+          newCount: currentMessageIds.filter(id => !previousSearchMessageIds.has(id)).length
+        });
       }
     }
 
@@ -1052,10 +1073,12 @@
         {#each visibleMessages as message, visibleIndex (message.ts)}
           {@const actualIndex = messages.findIndex(m => m.ts === message.ts)}
           {@const isNewMessage = $realtimeStore.isEnabled && !previousMessageIds.has(message.ts)}
+          {@const isNewFromSearch = $settings.experimentalFeatures?.highlightNewSearchResults && !$realtimeStore.isEnabled && previousSearchMessageIds.size > 0 && !previousSearchMessageIds.has(message.ts)}
           <div
             data-message-ts={message.ts}
             data-message-index={actualIndex}
-            class:message-new={isNewMessage}>
+            class:message-new={isNewMessage}
+            class:message-new-from-search={isNewFromSearch}>
             {#if $performanceSettings.useOptimizedMessageItem}
               <OptimizedMessageItem
                 {message}
@@ -1332,6 +1355,112 @@
     100% {
       transform: scale(1);
       box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+    }
+  }
+
+  /* New message highlighting for realtime updates */
+  .message-new {
+    position: relative;
+    animation: fadeInNew 0.5s ease-in;
+  }
+
+  .message-new::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(to bottom, var(--primary), var(--primary-hover));
+    border-radius: 2px;
+    animation: pulseNew 2s ease-in-out infinite;
+  }
+
+  /* New message highlighting from search cache (experimental feature) */
+  .message-new-from-search {
+    position: relative;
+    animation: fadeInNew 0.5s ease-in;
+  }
+
+  .message-new-from-search::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(to bottom, #10b981, #059669);
+    border-radius: 2px;
+  }
+
+  .message-new-from-search::after {
+    content: 'NEW';
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 2px 8px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  @keyframes fadeInNew {
+    from {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes pulseNew {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  /* Realtime mode specific styling */
+  .results-container.realtime-mode .message-new {
+    background: rgba(59, 130, 246, 0.05);
+  }
+
+  /* Realtime loading bar */
+  .realtime-loading-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: transparent;
+    z-index: 1000;
+    transition: background 0.3s ease;
+  }
+
+  .realtime-loading-bar.active {
+    background: linear-gradient(90deg,
+      transparent 0%,
+      var(--primary) 50%,
+      transparent 100%);
+    animation: loadingBar 1s ease-in-out;
+  }
+
+  @keyframes loadingBar {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
     }
   }
 </style>

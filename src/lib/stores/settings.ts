@@ -86,7 +86,8 @@ const defaultSettings: AppSettings = {
   debugMode: false,  // Performance monitor is hidden by default
   downloadFolder: null,  // null means use default Downloads folder
   experimentalFeatures: {
-    dmChannelsEnabled: false  // DM channels feature is disabled by default (Phase 1)
+    dmChannelsEnabled: false,  // DM channels feature is disabled by default (Phase 1)
+    highlightNewSearchResults: false  // New message highlighting is disabled by default
   }
 };
 
@@ -272,6 +273,24 @@ export function toggleDMChannels(enabled: boolean) {
     experimentalFeatures: {
       ...s.experimentalFeatures,
       dmChannelsEnabled: enabled
+    }
+  }));
+}
+
+export function isHighlightNewSearchResultsEnabled(): boolean {
+  let enabled = false;
+  settings.subscribe(s => {
+    enabled = s.experimentalFeatures?.highlightNewSearchResults || false;
+  })();
+  return enabled;
+}
+
+export function toggleHighlightNewSearchResults(enabled: boolean) {
+  settings.update(s => ({
+    ...s,
+    experimentalFeatures: {
+      ...s.experimentalFeatures,
+      highlightNewSearchResults: enabled
     }
   }));
 }

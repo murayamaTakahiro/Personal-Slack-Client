@@ -189,6 +189,7 @@ export interface AppSettings {
   // Feature flags for experimental features
   experimentalFeatures?: {
     dmChannelsEnabled?: boolean;  // Enable DM channel discovery (Phase 1: read-only)
+    highlightNewSearchResults?: boolean;  // Highlight messages that are new since last search
   };
 }
 
