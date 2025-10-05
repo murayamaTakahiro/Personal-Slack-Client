@@ -33,6 +33,9 @@
       { key: 'd', description: 'Download current file' },
       { key: 'Shift+d', description: 'Download all files' }
     ]},
+    { category: 'Text Files', items: [
+      { key: 'c / Shift+c', description: 'Copy text content to clipboard' }
+    ]},
     { category: 'General', items: [
       { key: 'ESC', description: 'Close lightbox' },
       { key: '?', description: 'Show/hide this help' }

@@ -49,6 +49,9 @@
   // Excel-specific state
   let excelPreviewRef: any;
 
+  // Text-specific state
+  let textPreviewRef: any;
+
   $: hasNext = currentIndex < allFiles.length - 1;
   $: hasPrevious = currentIndex > 0;
   $: isImage = file.type === 'image';
@@ -76,7 +79,7 @@
   function handleKeydown(event: KeyboardEvent) {
     // Prevent default behavior for navigation keys FIRST
     // This ensures the App.svelte handler sees defaultPrevented = true
-    const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'j', 'k', 'h', 'l', 'J', 'K', 'H', 'L', 'PageUp', 'PageDown', 'Home', 'End', 'd', 'D', '+', '-', '=', '0', '?', 'Escape', 'f', 'F'];
+    const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'j', 'k', 'h', 'l', 'J', 'K', 'H', 'L', 'PageUp', 'PageDown', 'Home', 'End', 'd', 'D', '+', '-', '=', '0', '?', 'Escape', 'f', 'F', 'c', 'C'];
     if (navigationKeys.includes(event.key) || (event.key === '0' && (event.ctrlKey || event.metaKey))) {
       event.preventDefault();
     }
@@ -232,6 +235,18 @@
       case 'D':
         // Capital D (Shift+d) - Download all files
         downloadAllFiles();
+        break;
+      case 'c':
+        // c - Copy text content to clipboard (for text files)
+        if (isText && textPreviewRef) {
+          textPreviewRef.copyToClipboard();
+        }
+        break;
+      case 'C':
+        // C (Shift+c) - Copy text content to clipboard (for text files)
+        if (isText && textPreviewRef) {
+          textPreviewRef.copyToClipboard();
+        }
         break;
     }
   }
@@ -1175,6 +1190,7 @@
       {:else if isText}
         <div class="text-preview-wrapper" style="transform: scale({zoomLevel}); transform-origin: top left;">
           <TextPreview
+            bind:this={textPreviewRef}
             file={file.file}
             workspaceId={$activeWorkspace?.id || 'default'}
             compact={false}

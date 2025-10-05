@@ -106,7 +106,11 @@
     }
   }
 
-  function copyToClipboard() {
+  export function copyToClipboard() {
+    if (!fileContent || fileContent.includes('[Preview not available')) {
+      showError('Copy failed', 'No content available to copy', 3000);
+      return;
+    }
     navigator.clipboard.writeText(fileContent).then(() => {
       showSuccess('Copied', 'Text copied to clipboard', 2000);
     }).catch((err) => {
