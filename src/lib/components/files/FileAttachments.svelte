@@ -17,6 +17,7 @@
   import ExcelPreview from './ExcelPreview.svelte';
   import WordPreview from './WordPreview.svelte';
   import OfficePreview from './OfficePreview.svelte';
+  import GoogleDocsPreview from './GoogleDocsPreview.svelte';
   import GenericFilePreview from './GenericFilePreview.svelte';
 
   export let files: SlackFile[] = [];
@@ -229,6 +230,12 @@
                   {/if}
                 {:else if group.type === 'powerpoint'}
                   <OfficePreview
+                    file={metadata.file}
+                    {workspaceId}
+                    {compact}
+                  />
+                {:else if group.type === 'google-sheets' || group.type === 'google-docs'}
+                  <GoogleDocsPreview
                     file={metadata.file}
                     {workspaceId}
                     {compact}

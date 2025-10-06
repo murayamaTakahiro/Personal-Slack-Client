@@ -18,6 +18,8 @@ export type FileType =
   | 'excel'        // Excel files (xlsx, xls)
   | 'word'         // Word documents (docx, doc)
   | 'powerpoint'   // PowerPoint presentations (pptx, ppt)
+  | 'google-sheets'  // Google Sheets (external files)
+  | 'google-docs'    // Google Docs (external files)
   | 'video'
   | 'audio'
   | 'document'     // Generic documents
@@ -49,6 +51,27 @@ export function getFileType(file: SlackFile): FileType {
   const mimeType = file.mimetype?.toLowerCase() || '';
   const prettyType = file.pretty_type?.toLowerCase() || '';
   const fileExt = file.name?.split('.').pop()?.toLowerCase() || '';
+  const filetype = file.filetype?.toLowerCase() || '';
+
+  // Google Docs/Sheets (PRIORITY: Check first to avoid conflicts with generic spreadsheet/document detection)
+  if (file.is_external) {
+    const url = file.url_private || '';
+    const extType = file.external_type || '';
+
+    // Google Sheets detection
+    if (url.includes('docs.google.com/spreadsheets/') ||
+        filetype === 'gsheet' ||
+        mimeType === 'application/vnd.google-apps.spreadsheet') {
+      return 'google-sheets';
+    }
+
+    // Google Docs detection
+    if (url.includes('docs.google.com/document/') ||
+        filetype === 'gdoc' ||
+        mimeType === 'application/vnd.google-apps.document') {
+      return 'google-docs';
+    }
+  }
 
   // Image files
   if (mimeType.startsWith('image/')) {
@@ -242,6 +265,9 @@ export function groupFilesByType(files: SlackFile[]): FileGroup[] {
     'csv',
     'excel',
     'word',
+    'powerpoint',
+    'google-sheets',
+    'google-docs',
     'document',
     'spreadsheet',
     'presentation',
@@ -302,6 +328,8 @@ export function getFileTypeDisplayName(type: FileType): string {
     excel: 'Excel Files',
     word: 'Word Documents',
     powerpoint: 'PowerPoint Presentations',
+    'google-sheets': 'Google Sheets',
+    'google-docs': 'Google Docs',
     video: 'Videos',
     audio: 'Audio',
     document: 'Documents',
