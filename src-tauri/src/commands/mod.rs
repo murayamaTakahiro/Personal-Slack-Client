@@ -2,6 +2,7 @@ pub mod auth;
 pub mod channels;
 pub mod debug;
 pub mod emoji;
+pub mod export;
 pub mod files;
 pub mod post;
 pub mod reactions;

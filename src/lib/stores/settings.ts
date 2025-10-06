@@ -53,6 +53,7 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   otherReaction9: 'Shift+9',
   toggleKeyboardHelp: '?',
   toggleEmojiSearch: 'Ctrl+e',
+  exportThread: 'Ctrl+E',
   zoomIn: 'Ctrl+=',
   zoomOut: 'Ctrl+-',
   zoomReset: 'Ctrl+0',

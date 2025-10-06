@@ -11,11 +11,15 @@
   import SkeletonLoader from './SkeletonLoader.svelte';
   import MessageItem from './MessageItem.svelte';
   import PostDialog from './PostDialog.svelte';
+  import ThreadExportDialog from './ThreadExportDialog.svelte';
   import { logger } from '../services/logger';
   import { lightboxOpen, filePreviewStore } from '../stores/filePreview';
   import { isPostDialogOpen } from '../stores/postDialog';
   import { getKeyboardService } from '../services/keyboardService';
   import { processFileMetadata } from '../services/fileService';
+  import { ThreadExportService } from '../services/threadExportService';
+  import type { ExportOptions } from '../types/export';
+  import { invoke } from '@tauri-apps/api/core';
 
   export let message: Message | null = null;
 
@@ -29,6 +33,10 @@
   // Post dialog state
   let showPostDialog = false;
   let postInitialText = '';
+
+  // Export dialog state
+  let showExportDialog = false;
+  let exportService = new ThreadExportService();
   
   $: if (message) {
     console.log('[ThreadView] Message changed:', {
@@ -264,6 +272,80 @@
     });
   }
 
+  // Export thread handlers
+  function handleExportThread() {
+    if (!thread) {
+      showError('No thread', 'No thread is currently loaded');
+      return;
+    }
+    showExportDialog = true;
+  }
+
+  async function executeExport(event: CustomEvent<ExportOptions>) {
+    const options = event.detail;
+
+    if (!thread || !message) {
+      showError('Export failed', 'No thread data available');
+      showExportDialog = false;
+      return;
+    }
+
+    try {
+      showInfo('Exporting...', 'Preparing thread export');
+
+      let content: string;
+      let extension: string;
+
+      const channelName = message.channelName || message.channel;
+      const channelId = message.channel;
+
+      if (options.format === 'tsv') {
+        content = await exportService.exportToTSV(thread, channelName, channelId, options);
+        extension = 'tsv';
+      } else {
+        content = await exportService.exportToMarkdown(thread, channelName, channelId, options);
+        extension = 'md';
+      }
+
+      // Tauriバックエンドでファイル保存
+      const result = await invoke<{ success: boolean; path?: string; error?: string }>('save_thread_export', {
+        content,
+        defaultName: `thread_${thread.parent.ts}.${extension}`,
+        extension
+      });
+
+      if (result.success && result.path) {
+        showSuccess('Export complete', `Thread exported to ${result.path}`);
+      } else if (result.error) {
+        if (result.error === 'User cancelled') {
+          showInfo('Export cancelled', 'File save was cancelled');
+        } else {
+          showError('Export failed', result.error);
+        }
+      }
+    } catch (error) {
+      showError('Export failed', error instanceof Error ? error.message : String(error));
+    } finally {
+      showExportDialog = false;
+      // Refocus the thread view
+      requestAnimationFrame(() => {
+        if (threadViewElement) {
+          threadViewElement.focus();
+        }
+      });
+    }
+  }
+
+  function handleExportCancel() {
+    showExportDialog = false;
+    // Refocus the thread view
+    requestAnimationFrame(() => {
+      if (threadViewElement) {
+        threadViewElement.focus();
+      }
+    });
+  }
+
   // Handle focus events for expansion
   function handleContainerFocus() {
     isExpanded = true;
@@ -313,6 +395,14 @@
     const messages = getAllMessages();
     const totalMessages = messages.length;
 
+    // Check for Ctrl+E to export thread
+    if (event.key.toLowerCase() === 'e' && event.ctrlKey && !event.altKey && !event.metaKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      handleExportThread();
+      return;
+    }
+
     // Check for Alt+Enter to open URLs
     if (event.key === 'Enter' && event.altKey) {
       event.preventDefault();
@@ -322,7 +412,7 @@
       }
       return;
     }
-    
+
     switch (event.key) {
       case 'ArrowDown':
       case 'j':
@@ -688,6 +778,12 @@
       on:cancel={handlePostCancel}
     />
   {/if}
+
+  <ThreadExportDialog
+    visible={showExportDialog}
+    on:export={executeExport}
+    on:cancel={handleExportCancel}
+  />
 </div>
 
 <style>
