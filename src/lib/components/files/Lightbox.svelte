@@ -62,6 +62,9 @@
   // Only .docx files can be previewed with Mammoth.js (.doc files need to fall back to OfficePreview)
   $: isWord = file.type === 'word' && (file.file.name?.toLowerCase().endsWith('.docx') || file.file.mimetype?.includes('openxmlformats'));
   $: isOffice = file.type === 'powerpoint' || (file.type === 'word' && !isWord);
+  $: isGoogleSheets = file.type === 'google-sheets';
+  $: isGoogleDocs = file.type === 'google-docs';
+  $: isGoogleFile = isGoogleSheets || isGoogleDocs;
   // For lightbox, prioritize full size image (downloadUrl) over thumbnail
   $: displayUrl = fullImageUrl || file.downloadUrl || file.thumbnailUrl;
   
@@ -74,6 +77,12 @@
   // Load PDF when file changes
   $: if (file && isPdf) {
     loadPdf();
+  }
+
+  // Load large thumbnail for Google Docs/Sheets when file changes
+  $: if (file && isGoogleFile) {
+    fullImageUrl = null;
+    loadGoogleThumbnail();
   }
 
   function handleKeydown(event: KeyboardEvent) {
@@ -294,6 +303,12 @@
       if (wrapper) {
         wrapper.scrollTop = Math.max(0, wrapper.scrollTop - scrollSpeed);
       }
+    } else if (isGoogleFile) {
+      // For Google Docs/Sheets, scroll the thumbnail wrapper
+      const wrapper = containerDiv?.querySelector('.google-thumbnail-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = Math.max(0, wrapper.scrollTop - scrollSpeed);
+      }
     }
   }
   
@@ -361,6 +376,15 @@
           wrapper.scrollTop + scrollSpeed
         );
       }
+    } else if (isGoogleFile) {
+      // For Google Docs/Sheets, scroll the thumbnail wrapper
+      const wrapper = containerDiv?.querySelector('.google-thumbnail-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = Math.min(
+          wrapper.scrollHeight - wrapper.clientHeight,
+          wrapper.scrollTop + scrollSpeed
+        );
+      }
     }
   }
   
@@ -414,6 +438,12 @@
     } else if (isOffice) {
       // For Office files, scroll the wrapper itself horizontally
       const wrapper = containerDiv?.querySelector('.office-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollLeft = Math.max(0, wrapper.scrollLeft - scrollSpeed);
+      }
+    } else if (isGoogleFile) {
+      // For Google Docs/Sheets, scroll the thumbnail wrapper horizontally
+      const wrapper = containerDiv?.querySelector('.google-thumbnail-wrapper');
       if (wrapper) {
         wrapper.scrollLeft = Math.max(0, wrapper.scrollLeft - scrollSpeed);
       }
@@ -494,6 +524,15 @@
           wrapper.scrollLeft + scrollSpeed
         );
       }
+    } else if (isGoogleFile) {
+      // For Google Docs/Sheets, scroll the thumbnail wrapper horizontally
+      const wrapper = containerDiv?.querySelector('.google-thumbnail-wrapper');
+      if (wrapper) {
+        wrapper.scrollLeft = Math.min(
+          wrapper.scrollWidth - wrapper.clientWidth,
+          wrapper.scrollLeft + scrollSpeed
+        );
+      }
     }
   }
   
@@ -535,6 +574,11 @@
       }
     } else if (isOffice) {
       const wrapper = containerDiv?.querySelector('.office-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = Math.max(0, wrapper.scrollTop - wrapper.clientHeight);
+      }
+    } else if (isGoogleFile) {
+      const wrapper = containerDiv?.querySelector('.google-thumbnail-wrapper');
       if (wrapper) {
         wrapper.scrollTop = Math.max(0, wrapper.scrollTop - wrapper.clientHeight);
       }
@@ -603,6 +647,14 @@
           wrapper.scrollTop + wrapper.clientHeight
         );
       }
+    } else if (isGoogleFile) {
+      const wrapper = containerDiv?.querySelector('.google-thumbnail-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = Math.min(
+          wrapper.scrollHeight - wrapper.clientHeight,
+          wrapper.scrollTop + wrapper.clientHeight
+        );
+      }
     }
   }
   
@@ -649,6 +701,11 @@
       if (wrapper) {
         wrapper.scrollTop = 0;
       }
+    } else if (isGoogleFile) {
+      const wrapper = containerDiv?.querySelector('.google-thumbnail-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = 0;
+      }
     }
   }
   
@@ -692,6 +749,11 @@
       }
     } else if (isOffice) {
       const wrapper = containerDiv?.querySelector('.office-preview-wrapper');
+      if (wrapper) {
+        wrapper.scrollTop = wrapper.scrollHeight - wrapper.clientHeight;
+      }
+    } else if (isGoogleFile) {
+      const wrapper = containerDiv?.querySelector('.google-thumbnail-wrapper');
       if (wrapper) {
         wrapper.scrollTop = wrapper.scrollHeight - wrapper.clientHeight;
       }
@@ -857,22 +919,22 @@
 
   async function loadFullImage() {
     if (!isImage || !file.file.url_private) return;
-    
+
     isLoadingFullImage = true;
     imageLoadError = false;
-    
+
     console.log('[Lightbox] Loading full image:', {
       name: file.file.name,
       url_private: file.file.url_private,
       size: file.file.size
     });
-    
+
     try {
       // For Slack images, fetch with authentication and convert to data URL
       if (file.file.url_private.startsWith('https://files.slack.com')) {
         const { createFileDataUrl } = await import('$lib/api/files');
         const dataUrl = await createFileDataUrl(
-          file.file.url_private, 
+          file.file.url_private,
           file.file.mimetype || 'image/jpeg'
         );
         fullImageUrl = dataUrl;
@@ -885,6 +947,51 @@
       console.error('[Lightbox] Failed to load full image:', error);
       imageLoadError = true;
       // Fall back to thumbnail if available
+      fullImageUrl = null;
+    } finally {
+      isLoadingFullImage = false;
+    }
+  }
+
+  async function loadGoogleThumbnail() {
+    if (!isGoogleFile) return;
+
+    isLoadingFullImage = true;
+    imageLoadError = false;
+
+    console.log('[Lightbox] Loading Google Docs/Sheets large thumbnail:', {
+      name: file.file.name,
+      type: file.type
+    });
+
+    try {
+      // Get the largest available thumbnail (960 or 1024)
+      const { getBestThumbnailUrl, createFileDataUrl } = await import('$lib/api/files');
+      const thumbnailUrl = getBestThumbnailUrl(file.file, 960);
+
+      if (!thumbnailUrl) {
+        console.log('[Lightbox] No thumbnail URL available for Google file');
+        imageLoadError = true;
+        return;
+      }
+
+      console.log('[Lightbox] Fetching large thumbnail:', thumbnailUrl);
+
+      // Fetch with authentication and convert to data URL
+      if (thumbnailUrl.startsWith('https://files.slack.com')) {
+        const dataUrl = await createFileDataUrl(
+          thumbnailUrl,
+          file.file.mimetype || 'image/jpeg'
+        );
+        fullImageUrl = dataUrl;
+        console.log('[Lightbox] Successfully loaded Google thumbnail as data URL');
+      } else {
+        // External thumbnail URL
+        fullImageUrl = thumbnailUrl;
+      }
+    } catch (error) {
+      console.error('[Lightbox] Failed to load Google thumbnail:', error);
+      imageLoadError = true;
       fullImageUrl = null;
     } finally {
       isLoadingFullImage = false;
@@ -1052,8 +1159,8 @@
           </button>
           
           <div class="separator-vertical"></div>
-        {:else if isImage}
-          <button 
+        {:else if isImage || isGoogleFile}
+          <button
             class="action-btn"
             on:click={zoomOut}
             title="Zoom out (-)">
@@ -1063,10 +1170,10 @@
               <line x1="14" y1="14" x2="17" y2="17" stroke="currentColor" stroke-width="1.5"/>
             </svg>
           </button>
-          
+
           <span class="zoom-level">{Math.round(zoomLevel * 100)}%</span>
-          
-          <button 
+
+          <button
             class="action-btn"
             on:click={zoomIn}
             title="Zoom in (+)">
@@ -1077,8 +1184,8 @@
               <line x1="14" y1="14" x2="17" y2="17" stroke="currentColor" stroke-width="1.5"/>
             </svg>
           </button>
-          
-          <button 
+
+          <button
             class="action-btn"
             on:click={resetZoom}
             title="Reset zoom (0)">
@@ -1086,7 +1193,7 @@
               <text x="10" y="14" text-anchor="middle" font-size="12" fill="currentColor">1:1</text>
             </svg>
           </button>
-          
+
           <div class="separator-vertical"></div>
         {/if}
         
@@ -1232,6 +1339,86 @@
               compact={false}
             />
           {/key}
+        </div>
+      {:else if isGoogleFile}
+        <div class="google-docs-lightbox">
+          <div class="google-preview-content">
+            <!-- Large thumbnail image -->
+            <div
+              class="google-thumbnail-wrapper"
+              class:zoomed={isZoomed}
+              on:dblclick={toggleZoom}
+            >
+              {#if isLoadingFullImage}
+                <div class="google-loading">
+                  <div class="spinner"></div>
+                  <p>Loading preview...</p>
+                </div>
+              {:else if imageLoadError}
+                <div class="google-error">
+                  <svg class="error-icon" width="64" height="64" viewBox="0 0 48 48">
+                    <path fill="currentColor" d="M38 10v28H10V10h28zm0-2H10c-1.1 0-2 .9-2 2v28c0 1.1.9 2 2 2h28c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2z"/>
+                    <path fill="currentColor" d="M27.5 19.5l-5 6.5-3.5-4.5-5 6.5h20z"/>
+                  </svg>
+                  <p>Preview unavailable</p>
+                </div>
+              {:else if displayUrl}
+                <img
+                  src={displayUrl}
+                  alt={file.file.name}
+                  class="google-thumbnail"
+                  style="transform: scale({zoomLevel}); transform-origin: top left;"
+                />
+              {/if}
+            </div>
+
+            <!-- Metadata panel -->
+            <div class="google-metadata-panel">
+              <div class="google-icon-large">
+                {isGoogleSheets ? '📊' : '📄'}
+              </div>
+              <h3 class="google-file-name">{file.file.name || file.file.title}</h3>
+              <p class="google-file-type">
+                {isGoogleSheets ? 'Spreadsheet' : 'Document'} in Google {isGoogleSheets ? 'Sheets' : 'Docs'}
+              </p>
+
+              <!-- Page 1 preview notice -->
+              <div class="google-page-notice">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink: 0;">
+                  <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM0 8a8 8 0 1116 0A8 8 0 010 8z"/>
+                  <path d="M6.5 7.75A.75.75 0 017.25 7h1a.75.75 0 01.75.75v2.75h.25a.75.75 0 010 1.5h-2a.75.75 0 010-1.5h.25v-2h-.25a.75.75 0 01-.75-.75zM8 6a1 1 0 100-2 1 1 0 000 2z"/>
+                </svg>
+                <span>Showing page 1 preview only. Open in Google {isGoogleSheets ? 'Sheets' : 'Docs'} to view the full {isGoogleSheets ? 'spreadsheet' : 'document'}.</span>
+              </div>
+
+              <div class="google-metadata-grid">
+                {#if file.file.size}
+                  <div class="metadata-item">
+                    <span class="label">Size</span>
+                    <span class="value">{formatFileSize(file.file.size)}</span>
+                  </div>
+                {/if}
+                {#if file.file.created}
+                  <div class="metadata-item">
+                    <span class="label">Created</span>
+                    <span class="value">{new Date(file.file.created * 1000).toLocaleDateString()}</span>
+                  </div>
+                {/if}
+              </div>
+
+              <!-- Open in Google button (enhanced) -->
+              <button
+                class="open-in-google-btn enhanced"
+                on:click={() => window.open(file.file.url_private, '_blank')}
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z"/>
+                  <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z"/>
+                </svg>
+                Open Full {isGoogleSheets ? 'Spreadsheet' : 'Document'}
+              </button>
+            </div>
+          </div>
         </div>
       {:else}
         <div class="generic-preview">
@@ -1654,6 +1841,213 @@
     border-radius: 8px;
     /* Ensure proper scrolling with transform: scale() */
     display: inline-block;
+  }
+
+  /* Google Docs/Sheets Lightbox Styles */
+  .google-docs-lightbox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    padding: 2rem;
+  }
+
+  .google-preview-content {
+    display: flex;
+    gap: 2rem;
+    max-width: 1200px;
+    width: 100%;
+    height: 100%;
+    align-items: stretch;
+  }
+
+  .google-thumbnail-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    min-width: 0;
+    max-height: calc(90vh - 8rem);
+    overflow: auto;
+    cursor: zoom-in;
+    position: relative;
+  }
+
+  .google-thumbnail-wrapper.zoomed {
+    cursor: zoom-out;
+  }
+
+  .google-thumbnail {
+    max-width: 100%;
+    max-height: 70vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease;
+    user-select: none;
+    display: block;
+  }
+
+  .google-thumbnail-wrapper.zoomed .google-thumbnail {
+    max-width: none;
+    max-height: none;
+  }
+
+  .google-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 3rem;
+    color: var(--color-text-secondary);
+  }
+
+  .google-loading .spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--color-border);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  .google-loading p {
+    font-size: 0.875rem;
+    margin: 0;
+  }
+
+  .google-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 3rem;
+    color: var(--color-text-secondary);
+  }
+
+  .google-error .error-icon {
+    opacity: 0.5;
+  }
+
+  .google-error p {
+    font-size: 0.875rem;
+    margin: 0;
+  }
+
+  .google-metadata-panel {
+    flex: 0 0 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 2rem;
+    background: var(--color-surface-elevated);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .google-icon-large {
+    font-size: 3rem;
+    text-align: center;
+  }
+
+  .google-file-name {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0;
+    word-wrap: break-word;
+  }
+
+  .google-file-type {
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+    margin: 0;
+  }
+
+  .google-metadata-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .metadata-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .metadata-item .label {
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .metadata-item .value {
+    color: var(--color-text-primary);
+    font-size: 0.875rem;
+  }
+
+  .google-page-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    margin: 1rem 0;
+    background: rgba(88, 166, 255, 0.1);
+    border: 1px solid rgba(88, 166, 255, 0.3);
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: #58a6ff;
+  }
+
+  .google-page-notice span {
+    flex: 1;
+  }
+
+  .open-in-google-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: #4285f4;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .open-in-google-btn.enhanced {
+    padding: 1rem 1.5rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(66, 133, 244, 0.25);
+  }
+
+  .open-in-google-btn:hover {
+    background: #3367d6;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+  }
+
+  .open-in-google-btn.enhanced:hover {
+    box-shadow: 0 6px 16px rgba(66, 133, 244, 0.4);
+  }
+
+  .open-in-google-btn:active {
+    transform: translateY(0);
   }
 
   .error-message {
