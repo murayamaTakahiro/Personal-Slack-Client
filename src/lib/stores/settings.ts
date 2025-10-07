@@ -63,6 +63,7 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   toggleSavedSearches: 'Ctrl+/',
   saveCurrentSearch: 'Ctrl+Shift+S',
   quickSaveSearch: 'Alt+S',
+  refreshSearch: 'Ctrl+Shift+R',
   // Lightbox shortcuts
   openLightbox: 'i',
   lightboxNext: ['ArrowRight', 'l', 'Tab'],

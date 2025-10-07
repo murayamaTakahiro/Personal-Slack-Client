@@ -12,7 +12,7 @@
   const shortcutCategories: ShortcutCategory[] = [
     {
       name: 'Search & Navigation',
-      shortcuts: ['executeSearch', 'toggleAdvancedSearch', 'focusSearchBar', 'newSearch', 'clearSearch']
+      shortcuts: ['executeSearch', 'toggleAdvancedSearch', 'focusSearchBar', 'newSearch', 'clearSearch', 'refreshSearch']
     },
     {
       name: 'Focus Controls',
@@ -90,7 +90,8 @@
     zoomIn: 'Ctrl+=',
     zoomOut: 'Ctrl+-',
     zoomReset: 'Ctrl+0',
-    toggleChannelFavorite: 'f'
+    toggleChannelFavorite: 'f',
+    refreshSearch: 'Ctrl+Shift+R'
   };
   
   let editingShortcut: keyof KeyboardShortcuts | null = null;
@@ -147,7 +148,8 @@
     zoomIn: 'Zoom In',
     zoomOut: 'Zoom Out',
     zoomReset: 'Reset Zoom',
-    toggleChannelFavorite: 'Toggle Channel Favorite'
+    toggleChannelFavorite: 'Toggle Channel Favorite',
+    refreshSearch: 'Refresh Search (Get New Messages)'
   };
   
   const shortcutContexts: Record<string, string> = {
@@ -190,7 +192,8 @@
     zoomIn: 'Available anywhere in the app',
     zoomOut: 'Available anywhere in the app',
     zoomReset: 'Available anywhere in the app',
-    toggleChannelFavorite: 'When a channel is selected'
+    toggleChannelFavorite: 'When a channel is selected',
+    refreshSearch: 'When search results are displayed (not in live mode)'
   };
   
   onMount(() => {

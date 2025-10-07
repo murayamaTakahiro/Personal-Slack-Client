@@ -89,10 +89,15 @@
             description: 'Clear Search',
             shortcut: shortcuts.clearSearch || 'Escape'
           },
-          { 
-            key: 'toggleAdvancedSearch', 
+          {
+            key: 'toggleAdvancedSearch',
             description: 'Toggle Advanced Search',
             shortcut: shortcuts.toggleAdvancedSearch || 'Ctrl+Shift+F'
+          },
+          {
+            key: 'refreshSearch',
+            description: '検索を更新（新規メッセージを取得）',
+            shortcut: shortcuts.refreshSearch || 'Ctrl+Shift+R'
           }
         ]
       },

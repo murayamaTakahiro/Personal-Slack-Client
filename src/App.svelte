@@ -1093,6 +1093,35 @@
       
       console.log('[App] saveCurrentSearch handler registered successfully');
 
+      // Refresh Search - re-execute search with same conditions
+      keyboardService.registerHandler('refreshSearch', {
+        action: () => {
+          // 1. ライブモード時は何もせず終了（サイレント）
+          if (get(realtimeStore).isEnabled) {
+            return;
+          }
+
+          // 2. SearchBar が存在するか確認
+          if (!searchBarElement?.triggerRealtimeSearch) {
+            console.warn('[App] Search refresh unavailable: SearchBar not ready');
+            return;
+          }
+
+          // 3. 検索が実行済みか確認（未実行時もサイレント）
+          if (!get(searchParams) || !get(searchResults)) {
+            return;
+          }
+
+          // 4. リフレッシュ実行
+          console.log('[App] Refreshing search with current conditions');
+          searchBarElement.triggerRealtimeSearch();
+          showToast('検索を更新しました', 'info');
+        },
+        allowInInput: false  // 入力中は無効
+      });
+
+      console.log('[App] refreshSearch handler registered successfully');
+
       // Removed Ctrl+Alt+1-9 shortcuts for favorite users
       // These shortcuts had compatibility issues across platforms
       // Users can select favorites through the UI instead

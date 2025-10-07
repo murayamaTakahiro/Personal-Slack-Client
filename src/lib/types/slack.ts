@@ -152,6 +152,7 @@ export interface KeyboardShortcuts {
   toggleSavedSearches?: string | string[];
   saveCurrentSearch?: string | string[];
   quickSaveSearch?: string | string[];
+  refreshSearch?: string | string[];
   // Lightbox shortcuts
   openLightbox?: string | string[];
   lightboxNext?: string | string[];
