@@ -200,6 +200,9 @@
               • thread.md (Markdown file)<br>
               • attachments/ (all files)<br>
               <br>
+              💡 <strong>Tip:</strong> Select an existing parent folder (e.g., Downloads).<br>
+              A new folder with the thread name will be created inside it.<br>
+              <br>
               Images will automatically display in Markdown viewers!
             </div>
           </div>

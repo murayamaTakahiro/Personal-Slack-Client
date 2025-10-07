@@ -94,10 +94,15 @@ pub async fn save_thread_export_folder(
     info!("Saving thread export folder with name: {}", folder_name);
 
     // Create folder save dialog
+    // Note: We don't use set_file_name here because it causes confusion.
+    // The user selects a parent folder, and we create the thread folder inside it.
     let folder_path = app
         .dialog()
         .file()
-        .set_file_name(&folder_name)
+        .set_title(&format!(
+            "Select parent folder (new folder '{}' will be created inside)",
+            folder_name
+        ))
         .blocking_pick_folder();
 
     match folder_path {
