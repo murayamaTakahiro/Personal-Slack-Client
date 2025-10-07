@@ -293,34 +293,66 @@
     try {
       showInfo('Exporting...', 'Preparing thread export');
 
-      let content: string;
-      let extension: string;
-
       const channelName = message.channelName || message.channel;
       const channelId = message.channel;
 
-      if (options.format === 'tsv') {
-        content = await exportService.exportToTSV(thread, channelName, channelId, options);
-        extension = 'tsv';
+      if (options.format === 'markdown-folder') {
+        // Folder export with attachments
+        const { markdown, attachments } = await exportService.exportToMarkdownFolder(
+          thread,
+          channelName,
+          channelId,
+          options
+        );
+
+        const result = await invoke<{ success: boolean; path?: string; error?: string }>(
+          'save_thread_export_folder',
+          {
+            folderName: `thread_${thread.parent.ts}`,
+            markdownContent: markdown,
+            attachments: attachments
+          }
+        );
+
+        if (result.success && result.path) {
+          showSuccess('Export complete', `Thread folder created at ${result.path}`);
+        } else if (result.error) {
+          if (result.error === 'User cancelled') {
+            showInfo('Export cancelled', 'Folder save was cancelled');
+          } else {
+            showError('Export failed', result.error);
+          }
+        }
       } else {
-        content = await exportService.exportToMarkdown(thread, channelName, channelId, options);
-        extension = 'md';
-      }
+        // Single file export (TSV or Markdown)
+        let content: string;
+        let extension: string;
 
-      // Tauriバックエンドでファイル保存
-      const result = await invoke<{ success: boolean; path?: string; error?: string }>('save_thread_export', {
-        content,
-        defaultName: `thread_${thread.parent.ts}.${extension}`,
-        extension
-      });
-
-      if (result.success && result.path) {
-        showSuccess('Export complete', `Thread exported to ${result.path}`);
-      } else if (result.error) {
-        if (result.error === 'User cancelled') {
-          showInfo('Export cancelled', 'File save was cancelled');
+        if (options.format === 'tsv') {
+          content = await exportService.exportToTSV(thread, channelName, channelId, options);
+          extension = 'tsv';
         } else {
-          showError('Export failed', result.error);
+          content = await exportService.exportToMarkdown(thread, channelName, channelId, options);
+          extension = 'md';
+        }
+
+        const result = await invoke<{ success: boolean; path?: string; error?: string }>(
+          'save_thread_export',
+          {
+            content,
+            defaultName: `thread_${thread.parent.ts}.${extension}`,
+            extension
+          }
+        );
+
+        if (result.success && result.path) {
+          showSuccess('Export complete', `Thread exported to ${result.path}`);
+        } else if (result.error) {
+          if (result.error === 'User cancelled') {
+            showInfo('Export cancelled', 'File save was cancelled');
+          } else {
+            showError('Export failed', result.error);
+          }
         }
       }
     } catch (error) {
@@ -359,6 +391,11 @@
   }
 
   function handleKeyDown(event: KeyboardEvent) {
+    // Don't handle keys if export dialog is open
+    if (document.querySelector('.export-dialog')) {
+      return;
+    }
+
     // Debug all key events in ThreadView
     console.log('[ThreadView] handleKeyDown called:', {
       key: event.key,
@@ -536,6 +573,11 @@
 
     // Add event listener in capture phase to handle Q and I keys before KeyboardService
     const handleSpecialKeys = (event: KeyboardEvent) => {
+      // Don't handle keys if export dialog is open
+      if (document.querySelector('.export-dialog')) {
+        return;
+      }
+
       // Debug logging for "i" key
       if (event.key.toLowerCase() === 'i') {
         console.log('[ThreadView] handleSpecialKeys: "i" key detected in CAPTURE phase', {

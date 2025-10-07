@@ -105,6 +105,7 @@ pub fn run() {
             commands::upload::get_file_info,
             commands::upload::upload_files_batch,
             commands::export::save_thread_export,
+            commands::export::save_thread_export_folder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

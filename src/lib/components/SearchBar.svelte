@@ -217,6 +217,11 @@
   }
   
   function handleKeydown(e: KeyboardEvent) {
+    // Don't handle keys if export dialog is open
+    if (document.querySelector('.export-dialog')) {
+      return;
+    }
+
     // Handle arrow keys for keyword history navigation
     if (showKeywordHistory && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
       // Let the SearchKeywordHistory component handle navigation
@@ -320,9 +325,14 @@
   }
   
   function handleDateKeydown(e: KeyboardEvent) {
+    // Don't handle keys if export dialog is open
+    if (document.querySelector('.export-dialog')) {
+      return;
+    }
+
     const input = e.target as HTMLInputElement;
     const currentValue = input.value;
-    
+
     // Handle arrow keys to prevent invalid date clearing
     if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && currentValue) {
       const dateParts = currentValue.split('-');
@@ -435,6 +445,11 @@
   }
 
   function handleUrlKeydown(e: KeyboardEvent) {
+    // Don't handle keys if export dialog is open
+    if (document.querySelector('.export-dialog')) {
+      return;
+    }
+
     // Handle Enter and Ctrl+Enter for URL paste when this input has focus
     // Focus-based isolation: if this input has focus, PostDialog doesn't,
     // so there's no conflict even if PostDialog is open

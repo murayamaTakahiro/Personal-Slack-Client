@@ -5,7 +5,7 @@
 
   export let visible = false;
 
-  let format: 'tsv' | 'markdown' = 'markdown';
+  let format: ExportOptions['format'] = 'markdown';
   let attachmentHandling: ExportOptions['attachmentHandling'] = 'data-url';
   let includeReactions = true;
   let includeUserInfo = true;
@@ -37,7 +37,9 @@
     if (!visible) return;
 
     // Stop all key events from propagating when dialog is open
+    // Use stopImmediatePropagation to prevent other capture phase listeners (e.g., ThreadView)
     event.stopPropagation();
+    event.stopImmediatePropagation();
 
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -45,6 +47,12 @@
     } else if (event.key === 'Enter' && event.ctrlKey) {
       event.preventDefault();
       handleExport();
+    } else if (event.key === 'Enter') {
+      // Prevent Enter key from propagating to background (e.g., message list)
+      event.preventDefault();
+    } else if (event.key === ' ') {
+      // Prevent Space key from scrolling the background
+      event.preventDefault();
     } else if (event.key === 'Tab') {
       // Trap focus within the dialog
       event.preventDefault();
@@ -130,8 +138,15 @@
             <label class="radio-option">
               <input type="radio" bind:group={format} value="markdown" />
               <div class="radio-content">
-                <div class="radio-title">Markdown</div>
+                <div class="radio-title">Markdown (Single File)</div>
                 <div class="radio-description">Readable format, ideal for documentation</div>
+              </div>
+            </label>
+            <label class="radio-option">
+              <input type="radio" bind:group={format} value="markdown-folder" />
+              <div class="radio-content">
+                <div class="radio-title">Markdown + Attachments (Folder)</div>
+                <div class="radio-description">📁 Folder with markdown + attachment files - images auto-display</div>
               </div>
             </label>
             <label class="radio-option">
@@ -144,26 +159,38 @@
           </div>
         </div>
 
-        <div class="option-group">
-          <label class="option-label">Attachments</label>
-          <select bind:value={attachmentHandling} class="select-input">
-            <option value="data-url">Embed file content (recommended for LLM)</option>
-            <option value="permalink-only">Slack permalinks</option>
-            <option value="download">Download files locally</option>
-            <option value="authenticated-url">Authenticated URLs (experimental)</option>
-          </select>
-          <p class="option-help">
-            {#if attachmentHandling === 'data-url'}
-              Embed files as data URLs - ideal for sharing with LLMs (images, PDFs, text files)
-            {:else if attachmentHandling === 'permalink-only'}
-              Use permanent Slack links (requires Slack login to view)
-            {:else if attachmentHandling === 'download'}
-              Download files to your computer for offline access
-            {:else}
-              Experimental: May not work for all file types
-            {/if}
-          </p>
-        </div>
+        {#if format !== 'markdown-folder'}
+          <div class="option-group">
+            <label class="option-label">Attachments</label>
+            <select bind:value={attachmentHandling} class="select-input">
+              <option value="data-url">Embed file content (recommended for LLM)</option>
+              <option value="permalink-only">Slack permalinks</option>
+              <option value="download">Download files locally</option>
+              <option value="authenticated-url">Authenticated URLs (experimental)</option>
+            </select>
+            <p class="option-help">
+              {#if attachmentHandling === 'data-url'}
+                Embed files as data URLs - ideal for sharing with LLMs (images, PDFs, text files)
+              {:else if attachmentHandling === 'permalink-only'}
+                Use permanent Slack links (requires Slack login to view)
+              {:else if attachmentHandling === 'download'}
+                Download files to your computer for offline access
+              {:else}
+                Experimental: May not work for all file types
+              {/if}
+            </p>
+          </div>
+        {:else}
+          <div class="option-group">
+            <div class="info-box">
+              📦 Folder export will create:<br>
+              • thread.md (Markdown file)<br>
+              • attachments/ (all files)<br>
+              <br>
+              Images will automatically display in Markdown viewers!
+            </div>
+          </div>
+        {/if}
 
         <div class="option-group">
           <label class="checkbox-option">
@@ -437,6 +464,16 @@
     font-family: monospace;
     font-size: 0.75rem;
     color: var(--text-primary);
+  }
+
+  .info-box {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
   }
 
   @media (max-width: 640px) {

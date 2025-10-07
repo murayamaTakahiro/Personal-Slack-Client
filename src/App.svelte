@@ -605,6 +605,11 @@
   });
 
   function handleGlobalKeydown(event: KeyboardEvent) {
+    // Don't handle keys if export dialog is open
+    if (document.querySelector('.export-dialog')) {
+      return;
+    }
+
     // Debug logging for "i" key
     if (event.key.toLowerCase() === 'i') {
       console.log('[App] handleGlobalKeydown: "i" key detected', {

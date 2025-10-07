@@ -1,5 +1,5 @@
 export interface ExportOptions {
-  format: 'tsv' | 'markdown';
+  format: 'tsv' | 'markdown' | 'markdown-folder';
   attachmentHandling: 'data-url' | 'authenticated-url' | 'download' | 'permalink-only';
   includeReactions: boolean;
   includeUserInfo: boolean;
@@ -37,8 +37,19 @@ export interface ExportedAttachment {
   dataUrl?: string;
   authenticatedUrl?: string;
   downloadedPath?: string;
+  localPath?: string; // For folder export
   permalink: string;
   slackMessageLink: string;
+}
+
+export interface AttachmentFile {
+  filename: string;
+  content: string; // base64
+}
+
+export interface FolderExportResult {
+  markdown: string;
+  attachments: AttachmentFile[];
 }
 
 export interface ExportedReaction {
