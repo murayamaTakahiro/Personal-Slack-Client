@@ -2,6 +2,7 @@
   import { createEventDispatcher, onMount, onDestroy, tick } from 'svelte';
   import { postToChannel, postThreadReply } from '../api/slack';
   import MentionTextarea from './MentionTextarea.svelte';
+  import MessagePreview from './MessagePreview.svelte';
   import { mentionService } from '../services/mentionService';
   import { userService } from '../services/userService';
   import type { SlackUser } from '../types/slack';
@@ -304,14 +305,26 @@
       on:drop={handleDrop}
       on:paste={handlePaste}
     >
-      <MentionTextarea
-        bind:this={mentionTextarea}
-        value={text}
-        placeholder="Type your message... (Use @ to mention users)"
-        disabled={posting}
-        on:input={handleInput}
-        on:keydown={handleKeydown}
-      />
+      <div class="input-preview-container">
+        <!-- Input Section -->
+        <div class="input-section">
+          <MentionTextarea
+            bind:this={mentionTextarea}
+            value={text}
+            placeholder="Type your message... (Use @ to mention users)"
+            disabled={posting}
+            on:input={handleInput}
+            on:keydown={handleKeydown}
+          />
+        </div>
+
+        <!-- Preview Section -->
+        {#if text.trim().length > 0}
+          <div class="preview-section">
+            <MessagePreview text={text} />
+          </div>
+        {/if}
+      </div>
 
       <!-- File Upload Manager -->
       <FileUploadManager
@@ -392,8 +405,8 @@
     border: 1px solid var(--color-border);
     border-radius: 8px;
     width: 90%;
-    max-width: 600px;
-    max-height: 600px;
+    max-width: 900px;
+    max-height: 900px;
     display: flex;
     flex-direction: column;
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15), 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -540,6 +553,61 @@
     font-weight: 500;
     color: var(--color-primary);
     pointer-events: none;
+  }
+
+  /* Input-Preview Container - Responsive Side-by-Side Layout */
+  .input-preview-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 200px;
+    margin-bottom: 12px;
+  }
+
+  /* Desktop: side-by-side layout */
+  @media (min-width: 768px) {
+    .input-preview-container {
+      flex-direction: row;
+      gap: 16px;
+      min-height: 300px;
+    }
+
+    .input-section {
+      flex: 1 1 50%;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .preview-section {
+      flex: 1 1 50%;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Make textarea fill the height */
+    .input-section :global(textarea) {
+      height: 100%;
+      min-height: 300px;
+      resize: none;
+    }
+  }
+
+  /* Mobile: vertical stack */
+  @media (max-width: 767px) {
+    .input-section {
+      flex: 1;
+    }
+
+    .input-section :global(textarea) {
+      min-height: 200px;
+    }
+
+    .preview-section {
+      display: block;
+    }
   }
 
 

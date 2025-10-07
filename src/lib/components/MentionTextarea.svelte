@@ -3,54 +3,119 @@
   import { mentionService } from '../services/mentionService';
   import type { MentionContext } from '../services/mentionService';
   import type { SlackUser } from '../types/slack';
+  import type { EmojiSearchResult } from '../services/emojiSearchService';
   import MentionAutocomplete from './MentionAutocomplete.svelte';
-  
+  import EmojiAutocomplete from './EmojiAutocomplete.svelte';
+
   export let value: string = '';
   export let placeholder: string = '';
   export let disabled: boolean = false;
-  
+
   const dispatch = createEventDispatcher();
-  
+
   let textarea: HTMLTextAreaElement;
   let showAutocomplete = false;
   let mentionContext: MentionContext | null = null;
+  let showEmojiAutocomplete = false;
+  let emojiContext: { triggerPosition: number; searchQuery: string; cursorCoordinates: { x: number; y: number } } | null = null;
   
   function handleInput(event: Event) {
     const target = event.target as HTMLTextAreaElement;
     value = target.value;
-    
+
     const cursorPos = textarea.selectionStart;
+
+    // Check for mention trigger first (higher priority)
     mentionContext = mentionService.detectMentionTrigger(value, cursorPos);
-    
+
     if (mentionContext && textarea) {
       // Calculate cursor coordinates for dropdown positioning
       const coords = mentionService.getCursorCoordinates(textarea);
       mentionContext.cursorCoordinates = coords;
       showAutocomplete = true;
+      showEmojiAutocomplete = false; // Close emoji autocomplete
     } else {
       showAutocomplete = false;
+
+      // Check for emoji trigger only if mention autocomplete is not active
+      emojiContext = detectEmojiTrigger(value, cursorPos);
+
+      if (emojiContext && textarea) {
+        const coords = mentionService.getCursorCoordinates(textarea);
+        emojiContext.cursorCoordinates = coords;
+        showEmojiAutocomplete = true;
+      } else {
+        showEmojiAutocomplete = false;
+      }
     }
-    
+
     dispatch('input', { value });
+  }
+
+  function detectEmojiTrigger(text: string, cursorPos: number): { triggerPosition: number; searchQuery: string; cursorCoordinates: { x: number; y: number } } | null {
+    if (cursorPos === 0) return null;
+
+    // Look backwards from cursor to find : emoji trigger
+    let searchStart = cursorPos - 1;
+
+    // Search backwards for :
+    while (searchStart >= 0) {
+      const char = text[searchStart];
+
+      // Found : character
+      if (char === ':') {
+        // Check if it's at the beginning or preceded by whitespace
+        const prevChar = searchStart > 0 ? text[searchStart - 1] : null;
+        const isValidPosition = prevChar === null || prevChar === ' ' || prevChar === '\n' || prevChar === '\r' || prevChar === '\t';
+
+        if (isValidPosition) {
+          const searchQuery = text.substring(searchStart + 1, cursorPos);
+
+          // Only trigger if search query is at least 1 character
+          if (searchQuery.length >= 1) {
+            return {
+              triggerPosition: searchStart,
+              searchQuery,
+              cursorCoordinates: { x: 0, y: 0 } // Will be calculated later
+            };
+          }
+        }
+        // : is not at a valid position or query is too short
+        return null;
+      }
+
+      // Check if we're still in a valid emoji context
+      // Allow alphanumeric, dash, and underscore
+      const isValidChar = /^[\w-]$/.test(char);
+
+      // If we hit whitespace or invalid char, stop searching
+      if (!isValidChar && char !== ':') {
+        return null;
+      }
+
+      searchStart--;
+    }
+
+    return null;
   }
   
   function handleMentionSelect(event: CustomEvent<{ user: SlackUser }>) {
     const { user } = event.detail;
-    
+
     if (!mentionContext) return;
-    
+
     // Record this mention in history
     mentionService.recordMention(user.id);
-    
+
     // Insert the mention
     const before = value.substring(0, mentionContext.triggerPosition);
     const after = value.substring(textarea.selectionStart);
     const mentionText = `@${user.displayName || user.realName || user.name}`;
-    
+
     value = `${before}${mentionText} ${after}`;
     showAutocomplete = false;
     mentionContext = null;
-    
+
     // Set cursor position after the mention
     setTimeout(() => {
       if (textarea) {
@@ -59,13 +124,40 @@
         textarea.focus();
       }
     }, 0);
-    
+
     dispatch('input', { value });
     dispatch('mentionSelect', { user });
   }
+
+  function handleEmojiSelect(event: CustomEvent<{ emoji: EmojiSearchResult }>) {
+    const { emoji } = event.detail;
+
+    if (!emojiContext) return;
+
+    // Insert the emoji
+    const before = value.substring(0, emojiContext.triggerPosition);
+    const after = value.substring(textarea.selectionStart);
+    const emojiText = `:${emoji.name}:`;
+
+    value = `${before}${emojiText} ${after}`;
+    showEmojiAutocomplete = false;
+    emojiContext = null;
+
+    // Set cursor position after the emoji
+    setTimeout(() => {
+      if (textarea) {
+        const newCursorPos = before.length + emojiText.length + 1;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+        textarea.focus();
+      }
+    }, 0);
+
+    dispatch('input', { value });
+    dispatch('emojiSelect', { emoji });
+  }
   
   function handleKeydown(event: KeyboardEvent) {
-    // Handle special keys when autocomplete is open
+    // Handle special keys when mention autocomplete is open
     if (showAutocomplete) {
       // These keys are handled by the autocomplete component
       if (['ArrowDown', 'ArrowUp', 'Tab', 'Enter', 'Escape'].includes(event.key)) {
@@ -76,6 +168,22 @@
           event.stopPropagation();
           showAutocomplete = false;
           mentionContext = null;
+          return; // Don't dispatch to parent
+        }
+        // Don't pass arrow keys, Tab, or Enter to parent when autocomplete is open
+        return;
+      }
+    }
+
+    // Handle special keys when emoji autocomplete is open
+    if (showEmojiAutocomplete) {
+      // These keys are handled by the emoji autocomplete component
+      if (['ArrowDown', 'ArrowUp', 'Tab', 'Enter', 'Escape'].includes(event.key)) {
+        // Autocomplete will handle these keys
+        if (event.key === 'Escape') {
+          event.stopPropagation();
+          showEmojiAutocomplete = false;
+          emojiContext = null;
           return; // Don't dispatch to parent
         }
         // Don't pass arrow keys, Tab, or Enter to parent when autocomplete is open
@@ -105,6 +213,12 @@
   function handleAutocompleteClose() {
     showAutocomplete = false;
     mentionContext = null;
+    textarea?.focus();
+  }
+
+  function handleEmojiAutocompleteClose() {
+    showEmojiAutocomplete = false;
+    emojiContext = null;
     textarea?.focus();
   }
   
@@ -151,13 +265,22 @@
     on:blur
     on:focus
   />
-  
+
   {#if showAutocomplete && mentionContext}
     <MentionAutocomplete
       searchQuery={mentionContext.searchQuery}
       position={mentionContext.cursorCoordinates}
       on:select={handleMentionSelect}
       on:close={handleAutocompleteClose}
+    />
+  {/if}
+
+  {#if showEmojiAutocomplete && emojiContext}
+    <EmojiAutocomplete
+      searchQuery={emojiContext.searchQuery}
+      position={emojiContext.cursorCoordinates}
+      on:select={handleEmojiSelect}
+      on:close={handleEmojiAutocompleteClose}
     />
   {/if}
 </div>
