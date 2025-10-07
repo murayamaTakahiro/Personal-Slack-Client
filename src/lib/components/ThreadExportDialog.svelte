@@ -41,6 +41,13 @@
     event.stopPropagation();
     event.stopImmediatePropagation();
 
+    // Check if the event target is a focusable input element
+    const target = event.target as HTMLElement;
+    const isFocusableInput =
+      target.tagName === 'INPUT' ||
+      target.tagName === 'SELECT' ||
+      target.tagName === 'BUTTON';
+
     if (event.key === 'Escape') {
       event.preventDefault();
       handleCancel();
@@ -48,11 +55,17 @@
       event.preventDefault();
       handleExport();
     } else if (event.key === 'Enter') {
-      // Prevent Enter key from propagating to background (e.g., message list)
-      event.preventDefault();
+      // Allow Enter to trigger buttons/inputs, but prevent propagation to background
+      if (!isFocusableInput) {
+        event.preventDefault();
+      }
+      // If focusable input, let default action happen (e.g., button click)
     } else if (event.key === ' ') {
-      // Prevent Space key from scrolling the background
-      event.preventDefault();
+      // Allow Space to toggle checkboxes/radio buttons, but prevent background scroll
+      if (!isFocusableInput) {
+        event.preventDefault();
+      }
+      // If focusable input, let default action happen (e.g., checkbox toggle)
     } else if (event.key === 'Tab') {
       // Trap focus within the dialog
       event.preventDefault();
