@@ -30,6 +30,10 @@
   let focusedIndex = -1;
   let focusableElements: HTMLElement[] = [];
   let selectedWorkspaceForAction: Workspace | null = null;
+
+  // Dropdown positioning
+  let dropdownTop = 0;
+  let dropdownLeft = 0;
   
   $: currentWorkspace = $activeWorkspace;
   $: workspaceList = $sortedWorkspaces;
@@ -46,6 +50,13 @@
       resetNewWorkspaceForm();
       focusedIndex = -1;
     } else {
+      // Calculate dropdown position based on button position
+      if (workspaceButtonElement) {
+        const rect = workspaceButtonElement.getBoundingClientRect();
+        dropdownTop = rect.bottom + 8; // 8px gap (0.5rem)
+        dropdownLeft = rect.left;
+      }
+
       // Wait for dropdown to render
       await tick();
       updateFocusableElements();
@@ -406,26 +417,46 @@
   // Close dropdown when clicking outside
   function handleClickOutside(event: MouseEvent) {
     const target = event.target as HTMLElement;
-    if (!target.closest('.workspace-switcher')) {
+    if (!target.closest('.workspace-switcher') && !target.closest('.workspace-dropdown')) {
       closeDropdown();
     }
   }
-  
+
+  // Close dropdown when pressing Escape key
+  function handleGlobalKeydown(event: KeyboardEvent) {
+    console.log('[WorkspaceSwitcher] Global keydown:', event.key, 'isOpen:', isOpen);
+    if (event.key === 'Escape') {
+      console.log('[WorkspaceSwitcher] Escape key detected, closing dropdown');
+      event.preventDefault();
+      event.stopPropagation();
+      closeDropdown();
+    }
+  }
+
   // Add event listener when dropdown opens, remove when closes
   $: if (typeof window !== 'undefined') {
     if (isOpen) {
+      console.log('[WorkspaceSwitcher] Dropdown opened, adding event listeners');
       // Add a small delay to prevent immediate closure
       setTimeout(() => {
         document.addEventListener('click', handleClickOutside);
+        // Use capture phase (true) to handle Escape before other handlers
+        document.addEventListener('keydown', handleGlobalKeydown, true);
+        console.log('[WorkspaceSwitcher] Event listeners added (keydown in capture phase)');
       }, 10);
     } else {
+      console.log('[WorkspaceSwitcher] Dropdown closed, removing event listeners');
       document.removeEventListener('click', handleClickOutside);
+      // Must match the capture flag used in addEventListener
+      document.removeEventListener('keydown', handleGlobalKeydown, true);
     }
   }
-  
+
   onDestroy(() => {
     if (typeof document !== 'undefined') {
       document.removeEventListener('click', handleClickOutside);
+      // Must match the capture flag used in addEventListener
+      document.removeEventListener('keydown', handleGlobalKeydown, true);
     }
   });
 </script>
@@ -477,12 +508,14 @@
   </button>
   
   {#if isOpen}
-    <div 
-      class="workspace-dropdown" 
+    <div
+      class="workspace-dropdown"
       bind:this={dropdownElement}
       on:focusin={handleFocusIn}
+      on:keydown={handleKeydown}
       role="menu"
       aria-label="Workspace menu"
+      style="top: {dropdownTop}px; left: {dropdownLeft}px;"
     >
       {#if !addingWorkspace}
         <div class="workspace-list">
@@ -836,15 +869,13 @@
   }
   
   .workspace-dropdown {
-    position: absolute;
-    top: calc(100% + 0.5rem);
-    left: 0;
+    position: fixed;
     min-width: 320px;
     background: var(--bg-primary);
     border: 1px solid var(--border);
     border-radius: 12px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-    z-index: 1000;
+    z-index: 10000;
     overflow: hidden;
   }
   

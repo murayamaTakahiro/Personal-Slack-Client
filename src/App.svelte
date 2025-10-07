@@ -2049,6 +2049,9 @@
     margin-bottom: 0.5rem;
     flex-shrink: 0; /* Prevent header from shrinking */
     box-shadow: var(--shadow-sm);
+    position: relative;
+    z-index: 100;
+    overflow: visible;
   }
 
   .app-header > :last-child {
