@@ -646,6 +646,7 @@
     border-radius: 4px;
     cursor: pointer;
     font-size: 13px;
+    color: var(--color-text);
     display: flex;
     align-items: center;
     gap: 4px;
