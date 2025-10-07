@@ -995,13 +995,13 @@
       allowInInput: false  // Don't trigger when typing in inputs
     });
     
-    // Toggle Emoji Search Dialog
-    keyboardService.registerHandler('toggleEmojiSearch', {
-      action: () => {
-        showEmojiSearch = !showEmojiSearch;
-      },
-      allowInInput: true  // Allow from anywhere for quick emoji access
-    });
+    // Toggle Emoji Search Dialog - DISABLED (conflicts with exportThread)
+    // keyboardService.registerHandler('toggleEmojiSearch', {
+    //   action: () => {
+    //     showEmojiSearch = !showEmojiSearch;
+    //   },
+    //   allowInInput: true  // Allow from anywhere for quick emoji access
+    // });
     
     // Toggle Channel Favorite
     keyboardService.registerHandler('toggleChannelFavorite', {
