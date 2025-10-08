@@ -52,6 +52,9 @@
   // Text-specific state
   let textPreviewRef: any;
 
+  // CSV-specific state
+  let csvPreviewRef: any;
+
   $: hasNext = currentIndex < allFiles.length - 1;
   $: hasPrevious = currentIndex > 0;
   $: isImage = file.type === 'image';
@@ -246,15 +249,19 @@
         downloadAllFiles();
         break;
       case 'c':
-        // c - Copy text content to clipboard (for text files)
+        // c - Copy content to clipboard (for text/CSV files)
         if (isText && textPreviewRef) {
           textPreviewRef.copyToClipboard();
+        } else if (isCsv && csvPreviewRef) {
+          csvPreviewRef.exportToClipboard();
         }
         break;
       case 'C':
-        // C (Shift+c) - Copy text content to clipboard (for text files)
+        // C (Shift+c) - Copy content to clipboard (for text/CSV files)
         if (isText && textPreviewRef) {
           textPreviewRef.copyToClipboard();
+        } else if (isCsv && csvPreviewRef) {
+          csvPreviewRef.exportToClipboard();
         }
         break;
     }
@@ -1306,6 +1313,7 @@
       {:else if isCsv}
         <div class="csv-preview-wrapper" style="zoom: {zoomLevel};">
           <CsvPreview
+            bind:this={csvPreviewRef}
             file={file.file}
             workspaceId={$activeWorkspace?.id || 'default'}
             compact={false}

@@ -259,13 +259,14 @@
     }
   }
 
-  function exportToClipboard() {
-    const csvContent = [headers, ...tableData]
-      .map(row => row.join(delimiter))
+  export function exportToClipboard() {
+    // Always use tab delimiter for clipboard (better for Excel/Sheets paste)
+    const tsvContent = [headers, ...tableData]
+      .map(row => row.join('\t'))
       .join('\n');
 
-    navigator.clipboard.writeText(csvContent).then(() => {
-      showSuccess('Copied', 'Table data copied to clipboard', 2000);
+    navigator.clipboard.writeText(tsvContent).then(() => {
+      showSuccess('Copied', 'Table data copied to clipboard (TSV format)', 2000);
     }).catch((err) => {
       showError('Copy failed', 'Failed to copy table data', 3000);
     });
@@ -344,8 +345,14 @@
           <table class="data-table header-table">
             <thead>
               <tr>
-                {#each headers as header}
-                  <th>{header}</th>
+                {#each headers as header, index}
+                  <th
+                    class="csv-column"
+                    data-column-index={index}
+                    style="background-color: var(--csv-col-{index % 10})"
+                  >
+                    {header}
+                  </th>
                 {/each}
               </tr>
             </thead>
@@ -356,8 +363,14 @@
             <tbody>
               {#each tableData as row, rowIndex}
                 <tr class:even={rowIndex % 2 === 0}>
-                  {#each row as cell}
-                    <td>{cell}</td>
+                  {#each row as cell, cellIndex}
+                    <td
+                      class="csv-column"
+                      data-column-index={cellIndex}
+                      style="background-color: var(--csv-col-{cellIndex % 10})"
+                    >
+                      {cell}
+                    </td>
                   {/each}
                 </tr>
               {/each}
@@ -635,6 +648,24 @@
     color: var(--color-primary-hover);
   }
 
+  /* Rainbow CSV Column Highlighting */
+  .data-table th.csv-column,
+  .data-table td.csv-column {
+    transition: filter 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .data-table th.csv-column:hover,
+  .data-table td.csv-column:hover {
+    filter: brightness(1.2);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  }
+
+  /* Harmony between stripe rows and column colors */
+  .data-table tbody tr.even td.csv-column {
+    background-image: linear-gradient(var(--color-stripe-bg), var(--color-stripe-bg));
+    background-blend-mode: multiply;
+  }
+
   :global([data-theme="dark"]) {
     --color-surface: #1a1d21;
     --color-border: #565856;
@@ -652,6 +683,18 @@
     --color-warning: #d4a72c;
     --color-warning-bg: rgba(212, 167, 44, 0.1);
     --color-warning-text: #f5e3a3;
+
+    /* Rainbow CSV Color Palette (Dark Theme) */
+    --csv-col-0: rgba(142, 192, 249, 0.15);  /* Blue */
+    --csv-col-1: rgba(253, 224, 71, 0.12);   /* Yellow */
+    --csv-col-2: rgba(251, 146, 230, 0.12);  /* Pink */
+    --csv-col-3: rgba(132, 250, 176, 0.12);  /* Green */
+    --csv-col-4: rgba(190, 143, 255, 0.12);  /* Purple */
+    --csv-col-5: rgba(251, 191, 36, 0.12);   /* Orange */
+    --csv-col-6: rgba(96, 165, 250, 0.15);   /* Sky Blue */
+    --csv-col-7: rgba(248, 113, 113, 0.12);  /* Red */
+    --csv-col-8: rgba(134, 239, 172, 0.12);  /* Light Green */
+    --csv-col-9: rgba(250, 204, 21, 0.12);   /* Gold */
   }
 
   :global([data-theme="light"]) {
@@ -671,5 +714,17 @@
     --color-warning: #d4a72c;
     --color-warning-bg: rgba(212, 167, 44, 0.1);
     --color-warning-text: #7a5f1a;
+
+    /* Rainbow CSV Color Palette (Light Theme) */
+    --csv-col-0: rgba(59, 130, 246, 0.08);   /* Blue */
+    --csv-col-1: rgba(234, 179, 8, 0.08);    /* Yellow */
+    --csv-col-2: rgba(236, 72, 153, 0.08);   /* Pink */
+    --csv-col-3: rgba(34, 197, 94, 0.08);    /* Green */
+    --csv-col-4: rgba(168, 85, 247, 0.08);   /* Purple */
+    --csv-col-5: rgba(249, 115, 22, 0.08);   /* Orange */
+    --csv-col-6: rgba(14, 165, 233, 0.08);   /* Sky Blue */
+    --csv-col-7: rgba(239, 68, 68, 0.08);    /* Red */
+    --csv-col-8: rgba(74, 222, 128, 0.08);   /* Light Green */
+    --csv-col-9: rgba(250, 204, 21, 0.08);   /* Gold */
   }
 </style>
