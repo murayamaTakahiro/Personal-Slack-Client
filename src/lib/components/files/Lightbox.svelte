@@ -281,10 +281,10 @@
         container.scrollTop = Math.max(0, container.scrollTop - scrollSpeed);
       }
     } else if (isText) {
-      // For text files, scroll the text content
-      const textContent = containerDiv?.querySelector('.text-content');
-      if (textContent) {
-        textContent.scrollTop = Math.max(0, textContent.scrollTop - scrollSpeed);
+      // For text files, scroll the .text-preview element inside the wrapper
+      const textPreview = containerDiv?.querySelector('.text-preview-wrapper .text-preview');
+      if (textPreview) {
+        textPreview.scrollTop = Math.max(0, textPreview.scrollTop - scrollSpeed);
       }
     } else if (isCsv) {
       // For CSV files, scroll the body container
@@ -339,12 +339,12 @@
         );
       }
     } else if (isText) {
-      // For text files, scroll the text content
-      const textContent = containerDiv?.querySelector('.text-content');
-      if (textContent) {
-        textContent.scrollTop = Math.min(
-          textContent.scrollHeight - textContent.clientHeight,
-          textContent.scrollTop + scrollSpeed
+      // For text files, scroll the .text-preview element inside the wrapper
+      const textPreview = containerDiv?.querySelector('.text-preview-wrapper .text-preview');
+      if (textPreview) {
+        textPreview.scrollTop = Math.min(
+          textPreview.scrollHeight - textPreview.clientHeight,
+          textPreview.scrollTop + scrollSpeed
         );
       }
     } else if (isCsv) {
@@ -409,10 +409,10 @@
         container.scrollLeft = Math.max(0, container.scrollLeft - scrollSpeed);
       }
     } else if (isText) {
-      // For text files, scroll the text content horizontally
-      const textContent = containerDiv?.querySelector('.text-content');
-      if (textContent) {
-        textContent.scrollLeft = Math.max(0, textContent.scrollLeft - scrollSpeed);
+      // For text files, scroll the .text-preview element horizontally
+      const textPreview = containerDiv?.querySelector('.text-preview-wrapper .text-preview');
+      if (textPreview) {
+        textPreview.scrollLeft = Math.max(0, textPreview.scrollLeft - scrollSpeed);
       }
     } else if (isCsv) {
       // For CSV files, scroll both header and body containers horizontally in sync
@@ -477,12 +477,12 @@
         );
       }
     } else if (isText) {
-      // For text files, scroll the text content horizontally
-      const textContent = containerDiv?.querySelector('.text-content');
-      if (textContent) {
-        textContent.scrollLeft = Math.min(
-          textContent.scrollWidth - textContent.clientWidth,
-          textContent.scrollLeft + scrollSpeed
+      // For text files, scroll the .text-preview element horizontally
+      const textPreview = containerDiv?.querySelector('.text-preview-wrapper .text-preview');
+      if (textPreview) {
+        textPreview.scrollLeft = Math.min(
+          textPreview.scrollWidth - textPreview.clientWidth,
+          textPreview.scrollLeft + scrollSpeed
         );
       }
     } else if (isCsv) {
@@ -560,9 +560,9 @@
         container.scrollTop = Math.max(0, container.scrollTop - container.clientHeight);
       }
     } else if (isText) {
-      const textContent = containerDiv?.querySelector('.text-content');
-      if (textContent) {
-        textContent.scrollTop = Math.max(0, textContent.scrollTop - textContent.clientHeight);
+      const textPreview = containerDiv?.querySelector('.text-preview-wrapper .text-preview');
+      if (textPreview) {
+        textPreview.scrollTop = Math.max(0, textPreview.scrollTop - textPreview.clientHeight);
       }
     } else if (isCsv) {
       const bodyContainer = containerDiv?.querySelector('.csv-preview-wrapper .body-container');
@@ -615,11 +615,11 @@
         );
       }
     } else if (isText) {
-      const textContent = containerDiv?.querySelector('.text-content');
-      if (textContent) {
-        textContent.scrollTop = Math.min(
-          textContent.scrollHeight - textContent.clientHeight,
-          textContent.scrollTop + textContent.clientHeight
+      const textPreview = containerDiv?.querySelector('.text-preview-wrapper .text-preview');
+      if (textPreview) {
+        textPreview.scrollTop = Math.min(
+          textPreview.scrollHeight - textPreview.clientHeight,
+          textPreview.scrollTop + textPreview.clientHeight
         );
       }
     } else if (isCsv) {
@@ -684,9 +684,9 @@
         container.scrollTop = 0;
       }
     } else if (isText) {
-      const textContent = containerDiv?.querySelector('.text-content');
-      if (textContent) {
-        textContent.scrollTop = 0;
+      const textPreview = containerDiv?.querySelector('.text-preview-wrapper .text-preview');
+      if (textPreview) {
+        textPreview.scrollTop = 0;
       }
     } else if (isCsv) {
       const bodyContainer = containerDiv?.querySelector('.csv-preview-wrapper .body-container');
@@ -735,9 +735,9 @@
         container.scrollTop = container.scrollHeight - container.clientHeight;
       }
     } else if (isText) {
-      const textContent = containerDiv?.querySelector('.text-content');
-      if (textContent) {
-        textContent.scrollTop = textContent.scrollHeight - textContent.clientHeight;
+      const textPreview = containerDiv?.querySelector('.text-preview-wrapper .text-preview');
+      if (textPreview) {
+        textPreview.scrollTop = textPreview.scrollHeight - textPreview.clientHeight;
       }
     } else if (isCsv) {
       const bodyContainer = containerDiv?.querySelector('.csv-preview-wrapper .body-container');
@@ -1244,6 +1244,7 @@
           class="image-wrapper"
           class:zoomed={isZoomed}
           on:dblclick={toggleZoom}
+          style="zoom: {zoomLevel};"
         >
           {#if isLoadingFullImage}
             <div class="loading-indicator">
@@ -1257,7 +1258,6 @@
             alt={file.file.name}
             class="lightbox-image"
             class:loading={isLoadingFullImage}
-            style="transform: scale({zoomLevel}); transform-origin: top left;"
             on:load={handleImageLoad}
             on:error={handleImageError}
           />
@@ -1302,7 +1302,7 @@
           {/if}
         </div>
       {:else if isText}
-        <div class="text-preview-wrapper" style="transform: scale({zoomLevel}); transform-origin: top left;">
+        <div class="text-preview-wrapper" style="zoom: {zoomLevel};">
           <TextPreview
             bind:this={textPreviewRef}
             file={file.file}
@@ -1320,7 +1320,7 @@
           />
         </div>
       {:else if isExcel}
-        <div class="excel-preview-wrapper" style="transform: scale({zoomLevel}); transform-origin: top left;">
+        <div class="excel-preview-wrapper" style="zoom: {zoomLevel};">
           <ExcelPreview
             bind:this={excelPreviewRef}
             file={file.file}
@@ -1329,7 +1329,7 @@
           />
         </div>
       {:else if isWord}
-        <div class="word-preview-wrapper" style="transform: scale({zoomLevel}); transform-origin: top left;">
+        <div class="word-preview-wrapper" style="zoom: {zoomLevel};">
           {#key file.file.id}
             <WordPreview
               file={file.file}
@@ -1339,7 +1339,7 @@
           {/key}
         </div>
       {:else if isOffice}
-        <div class="office-preview-wrapper" style="transform: scale({zoomLevel}); transform-origin: top left;">
+        <div class="office-preview-wrapper" style="zoom: {zoomLevel};">
           {#key file.file.id}
             <OfficePreview
               file={file.file}
@@ -1356,6 +1356,7 @@
               class="google-thumbnail-wrapper"
               class:zoomed={isZoomed}
               on:dblclick={toggleZoom}
+              style="zoom: {zoomLevel};"
             >
               {#if isLoadingFullImage}
                 <div class="google-loading">
@@ -1375,7 +1376,6 @@
                   src={displayUrl}
                   alt={file.file.name}
                   class="google-thumbnail"
-                  style="transform: scale({zoomLevel}); transform-origin: top left;"
                 />
               {/if}
             </div>
@@ -1673,10 +1673,8 @@
     overflow: auto;
     cursor: zoom-in;
     position: relative;
-    /* Top-left alignment for consistent behavior */
-    display: flex;
-    align-items: flex-start;
-    justify-content: flex-start;
+    /* Top-left alignment for proper scroll behavior when zoomed */
+    display: block;
   }
 
   .image-wrapper.zoomed {
@@ -1842,13 +1840,13 @@
   .excel-preview-wrapper,
   .word-preview-wrapper,
   .office-preview-wrapper {
-    max-width: 90vw;
-    max-height: 70vh;
+    width: 100%;
+    height: 100%;
     overflow: auto;
     background: var(--color-surface);
     border-radius: 8px;
-    /* Ensure proper scrolling with transform: scale() */
-    display: inline-block;
+    /* Top-left alignment for proper scroll behavior when zoomed */
+    display: block;
   }
 
   /* Google Docs/Sheets Lightbox Styles */
@@ -1872,9 +1870,7 @@
 
   .google-thumbnail-wrapper {
     flex: 1;
-    display: flex;
-    align-items: flex-start;
-    justify-content: flex-start;
+    display: block;
     min-width: 0;
     max-height: calc(90vh - 8rem);
     overflow: auto;

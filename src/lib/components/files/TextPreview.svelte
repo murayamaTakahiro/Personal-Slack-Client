@@ -268,7 +268,7 @@
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: 0.5rem;
-    overflow: hidden;
+    overflow: auto;
   }
 
   .text-preview.compact {
@@ -393,7 +393,7 @@
 
   .text-content {
     padding: 1rem;
-    max-height: 400px;
+    max-height: 600px;
     overflow: auto;
     background: var(--color-code-bg);
   }
@@ -403,13 +403,23 @@
     padding: 0.75rem;
   }
 
+  /* When used in lightbox (no compact mode), allow full height and disable nested scrolling */
+  .text-preview:not(.compact) {
+    height: 100%;
+  }
+
+  .text-preview:not(.compact) .text-content {
+    max-height: none;
+    height: 100%;
+    overflow: visible;
+  }
+
   pre {
     margin: 0;
     font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
     font-size: 0.8125rem;
     line-height: 1.5;
     white-space: pre-wrap;
-    word-wrap: break-word;
     color: var(--color-text-primary);
   }
 
@@ -480,12 +490,18 @@
     font-size: 0.8125rem;
     line-height: 1.5;
     overflow-x: auto;
+    /* Enable horizontal scrolling by forcing content width */
+    width: max-content;
+    min-width: 100%;
   }
 
   .highlighted-code :global(pre) {
     margin: 0;
     padding: 0;
     background: transparent !important;
+    /* Force width expansion for horizontal scrolling */
+    width: max-content;
+    min-width: 100%;
   }
 
   .highlighted-code :global(code) {
@@ -506,7 +522,6 @@
     font-size: 0.8125rem;
     line-height: 1.5;
     white-space: pre-wrap;
-    word-wrap: break-word;
     color: var(--color-text-primary);
   }
 
