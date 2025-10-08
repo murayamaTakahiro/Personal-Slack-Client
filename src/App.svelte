@@ -1881,7 +1881,37 @@
         <PerformanceSettings />
         
         <DownloadSettings />
-        
+
+        <div class="setting-group">
+          <label>
+            Theme
+            <select
+              value={$settings.theme}
+              on:change={(e) => {
+                const theme = e.target.value;
+                settings.update(s => ({ ...s, theme }));
+                // Apply theme immediately
+                const root = document.documentElement;
+                if (theme === 'auto') {
+                  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  root.classList.toggle('dark', prefersDark);
+                  root.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+                } else {
+                  root.classList.toggle('dark', theme === 'dark');
+                  root.setAttribute('data-theme', theme);
+                }
+              }}
+            >
+              <option value="auto">Auto (System)</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
+          <p class="help-text">
+            Choose the color theme for the application. Auto mode follows your system preference.
+          </p>
+        </div>
+
         <div class="setting-group">
           <label>
             <input

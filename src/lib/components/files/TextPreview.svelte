@@ -5,6 +5,7 @@
   import { downloadFile } from '$lib/api/files';
   import { showSuccess, showError, showInfo } from '$lib/stores/toast';
   import { highlightCode, isHighlightSupported } from '$lib/utils/syntaxHighlight';
+  import { settings } from '$lib/stores/settings';
 
   export let file: SlackFile;
   export let workspaceId: string;
@@ -26,11 +27,20 @@
   $: formattedSize = formatFileSize(file.size);
   $: fileName = file.name || file.title || 'Untitled';
 
-  // テーマストア（既存のテーマ管理を使用）
-  // プロジェクトにテーマストアがあればそれを使用、なければdarkをデフォルトとする
-  // 例: import { theme } from '$lib/stores/theme'
-  // $: currentTheme = $theme === 'dark' ? 'dark' : 'light'
-  $: currentTheme = 'dark' as 'dark' | 'light'; // TODO: 実際のテーマストアに置き換える
+  // テーマストアから現在のテーマを取得
+  $: currentTheme = (() => {
+    if ($settings.theme === 'light') {
+      return 'light' as const;
+    } else if ($settings.theme === 'dark') {
+      return 'dark' as const;
+    } else {
+      // 'auto'の場合はシステム設定を確認
+      const prefersDark = typeof window !== 'undefined'
+        ? window.matchMedia('(prefers-color-scheme: dark)').matches
+        : true;
+      return prefersDark ? 'dark' as const : 'light' as const;
+    }
+  })();
 
   // ファイル読み込み時にハイライト可否を判定
   $: shouldHighlight = isHighlightSupported(fileName);
