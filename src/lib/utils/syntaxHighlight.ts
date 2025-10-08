@@ -1,7 +1,23 @@
-import { createHighlighter, type Highlighter, type BundledLanguage, type BundledTheme } from 'shiki'
+import { createHighlighter, type Highlighter, type BundledLanguage, type BundledTheme, type ShikiTransformer } from 'shiki'
 
 // シングルトンハイライター（パフォーマンス最適化）
 let highlighterInstance: Highlighter | null = null
+
+// 行番号を追加するカスタムトランスフォーマー
+function createLineNumbersTransformer(): ShikiTransformer {
+  return {
+    name: 'line-numbers',
+    line(node, line) {
+      // 行番号を span 要素として追加
+      node.children.unshift({
+        type: 'element',
+        tagName: 'span',
+        properties: { class: 'line-number' },
+        children: [{ type: 'text', value: String(line).padStart(3, ' ') }]
+      })
+    }
+  }
+}
 
 // 拡張子からShiki言語名へのマッピング
 const extensionToLanguage: Record<string, BundledLanguage> = {
@@ -86,12 +102,14 @@ export async function getHighlighter(): Promise<Highlighter> {
  * @param code - ハイライトするコード
  * @param filename - ファイル名（拡張子から言語を判定）
  * @param theme - テーマ ('dark' | 'light')
+ * @param showLineNumbers - 行番号を表示するか (デフォルト: true)
  * @returns ハイライトされたHTML文字列
  */
 export async function highlightCode(
   code: string,
   filename: string,
-  theme: 'dark' | 'light' = 'dark'
+  theme: 'dark' | 'light' = 'dark',
+  showLineNumbers: boolean = true
 ): Promise<string> {
   try {
     // ファイル拡張子から言語を判定
@@ -110,10 +128,14 @@ export async function highlightCode(
     const highlighter = await getHighlighter()
     const themeName = theme === 'dark' ? 'github-dark' : 'github-light'
 
-    // コードをHTML化
+    // トランスフォーマーの設定
+    const transformers = showLineNumbers ? [createLineNumbersTransformer()] : []
+
+    // コードをHTML化（行番号トランスフォーマーを使用）
     return highlighter.codeToHtml(code, {
       lang,
-      theme: themeName
+      theme: themeName,
+      transformers
     })
   } catch (error) {
     console.error('[SyntaxHighlight] Highlighting failed:', error)

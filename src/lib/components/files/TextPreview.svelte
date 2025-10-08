@@ -56,8 +56,9 @@
 
     isHighlighting = true;
     try {
-      highlightedContent = await highlightCode(fileContent, fileName, currentTheme);
-      console.log('[TextPreview] Syntax highlighting applied');
+      // 行番号を表示（デフォルトtrue）
+      highlightedContent = await highlightCode(fileContent, fileName, currentTheme, true);
+      console.log('[TextPreview] Syntax highlighting applied with line numbers');
     } catch (error) {
       console.error('[TextPreview] Failed to highlight code:', error);
       highlightedContent = ''; // フォールバックでプレーンテキスト表示
@@ -497,5 +498,22 @@
     white-space: pre-wrap;
     word-wrap: break-word;
     color: var(--color-text-primary);
+  }
+
+  /* 行番号のスタイル調整 */
+  .highlighted-code :global(.line-number) {
+    color: var(--color-text-secondary);
+    user-select: none;
+    padding-right: 1rem;
+    margin-right: 1rem;
+    text-align: right;
+    min-width: 2.5rem;
+    display: inline-block;
+    opacity: 0.6;
+    border-right: 1px solid var(--color-border);
+  }
+
+  .highlighted-code :global(.line-number):hover {
+    opacity: 1;
   }
 </style>
