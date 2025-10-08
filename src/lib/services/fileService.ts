@@ -182,7 +182,8 @@ export function getFileType(file: SlackFile): FileType {
     'js', 'ts', 'jsx', 'tsx', 'py', 'java', 'c', 'cpp', 'cs', 'php',
     'rb', 'go', 'rs', 'swift', 'kt', 'scala', 'r', 'sh', 'bash',
     'html', 'css', 'scss', 'sass', 'less', 'xml', 'json', 'yaml', 'yml',
-    'sql', 'graphql', 'md', 'markdown'
+    'sql', 'graphql', 'md', 'markdown',
+    'gs', 'bas', 'vb', 'vbs'  // Google Apps Script, BASIC, VB
   ];
   if (codeExtensions.includes(fileExt) || prettyType.includes('code')) {
     return 'code';

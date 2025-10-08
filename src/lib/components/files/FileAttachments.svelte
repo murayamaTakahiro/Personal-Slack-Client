@@ -196,7 +196,7 @@
                     {workspaceId}
                     {compact}
                   />
-                {:else if group.type === 'text'}
+                {:else if group.type === 'text' || group.type === 'code'}
                   <TextPreview
                     file={metadata.file}
                     {workspaceId}

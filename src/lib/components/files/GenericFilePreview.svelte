@@ -88,7 +88,7 @@
       </div>
       
       <div class="file-details">
-        <span class="file-type">{file.pretty_type || fileType}</span>
+        <span class="file-type">{fileType === 'code' ? 'Code' : (file.pretty_type || fileType)}</span>
         <span class="separator">•</span>
         <span class="file-size">{formattedSize}</span>
       </div>

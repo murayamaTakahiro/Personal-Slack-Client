@@ -29,6 +29,7 @@
     "mammoth": "^1.11.0",
     "papaparse": "^5.5.3",
     "pdfjs-dist": "^5.4.149",
+    "shiki": "^1.29.2",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

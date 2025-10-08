@@ -56,7 +56,7 @@
   $: hasPrevious = currentIndex > 0;
   $: isImage = file.type === 'image';
   $: isPdf = file.type === 'pdf';
-  $: isText = file.type === 'text';
+  $: isText = file.type === 'text' || file.type === 'code';
   $: isCsv = file.type === 'csv';
   $: isExcel = file.type === 'excel';
   // Only .docx files can be previewed with Mammoth.js (.doc files need to fall back to OfficePreview)
@@ -1112,7 +1112,7 @@
             <span>{file.file.original_w}×{file.file.original_h}</span>
           {/if}
           <span class="separator">•</span>
-          <span>{file.file.pretty_type}</span>
+          <span>{file.type === 'code' ? 'Code' : (file.file.pretty_type || file.type)}</span>
         </div>
       </div>
       
@@ -1424,7 +1424,7 @@
         <div class="generic-preview">
           <div class="file-icon">{file.icon}</div>
           <h3>{file.file.name}</h3>
-          <p class="file-type">{file.file.pretty_type}</p>
+          <p class="file-type">{file.type === 'code' ? 'Code' : (file.file.pretty_type || file.type)}</p>
           <p class="file-size">{file.displaySize}</p>
         </div>
       {/if}

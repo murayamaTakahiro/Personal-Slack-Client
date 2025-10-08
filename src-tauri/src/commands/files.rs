@@ -401,25 +401,32 @@ pub async fn get_file_content(
             decoded.to_string()
         }
         None => {
-            // Auto-detect encoding
-            let (decoded, _, _) = encoding_rs::SHIFT_JIS.decode(&bytes);
-            let decoded_str = decoded.to_string();
+            // Auto-detect encoding: Try UTF-8 first (most common for modern files)
+            match String::from_utf8(bytes.to_vec()) {
+                Ok(utf8_str) => {
+                    info!("Auto-detected encoding as UTF-8");
+                    utf8_str
+                }
+                Err(_) => {
+                    // UTF-8 failed, try Shift-JIS (common for Japanese files)
+                    let (decoded_sjis, _, had_errors_sjis) = encoding_rs::SHIFT_JIS.decode(&bytes);
 
-            // Check if Shift-JIS decoding looks valid
-            if !decoded_str.contains('\u{fffd}') && !decoded_str.contains('�') {
-                info!("Auto-detected encoding as Shift-JIS");
-                decoded_str
-            } else {
-                // Try UTF-8
-                match String::from_utf8(bytes.to_vec()) {
-                    Ok(utf8_str) => {
-                        info!("Auto-detected encoding as UTF-8");
-                        utf8_str
-                    }
-                    Err(_) => {
-                        // Fallback to Shift-JIS even if it has some issues
-                        info!("Falling back to Shift-JIS with possible encoding issues");
-                        decoded_str
+                    if !had_errors_sjis && !decoded_sjis.contains('\u{fffd}') {
+                        info!("Auto-detected encoding as Shift-JIS");
+                        decoded_sjis.to_string()
+                    } else {
+                        // Try EUC-JP as fallback
+                        let (decoded_euc, _, had_errors_euc) = encoding_rs::EUC_JP.decode(&bytes);
+
+                        if !had_errors_euc && !decoded_euc.contains('\u{fffd}') {
+                            info!("Auto-detected encoding as EUC-JP");
+                            decoded_euc.to_string()
+                        } else {
+                            // Last resort: use Windows-1252 (Latin-1 compatible)
+                            let (decoded_latin, _, _) = encoding_rs::WINDOWS_1252.decode(&bytes);
+                            info!("Auto-detected encoding as Windows-1252/Latin-1");
+                            decoded_latin.to_string()
+                        }
                     }
                 }
             }

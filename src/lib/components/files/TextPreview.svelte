@@ -4,6 +4,7 @@
   import { formatFileSize, getFileContent } from '$lib/api/files';
   import { downloadFile } from '$lib/api/files';
   import { showSuccess, showError, showInfo } from '$lib/stores/toast';
+  import { highlightCode, isHighlightSupported } from '$lib/utils/syntaxHighlight';
 
   export let file: SlackFile;
   export let workspaceId: string;
@@ -15,6 +16,9 @@
   let error: string | null = null;
   let isTruncated = false;
   let lineCount = 0;
+  let highlightedContent: string = '';
+  let isHighlighting: boolean = false;
+  let shouldHighlight: boolean = false;
 
   const MAX_PREVIEW_SIZE = 1024 * 1024; // 1MB
   const MAX_PREVIEW_LINES = 1000;
@@ -22,9 +26,44 @@
   $: formattedSize = formatFileSize(file.size);
   $: fileName = file.name || file.title || 'Untitled';
 
+  // テーマストア（既存のテーマ管理を使用）
+  // プロジェクトにテーマストアがあればそれを使用、なければdarkをデフォルトとする
+  // 例: import { theme } from '$lib/stores/theme'
+  // $: currentTheme = $theme === 'dark' ? 'dark' : 'light'
+  $: currentTheme = 'dark' as 'dark' | 'light'; // TODO: 実際のテーマストアに置き換える
+
+  // ファイル読み込み時にハイライト可否を判定
+  $: shouldHighlight = isHighlightSupported(fileName);
+
+  // ファイルコンテンツ変更時にハイライト適用（非同期処理のトリガー）
+  $: if (fileContent && !isLoading && shouldHighlight && !fileContent.includes('[Preview not available')) {
+    // 非同期関数を即座実行
+    (async () => {
+      await applyHighlighting();
+    })();
+  }
+
   // Reload content when file changes
   $: if (file && file.id) {
     loadFileContent();
+  }
+
+  /**
+   * シンタックスハイライトを適用
+   */
+  async function applyHighlighting() {
+    if (isHighlighting) return; // 既にハイライト処理中
+
+    isHighlighting = true;
+    try {
+      highlightedContent = await highlightCode(fileContent, fileName, currentTheme);
+      console.log('[TextPreview] Syntax highlighting applied');
+    } catch (error) {
+      console.error('[TextPreview] Failed to highlight code:', error);
+      highlightedContent = ''; // フォールバックでプレーンテキスト表示
+    } finally {
+      isHighlighting = false;
+    }
   }
 
   onMount(() => {
@@ -67,8 +106,16 @@
       } catch (backendError) {
         // Fallback: Show placeholder for now
         console.warn('Backend not ready for file content:', backendError);
-        fileContent = `[Preview not available yet]\n\nFile: ${fileName}\nSize: ${formattedSize}\n\nDownload the file to view its contents.`;
-        error = 'Preview temporarily unavailable. Download to view content.';
+
+        // UTF-8デコードエラーの場合は特別なメッセージを表示
+        const errorMessage = backendError instanceof Error ? backendError.message : String(backendError);
+        if (errorMessage.includes('UTF-8') || errorMessage.includes('utf-8')) {
+          fileContent = `[Binary file or non-UTF-8 encoded file]\n\nFile: ${fileName}\nSize: ${formattedSize}\n\nThis file cannot be previewed as text.\nDownload the file to view its contents.`;
+          error = 'Binary file - preview not available. Please download to view.';
+        } else {
+          fileContent = `[Preview not available yet]\n\nFile: ${fileName}\nSize: ${formattedSize}\n\nDownload the file to view its contents.`;
+          error = 'Preview temporarily unavailable. Download to view content.';
+        }
       }
     } catch (err) {
       console.error('Error loading file content:', err);
@@ -178,7 +225,13 @@
       {/if}
 
       <div class="text-content">
-        <pre>{fileContent}</pre>
+        {#if shouldHighlight && highlightedContent}
+          <div class="highlighted-code">
+            {@html highlightedContent}
+          </div>
+        {:else}
+          <pre>{fileContent}</pre>
+        {/if}
       </div>
 
       {#if isTruncated && !compact}
@@ -408,5 +461,41 @@
     --color-warning: #d4a72c;
     --color-warning-bg: rgba(212, 167, 44, 0.1);
     --color-warning-text: #7a5f1a;
+  }
+
+  /* シンタックスハイライト用スタイル */
+  .highlighted-code {
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    overflow-x: auto;
+  }
+
+  .highlighted-code :global(pre) {
+    margin: 0;
+    padding: 0;
+    background: transparent !important;
+  }
+
+  .highlighted-code :global(code) {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  .highlighted-code :global(.line) {
+    display: inline-block;
+    min-height: 1.5em;
+  }
+
+  /* Shikiフォールバック用スタイル */
+  .shiki-fallback {
+    margin: 0;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    color: var(--color-text-primary);
   }
 </style>
