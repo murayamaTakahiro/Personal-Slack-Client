@@ -57,3 +57,15 @@ export interface ExportedReaction {
   count: number;
   users: string[];
 }
+
+export interface FileDownloadJob {
+  attachment: ExportedAttachment;
+  filename: string;
+  message: ExportedMessage;
+}
+
+export interface FileDownloadResult {
+  filename: string;
+  content: string; // base64
+  attachment: ExportedAttachment;
+}

@@ -1,5 +1,5 @@
 import type { ThreadMessages, Message, SlackFile, EmojiReaction } from '../types/slack';
-import type { ExportOptions, ExportedThread, ExportedMessage, ExportedAttachment, ExportedReaction, FolderExportResult, AttachmentFile } from '../types/export';
+import type { ExportOptions, ExportedThread, ExportedMessage, ExportedAttachment, ExportedReaction, FolderExportResult, AttachmentFile, FileDownloadJob, FileDownloadResult } from '../types/export';
 import { decodeSlackText } from '../utils/htmlEntities';
 import { getAuthenticatedFileUrl, createFileDataUrl } from '../api/files';
 
@@ -37,65 +37,45 @@ export class ThreadExportService {
     options: ExportOptions
   ): Promise<FolderExportResult> {
     const exported = await this.prepareExport(thread, channelName, channelId, options);
-    
-    // Download all attachments and assign local paths
-    const attachments: AttachmentFile[] = [];
+
+    // Step 1: ファイル名を事前決定（順序保証）
+    const fileJobs: FileDownloadJob[] = [];
     let fileCounter = 1;
-    
+
     for (const msg of [exported.parentMessage, ...exported.replies]) {
       for (const att of msg.attachments) {
-        try {
-          // Generate a safe filename
-          const extension = att.name.split('.').pop() || 'bin';
-          const safeFileType = att.fileType.replace(/[^a-z0-9]/gi, '_');
-          const filename = `${safeFileType}_${String(fileCounter).padStart(3, '0')}.${extension}`;
-          
-          // Use url_private_download or url_private for authenticated access
-          // We need to get the original SlackFile to access these URLs
-          const originalFile = this.findOriginalFile(thread, att.id);
-          if (!originalFile) {
-            console.error(`Could not find original file for attachment ${att.id}`);
-            continue;
-          }
-          
-          const urlToFetch = originalFile.url_private_download || originalFile.url_private;
-          if (!urlToFetch) {
-            console.error(`No download URL available for file ${att.id}`);
-            continue;
-          }
-          
-          // Use createFileDataUrl which handles authentication via Tauri
-          const dataUrl = await createFileDataUrl(urlToFetch, originalFile.mimetype);
-          
-          // Extract base64 content from data URL
-          // Format: "data:image/png;base64,iVBORw0KG..."
-          const base64Match = dataUrl.match(/^data:[^;]+;base64,(.+)$/);
-          if (!base64Match) {
-            console.error(`Invalid data URL format for file ${att.id}`);
-            continue;
-          }
-          
-          const base64 = base64Match[1];
-          
-          // Add to attachments list
-          attachments.push({
-            filename,
-            content: base64
-          });
-          
-          // Update attachment with local path
-          att.localPath = `./attachments/${filename}`;
-          fileCounter++;
-        } catch (error) {
-          console.error(`Failed to process attachment ${att.id}:`, error);
-          // Continue with next file
-        }
+        const extension = att.name.split('.').pop() || 'bin';
+        const safeFileType = att.fileType.replace(/[^a-z0-9]/gi, '_');
+        const filename = `${safeFileType}_${String(fileCounter).padStart(3, '0')}.${extension}`;
+
+        fileJobs.push({
+          attachment: att,
+          filename,
+          message: msg
+        });
+
+        fileCounter++;
       }
     }
-    
+
+    // Step 2: 並列ダウンロード（3ファイルずつ）
+    const results = await this.downloadFilesWithLimit(fileJobs, thread, 3);
+
+    // Step 3: 成功したファイルのみ抽出
+    const attachments = results
+      .filter((r): r is FileDownloadResult => r !== null)
+      .map(r => ({ filename: r.filename, content: r.content }));
+
+    // Step 4: Markdownに反映
+    results.forEach(result => {
+      if (result) {
+        result.attachment.localPath = `./attachments/${result.filename}`;
+      }
+    });
+
     // Format markdown with local paths
     const markdown = this.formatAsMarkdownWithLocalPaths(exported);
-    
+
     return { markdown, attachments };
   }
 
@@ -122,7 +102,7 @@ export class ThreadExportService {
       const file = thread.parent.files.find(f => f.id === fileId);
       if (file) return file;
     }
-    
+
     // Search in replies
     if (thread.replies) {
       for (const reply of thread.replies) {
@@ -132,8 +112,79 @@ export class ThreadExportService {
         }
       }
     }
-    
+
     return undefined;
+  }
+
+  /**
+   * 単一ファイルダウンロード（エラーハンドリング付き）
+   */
+  private async downloadSingleFile(
+    job: FileDownloadJob,
+    thread: ThreadMessages
+  ): Promise<FileDownloadResult | null> {
+    try {
+      // 元ファイル情報取得
+      const originalFile = this.findOriginalFile(thread, job.attachment.id);
+      if (!originalFile) {
+        console.error(`[Export] Could not find original file: ${job.filename}`);
+        return null;
+      }
+
+      const urlToFetch = originalFile.url_private_download || originalFile.url_private;
+      if (!urlToFetch) {
+        console.error(`[Export] No download URL for: ${job.filename}`);
+        return null;
+      }
+
+      // ダウンロード + base64変換
+      const dataUrl = await createFileDataUrl(urlToFetch, originalFile.mimetype);
+
+      // base64抽出
+      const base64Match = dataUrl.match(/^data:[^;]+;base64,(.+)$/);
+      if (!base64Match) {
+        console.error(`[Export] Invalid data URL format: ${job.filename}`);
+        return null;
+      }
+
+      return {
+        filename: job.filename,
+        content: base64Match[1],
+        attachment: job.attachment
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[Export] Failed to download ${job.filename}:`, {
+        attachmentId: job.attachment.id,
+        fileType: job.attachment.fileType,
+        error: errorMsg
+      });
+      return null;
+    }
+  }
+
+  /**
+   * 制限付き並列ダウンロード（3ファイルずつバッチ処理）
+   */
+  private async downloadFilesWithLimit(
+    jobs: FileDownloadJob[],
+    thread: ThreadMessages,
+    concurrencyLimit: number
+  ): Promise<(FileDownloadResult | null)[]> {
+    const results: (FileDownloadResult | null)[] = [];
+
+    // 3ファイルずつバッチ処理
+    for (let i = 0; i < jobs.length; i += concurrencyLimit) {
+      const batch = jobs.slice(i, i + concurrencyLimit);
+
+      const batchResults = await Promise.all(
+        batch.map(job => this.downloadSingleFile(job, thread))
+      );
+
+      results.push(...batchResults);
+    }
+
+    return results;
   }
 
   /**
