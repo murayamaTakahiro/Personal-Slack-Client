@@ -477,7 +477,7 @@
     userId = '';
     fromDate = '';
     toDate = '';
-    limit = 100;
+    limit = 1000;
     hasFiles = false;
     // Also clear the ChannelSelector component
     if (channelSelectorComponent) {
@@ -545,7 +545,7 @@
     // Also reset searchParams to ensure UI consistency
     searchParams.set({
       query: $searchQuery || '',
-      limit: 100
+      limit: 1000
     });
   }
   
