@@ -10,7 +10,6 @@ import { reactionLoadingState, searchResults } from '../stores/search';
  */
 export async function searchMessagesFast(params: SearchParams): Promise<SearchResult> {
   console.log('[FastSearch] Starting ultra-fast search');
-  console.log('[DEBUG] params.hasFiles:', params.hasFiles);
 
   // Use the new fast search command that skips reaction fetching
   // IMPORTANT: Tauri expects exact parameter names from Rust function signature
@@ -31,8 +30,6 @@ export async function searchMessagesFast(params: SearchParams): Promise<SearchRe
   if (params.limit) invokeParams.limit = params.limit;
   if (params.isRealtimeUpdate) invokeParams.forceRefresh = params.isRealtimeUpdate;
   if (params.hasFiles === true) invokeParams.hasFiles = true;
-
-  console.log('[DEBUG] invoke params:', JSON.stringify(invokeParams, null, 2));
 
   const result = await invoke<SearchResult>('search_messages_fast', invokeParams);
   
