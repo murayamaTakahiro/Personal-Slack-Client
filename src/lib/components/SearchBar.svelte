@@ -30,6 +30,7 @@
   let fromDate = '';
   let toDate = '';
   let limit = 1000;
+  let hasFiles = false;  // Filter messages with attachments
   let searchInput: HTMLInputElement;
   let showChannelSelector = false;
   let channelSelectorComponent: ChannelSelector;
@@ -103,7 +104,8 @@
         userName: user || undefined,  // Save the display name
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
-        limit
+        limit,
+        hasFiles: hasFiles === true ? true : undefined  // Only send true when explicitly checked
       };
       
       // Check for duplicate before auto-saving
@@ -150,6 +152,7 @@
         fromDate: fromDate || undefined,  // Send as string YYYY-MM-DD
         toDate: toDate || undefined,      // Send as string YYYY-MM-DD
         limit,
+        hasFiles: hasFiles === true ? true : undefined,  // Only send true when explicitly checked
         isRealtimeUpdate, // Pass this flag through
         isDMSearch: dmSearchMode && selectedDMId ? true : undefined, // Add flag for DM search
         lastSearchTimestamp: isRealtimeUpdate ? realtimeStore.getLastSearchTimestamp() : undefined // For incremental updates
@@ -475,6 +478,7 @@
     fromDate = '';
     toDate = '';
     limit = 100;
+    hasFiles = false;
     // Also clear the ChannelSelector component
     if (channelSelectorComponent) {
       channelSelectorComponent.clearSelection();
@@ -573,7 +577,7 @@
   
   function handleSavedSearchLoad(event: CustomEvent) {
     const search = event.detail;
-    
+
     // Load search parameters
     if (search.query !== undefined) searchQuery.set(search.query);
     if (search.channel !== undefined) channel = search.channel;
@@ -589,7 +593,8 @@
     if (search.fromDate !== undefined) fromDate = search.fromDate;
     if (search.toDate !== undefined) toDate = search.toDate;
     if (search.limit !== undefined) limit = search.limit;
-    
+    if (search.hasFiles !== undefined) hasFiles = search.hasFiles;
+
     // Execute the search
     handleSearch();
   }
@@ -874,7 +879,7 @@
           </div>
         {/if}
         
-        {#if channel || user || fromDate || toDate}
+        {#if channel || user || fromDate || toDate || hasFiles}
           <div class="active-filters">
             <span class="filter-label">Active filters:</span>
             {#if channel}
@@ -888,6 +893,9 @@
             {/if}
             {#if toDate}
               <span class="filter-tag">To: {toDate}</span>
+            {/if}
+            {#if hasFiles}
+              <span class="filter-tag">📎 Has Attachments</span>
             {/if}
           </div>
         {/if}
@@ -941,6 +949,17 @@
               }
             }}
           />
+        </div>
+
+        <div class="filter-field filter-checkbox">
+          <label class="checkbox-label">
+            <input
+              type="checkbox"
+              bind:checked={hasFiles}
+            />
+            <span class="checkbox-icon">📎</span>
+            <span>Has Attachments</span>
+          </label>
         </div>
       </div>
       
@@ -1401,7 +1420,41 @@
     font-size: 0.875rem;
     color: var(--primary);
   }
-  
+
+  .filter-checkbox {
+    flex: 1;
+    display: flex;
+    align-items: center;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    user-select: none;
+  }
+
+  .checkbox-label input[type="checkbox"] {
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+  }
+
+  .checkbox-icon {
+    font-size: 1.1rem;
+  }
+
+  .checkbox-label:hover {
+    color: var(--primary);
+  }
+
+  .checkbox-label input[type="checkbox"]:checked + .checkbox-icon {
+    color: var(--primary);
+  }
+
   .info-message {
     display: flex;
     align-items: center;

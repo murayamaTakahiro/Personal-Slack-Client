@@ -20,6 +20,7 @@ export interface SearchParams {
   limit?: number;
   isRealtimeUpdate?: boolean;
   lastSearchTimestamp?: string | null; // For incremental updates in live mode
+  hasFiles?: boolean;  // Filter messages with attachments
 }
 
 export interface Message {

@@ -13,6 +13,7 @@ export interface SavedSearch {
   fromDate?: string;
   toDate?: string;
   limit?: number;
+  hasFiles?: boolean;  // Filter messages with attachments
   timestamp: Date;
   usageCount: number;
   lastUsed?: Date;
@@ -99,13 +100,14 @@ function createSavedSearchesStore() {
     return existingSearches.find(saved => {
       // Compare all relevant fields - treat undefined, null, and empty string as equivalent
       const normalize = (value: any) => value || undefined;
-      
+
       return (
         normalize(saved.query) === normalize(searchParams.query) &&
         normalize(saved.channel) === normalize(searchParams.channel) &&
         normalize(saved.userId) === normalize(searchParams.userId) &&
         normalize(saved.fromDate) === normalize(searchParams.fromDate) &&
-        normalize(saved.toDate) === normalize(searchParams.toDate)
+        normalize(saved.toDate) === normalize(searchParams.toDate) &&
+        normalize(saved.hasFiles) === normalize(searchParams.hasFiles)
       );
     }) || null;
   };
@@ -156,6 +158,7 @@ function createSavedSearchesStore() {
       fromDate: searchParams.fromDate || undefined,
       toDate: searchParams.toDate || undefined,
       limit: searchParams.limit || undefined,
+      hasFiles: searchParams.hasFiles || undefined,
       timestamp: new Date(),
       usageCount: 1,
       lastUsed: new Date(),
@@ -175,11 +178,11 @@ function createSavedSearchesStore() {
   // Generate an automatic name for the search
   const generateAutoName = (params: any): string => {
     const parts = [];
-    
+
     if (params.query) {
       parts.push(`"${params.query.substring(0, 20)}${params.query.length > 20 ? '...' : ''}"`);
     }
-    
+
     if (params.channel) {
       const channels = params.channel.split(',').map(c => c.trim());
       if (channels.length === 1) {
@@ -188,11 +191,11 @@ function createSavedSearchesStore() {
         parts.push(`in ${channels.length} channels`);
       }
     }
-    
+
     if (params.userName || params.user || params.userId) {
       parts.push(`from @${params.userName || params.user || params.userId}`);
     }
-    
+
     if (params.fromDate || params.toDate) {
       if (params.fromDate && params.toDate) {
         parts.push(`${params.fromDate} to ${params.toDate}`);
@@ -202,7 +205,11 @@ function createSavedSearchesStore() {
         parts.push(`until ${params.toDate}`);
       }
     }
-    
+
+    if (params.hasFiles) {
+      parts.push('with attachments');
+    }
+
     return parts.join(' ') || 'Untitled Search';
   };
 

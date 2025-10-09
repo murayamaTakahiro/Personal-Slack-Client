@@ -28,6 +28,7 @@ pub async fn search_messages(
     limit: Option<usize>,
     force_refresh: Option<bool>, // Add this parameter
     last_timestamp: Option<String>, // For incremental updates
+    has_files: Option<bool>, // Filter messages with attachments
     state: State<'_, AppState>,
 ) -> AppResult<SearchResult> {
     let start_time = Instant::now();
@@ -38,7 +39,7 @@ pub async fn search_messages(
     // Check cache first (skip if force_refresh is true)
     if !force_refresh.unwrap_or(false) {
         if let Some(cached_result) = state
-            .get_cached_search(&query, &channel, &user, &from_date, &to_date, &limit)
+            .get_cached_search(&query, &channel, &user, &from_date, &to_date, &limit, &has_files)
             .await
         {
             info!(
@@ -176,6 +177,7 @@ pub async fn search_messages(
                             to_date,
                             limit: Some(max_results),
                             is_realtime: force_refresh,
+                            has_files,
                         };
 
                         let search_query = build_search_query(&search_request);
@@ -431,6 +433,7 @@ pub async fn search_messages(
                             to_date: to_date.clone(),
                             limit,
                             is_realtime: force_refresh,
+                            has_files,
                         };
 
                         let search_query = build_search_query(&search_request);
@@ -453,6 +456,7 @@ pub async fn search_messages(
                     to_date: to_date.clone(),
                     limit,
                     is_realtime: force_refresh,
+                    has_files,
                 };
 
                 let search_query = build_search_query(&search_request);
@@ -515,6 +519,7 @@ pub async fn search_messages(
             channel: channel.clone(),
             user: user.clone(),
             from_date: from_date.clone(),
+            has_files,
             to_date: to_date.clone(),
             limit,
             is_realtime: force_refresh,
@@ -814,6 +819,14 @@ pub async fn search_messages(
     //     }
     // }
 
+    // Apply file filter if requested
+    if let Some(true) = has_files {
+        messages.retain(|msg| {
+            msg.files.is_some() && !msg.files.as_ref().unwrap().is_empty()
+        });
+        info!("Applied file filter: {} messages with attachments", messages.len());
+    }
+
     let execution_time_ms = start_time.elapsed().as_millis() as u64;
 
     info!(
@@ -835,6 +848,7 @@ pub async fn search_messages(
                 to_date: to_date.clone(),
                 limit,
                 is_realtime: force_refresh,
+                has_files,
             };
             build_search_query(&search_request)
         } else {
@@ -847,6 +861,7 @@ pub async fn search_messages(
                 to_date: to_date.clone(),
                 limit,
                 is_realtime: force_refresh,
+                has_files,
             };
             build_search_query(&search_request)
         }
@@ -859,6 +874,7 @@ pub async fn search_messages(
             to_date: to_date.clone(),
             limit,
             is_realtime: force_refresh,
+            has_files,
         };
         build_search_query(&search_request)
     };
@@ -890,6 +906,7 @@ pub async fn search_messages(
                 &from_date,
                 &to_date,
                 &limit,
+                &has_files,
                 result.clone(),
             )
             .await;
@@ -1628,6 +1645,7 @@ pub async fn search_messages_fast(
     to_date: Option<String>,
     limit: Option<usize>,
     force_refresh: Option<bool>,
+    has_files: Option<bool>,
     state: State<'_, AppState>,
 ) -> AppResult<SearchResult> {
     // This is an optimized version that returns messages immediately without reactions
@@ -1638,7 +1656,7 @@ pub async fn search_messages_fast(
     // Check cache first (skip if force_refresh is true)
     if !force_refresh.unwrap_or(false) {
         if let Some(cached_result) = state
-            .get_cached_search(&query, &channel, &user, &from_date, &to_date, &limit)
+            .get_cached_search(&query, &channel, &user, &from_date, &to_date, &limit, &has_files)
             .await
         {
             info!("Fast search: returning cached result in {}ms", start_time.elapsed().as_millis());
@@ -1753,6 +1771,7 @@ pub async fn search_messages_fast(
                             query: query.clone(),
                             channel: Some(channel.clone()),
                             user,
+                            has_files,
                             from_date,
                             to_date,
                             limit: Some(max_results),
@@ -1846,6 +1865,7 @@ pub async fn search_messages_fast(
                 to_date: to_date.clone(),
                 limit,
                 is_realtime: force_refresh,
+                has_files,
             };
             
             let search_query = build_search_query(&search_request);
@@ -2110,6 +2130,7 @@ pub async fn search_messages_fast(
         let search_request = SearchRequest {
             query: query.clone(),
             channel: channel.clone(),
+            has_files,
             user: user.clone(),
             from_date: from_date.clone(),
             to_date: to_date.clone(),
@@ -2285,17 +2306,26 @@ pub async fn search_messages_fast(
     } else {
         info!("Fast search: Skipping reaction cache due to force_refresh=true");
     }
-    
+
+    // Apply file filter if requested
+    if let Some(true) = has_files {
+        let before_count = messages.len();
+        messages.retain(|msg| {
+            msg.files.is_some() && !msg.files.as_ref().unwrap().is_empty()
+        });
+        info!("Fast search: Applied file filter: {}/{} messages with attachments", messages.len(), before_count);
+    }
+
     let execution_time_ms = start_time.elapsed().as_millis() as u64;
-    
+
     info!(
         "Fast search completed: {} results in {}ms (no reaction fetching)",
         messages.len(),
         execution_time_ms
     );
-    
+
     let total = messages.len();
-    
+
     // Build display query for multi-channel search
     let display_query = if let Some(ref channel_param) = channel {
         if channel_param.contains(',') {
@@ -2307,6 +2337,7 @@ pub async fn search_messages_fast(
                 to_date: to_date.clone(),
                 limit,
                 is_realtime: force_refresh,
+                has_files,
             };
             build_search_query(&search_request)
         } else {
@@ -2319,6 +2350,7 @@ pub async fn search_messages_fast(
                 to_date: to_date.clone(),
                 limit,
                 is_realtime: force_refresh,
+                has_files,
             };
             build_search_query(&search_request)
         }
@@ -2331,10 +2363,11 @@ pub async fn search_messages_fast(
             to_date: to_date.clone(),
             limit,
             is_realtime: force_refresh,
+            has_files,
         };
         build_search_query(&search_request)
     };
-    
+
     Ok(SearchResult {
         messages,
         total,

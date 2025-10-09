@@ -223,6 +223,7 @@ impl AppState {
         from_date: &Option<String>,
         to_date: &Option<String>,
         limit: &Option<usize>,
+        has_files: &Option<bool>,
     ) -> u64 {
         let mut hasher = DefaultHasher::new();
         query.hash(&mut hasher);
@@ -231,6 +232,7 @@ impl AppState {
         from_date.hash(&mut hasher);
         to_date.hash(&mut hasher);
         limit.hash(&mut hasher);
+        has_files.hash(&mut hasher);
         hasher.finish()
     }
 
@@ -242,8 +244,9 @@ impl AppState {
         from_date: &Option<String>,
         to_date: &Option<String>,
         limit: &Option<usize>,
+        has_files: &Option<bool>,
     ) -> Option<SearchResult> {
-        let cache_key = Self::hash_search_params(query, channel, user, from_date, to_date, limit);
+        let cache_key = Self::hash_search_params(query, channel, user, from_date, to_date, limit, has_files);
         let cache = self.search_cache.read().await;
 
         if let Some(cached) = cache.get(&cache_key) {
@@ -276,9 +279,10 @@ impl AppState {
         from_date: &Option<String>,
         to_date: &Option<String>,
         limit: &Option<usize>,
+        has_files: &Option<bool>,
         result: SearchResult,
     ) {
-        let cache_key = Self::hash_search_params(query, channel, user, from_date, to_date, limit);
+        let cache_key = Self::hash_search_params(query, channel, user, from_date, to_date, limit, has_files);
         let mut cache = self.search_cache.write().await;
 
         // Keep cache size reasonable (max 50 searches)
