@@ -36,7 +36,12 @@ export class ThreadExportService {
     channelId: string,
     options: ExportOptions
   ): Promise<FolderExportResult> {
-    const exported = await this.prepareExport(thread, channelName, channelId, options);
+    // フォルダエクスポートでは、ファイルダウンロードをスキップ（後で並列ダウンロード）
+    const exportOptionsWithoutDownload: ExportOptions = {
+      ...options,
+      attachmentHandling: 'permalink-only' // ダウンロードをスキップ
+    };
+    const exported = await this.prepareExport(thread, channelName, channelId, exportOptionsWithoutDownload);
 
     // Step 1: ファイル名を事前決定（順序保証）
     const fileJobs: FileDownloadJob[] = [];
@@ -58,8 +63,10 @@ export class ThreadExportService {
       }
     }
 
-    // Step 2: 並列ダウンロード（3ファイルずつ）
-    const results = await this.downloadFilesWithLimit(fileJobs, thread, 3);
+    // Step 2: 並列ダウンロード（スマート並列化）
+    // ファイル数に応じて動的に並列数を調整（最大10並列で安全マージン確保）
+    const concurrencyLimit = Math.min(fileJobs.length, 10);
+    const results = await this.downloadFilesWithLimit(fileJobs, thread, concurrencyLimit);
 
     // Step 3: 成功したファイルのみ抽出
     const attachments = results
