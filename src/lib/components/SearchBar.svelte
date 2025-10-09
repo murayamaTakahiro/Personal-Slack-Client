@@ -1441,14 +1441,40 @@
     cursor: pointer;
     width: 18px;
     height: 18px;
+    accent-color: var(--primary);
+  }
+
+  /* Focus state - highly visible */
+  .checkbox-label input[type="checkbox"]:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(77, 144, 254, 0.2);
+  }
+
+  /* Focus-visible for keyboard navigation */
+  .checkbox-label input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(77, 144, 254, 0.3);
   }
 
   .checkbox-icon {
     font-size: 1.1rem;
+    transition: all 0.2s ease;
   }
 
   .checkbox-label:hover {
     color: var(--primary);
+  }
+
+  .checkbox-label:hover .checkbox-icon {
+    transform: scale(1.1);
+  }
+
+  /* When checkbox is focused, highlight the entire label */
+  .checkbox-label:has(input:focus) {
+    color: var(--primary);
+    font-weight: 500;
   }
 
   .checkbox-label input[type="checkbox"]:checked + .checkbox-icon {
