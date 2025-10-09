@@ -10,18 +10,31 @@ import { reactionLoadingState, searchResults } from '../stores/search';
  */
 export async function searchMessagesFast(params: SearchParams): Promise<SearchResult> {
   console.log('[FastSearch] Starting ultra-fast search');
-  
+  console.log('[DEBUG] params.hasFiles:', params.hasFiles);
+
   // Use the new fast search command that skips reaction fetching
-  const result = await invoke<SearchResult>('search_messages_fast', {
+  // IMPORTANT: Tauri expects exact parameter names from Rust function signature
+  const invokeParams: Record<string, any> = {
     query: params.query || '',
-    channel: params.channel,
-    user: params.user,
-    // Handle both Date objects and string formats
-    fromDate: params.fromDate instanceof Date ? params.fromDate.toISOString() : params.fromDate,
-    toDate: params.toDate instanceof Date ? params.toDate.toISOString() : params.toDate,
-    limit: params.limit,
-    force_refresh: params.isRealtimeUpdate || false  // Using snake_case for Rust
-  });
+  };
+
+  // Only include optional parameters if they have values
+  // IMPORTANT: Tauri v2 expects camelCase from JavaScript, which gets converted to snake_case in Rust
+  if (params.channel) invokeParams.channel = params.channel;
+  if (params.user) invokeParams.user = params.user;
+  if (params.fromDate) {
+    invokeParams.fromDate = params.fromDate instanceof Date ? params.fromDate.toISOString() : params.fromDate;
+  }
+  if (params.toDate) {
+    invokeParams.toDate = params.toDate instanceof Date ? params.toDate.toISOString() : params.toDate;
+  }
+  if (params.limit) invokeParams.limit = params.limit;
+  if (params.isRealtimeUpdate) invokeParams.forceRefresh = params.isRealtimeUpdate;
+  if (params.hasFiles === true) invokeParams.hasFiles = true;
+
+  console.log('[DEBUG] invoke params:', JSON.stringify(invokeParams, null, 2));
+
+  const result = await invoke<SearchResult>('search_messages_fast', invokeParams);
   
   console.log(`[FastSearch] Got ${result.messages.length} messages instantly`);
   

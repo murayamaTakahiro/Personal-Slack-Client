@@ -26,17 +26,27 @@ export async function searchMessagesWithBatching(params: SearchParams): Promise<
   
   if (!shouldUseBatching) {
     // Use regular single search
-    const result = await invoke<SearchResult>('search_messages', {
+    // IMPORTANT: Tauri expects exact parameter names from Rust function signature
+    const invokeParams: Record<string, any> = {
       query: params.query || '',
-      channel: params.channel,
-      user: params.user,
-      // Handle both Date objects and string formats
-      fromDate: params.fromDate instanceof Date ? params.fromDate.toISOString() : params.fromDate,
-      toDate: params.toDate instanceof Date ? params.toDate.toISOString() : params.toDate,
-      limit: params.limit,
-      force_refresh: params.isRealtimeUpdate || false  // Using snake_case for Rust
-    });
-    
+    };
+
+    // Only include optional parameters if they have values
+    // IMPORTANT: Tauri v2 expects camelCase from JavaScript, which gets converted to snake_case in Rust
+    if (params.channel) invokeParams.channel = params.channel;
+    if (params.user) invokeParams.user = params.user;
+    if (params.fromDate) {
+      invokeParams.fromDate = params.fromDate instanceof Date ? params.fromDate.toISOString() : params.fromDate;
+    }
+    if (params.toDate) {
+      invokeParams.toDate = params.toDate instanceof Date ? params.toDate.toISOString() : params.toDate;
+    }
+    if (params.limit) invokeParams.limit = params.limit;
+    if (params.isRealtimeUpdate) invokeParams.forceRefresh = params.isRealtimeUpdate;
+    if (params.hasFiles === true) invokeParams.hasFiles = true;
+
+    const result = await invoke<SearchResult>('search_messages', invokeParams);
+
     return result;
   }
   
@@ -53,17 +63,27 @@ export async function searchMessagesWithBatching(params: SearchParams): Promise<
       async (channelBatch: string[], query: string) => {
         // Execute search for each batch
         const batchChannel = channelBatch.join(',');
-        const batchResult = await invoke<SearchResult>('search_messages', {
+        // IMPORTANT: Tauri expects exact parameter names from Rust function signature
+        const batchInvokeParams: Record<string, any> = {
           query: query,
-          channel: batchChannel,
-          user: params.user,
-          // Handle both Date objects and string formats
-          fromDate: params.fromDate instanceof Date ? params.fromDate.toISOString() : params.fromDate,
-          toDate: params.toDate instanceof Date ? params.toDate.toISOString() : params.toDate,
-          limit: params.limit,
-          force_refresh: params.isRealtimeUpdate || false  // Using snake_case for Rust
-        });
-        
+        };
+
+        // Only include optional parameters if they have values
+        // IMPORTANT: Tauri v2 expects camelCase from JavaScript, which gets converted to snake_case in Rust
+        if (batchChannel) batchInvokeParams.channel = batchChannel;
+        if (params.user) batchInvokeParams.user = params.user;
+        if (params.fromDate) {
+          batchInvokeParams.fromDate = params.fromDate instanceof Date ? params.fromDate.toISOString() : params.fromDate;
+        }
+        if (params.toDate) {
+          batchInvokeParams.toDate = params.toDate instanceof Date ? params.toDate.toISOString() : params.toDate;
+        }
+        if (params.limit) batchInvokeParams.limit = params.limit;
+        if (params.isRealtimeUpdate) batchInvokeParams.forceRefresh = params.isRealtimeUpdate;
+        if (params.hasFiles === true) batchInvokeParams.hasFiles = true;
+
+        const batchResult = await invoke<SearchResult>('search_messages', batchInvokeParams);
+
         return batchResult.messages || [];
       }
     );
