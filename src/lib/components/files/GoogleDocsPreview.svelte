@@ -9,8 +9,10 @@
   export let file: SlackFile;
   export let workspaceId: string;
   export let compact: boolean = false;
-  export let maxWidth: number = 360;
-  export let maxHeight: number = 240;
+
+  // Dynamic size calculation based on compact mode - Google Docs style thumbnails
+  $: maxWidth = compact ? 80 : 100;
+  $: maxHeight = compact ? 60 : 75;
 
   let imageElement: HTMLImageElement;
   let isLoading = true;
@@ -194,17 +196,17 @@
 
   .google-icon {
     position: absolute;
-    top: 8px;
-    left: 8px;
-    width: 32px;
-    height: 32px;
+    top: 4px;
+    left: 4px;
+    width: 20px;
+    height: 20px;
     background: white;
-    border-radius: 4px;
+    border-radius: 3px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    font-size: 12px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
     z-index: 10;
   }
 

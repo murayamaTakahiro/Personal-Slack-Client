@@ -189,6 +189,7 @@
                     file={metadata.file}
                     {workspaceId}
                     showMetadata={!compact}
+                    {compact}
                   />
                 {:else if group.type === 'pdf'}
                   <PdfPreview
@@ -389,17 +390,23 @@
 
   .files-grid {
     display: grid;
-    gap: 0.75rem;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 100px));
+    justify-content: start;
   }
 
   .files-grid.image-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(100px, 100px));
     gap: 0.5rem;
   }
 
   .compact .files-grid {
     gap: 0.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 80px));
+  }
+
+  .compact .files-grid.image-grid {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 80px));
   }
 
   .file-item {

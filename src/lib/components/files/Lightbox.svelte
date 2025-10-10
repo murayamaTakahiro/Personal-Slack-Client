@@ -1307,7 +1307,7 @@
             bind:this={textPreviewRef}
             file={file.file}
             workspaceId={$activeWorkspace?.id || 'default'}
-            compact={false}
+            compact={true}
           />
         </div>
       {:else if isCsv}
@@ -1316,7 +1316,7 @@
             bind:this={csvPreviewRef}
             file={file.file}
             workspaceId={$activeWorkspace?.id || 'default'}
-            compact={false}
+            compact={true}
           />
         </div>
       {:else if isExcel}
@@ -1325,7 +1325,7 @@
             bind:this={excelPreviewRef}
             file={file.file}
             workspaceId={$activeWorkspace?.id || 'default'}
-            compact={false}
+            compact={true}
           />
         </div>
       {:else if isWord}
@@ -1334,7 +1334,7 @@
             <WordPreview
               file={file.file}
               workspaceId={$activeWorkspace?.id || 'default'}
-              compact={false}
+              compact={true}
             />
           {/key}
         </div>
@@ -1344,7 +1344,7 @@
             <OfficePreview
               file={file.file}
               workspaceId={$activeWorkspace?.id || 'default'}
-              compact={false}
+              compact={true}
             />
           {/key}
         </div>

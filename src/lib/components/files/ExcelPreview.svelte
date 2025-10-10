@@ -266,6 +266,17 @@
     <div class="empty-container">
       <span>No data in this sheet</span>
     </div>
+  {:else if compact}
+    <!-- Simple compact display with file icon only -->
+    <div class="compact-preview">
+      <div class="file-icon excel">
+        <span>📊</span>
+      </div>
+      <div class="compact-info">
+        <div class="file-name" title={fileName}>{fileName}</div>
+        <div class="file-size">{formattedSize}</div>
+      </div>
+    </div>
   {:else}
     <div class="preview-container">
       <div class="file-info">
@@ -336,39 +347,87 @@
         </div>
       </div>
 
-      {#if !compact}
-        <div class="actions">
-          <button
-            class="download-button"
-            on:click={handleDownload}
-            disabled={isDownloading}
-          >
-            {#if isDownloading}
-              <div class="spinner small"></div>
-            {:else}
-              <svg width="16" height="16" viewBox="0 0 16 16">
-                <path fill="currentColor" d="M8 11L4 7h2.5V2h3v5H12L8 11zm-6 3v1h12v-1H2z"/>
-              </svg>
-            {/if}
-            <span>{isDownloading ? 'Downloading...' : 'Download Excel File'}</span>
-          </button>
-        </div>
-      {/if}
+      <div class="actions">
+        <button
+          class="download-button"
+          on:click={handleDownload}
+          disabled={isDownloading}
+        >
+          {#if isDownloading}
+            <div class="spinner small"></div>
+          {:else}
+            <svg width="16" height="16" viewBox="0 0 16 16">
+              <path fill="currentColor" d="M8 11L4 7h2.5V2h3v5H12L8 11zm-6 3v1h12v-1H2z"/>
+            </svg>
+          {/if}
+          <span>{isDownloading ? 'Downloading...' : 'Download Excel File'}</span>
+        </button>
+      </div>
     </div>
   {/if}
 </div>
 
 <style>
   .excel-preview {
-    width: 100%;
+    max-width: 200px;
     border-radius: 0.375rem;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
   }
 
   .excel-preview.compact {
+    max-width: 100px;
     background: transparent;
     border: none;
+  }
+
+  .compact-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+
+  .file-icon {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.375rem;
+    font-size: 2rem;
+  }
+
+  .file-icon.excel {
+    border-color: #22863a;
+    background: rgba(34, 134, 58, 0.1);
+  }
+
+  .compact-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    width: 100%;
+  }
+
+  .compact-info .file-name {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    text-align: center;
+  }
+
+  .compact-info .file-size {
+    font-size: 0.6875rem;
+    color: var(--color-text-secondary);
   }
 
   .loading-container,

@@ -9,8 +9,11 @@
   export let file: SlackFile;
   export let workspaceId: string;
   export let showMetadata: boolean = true;
-  export let maxWidth: number = 360;
-  export let maxHeight: number = 240;
+  export let compact: boolean = false;
+
+  // Dynamic size calculation based on compact mode - Google Docs style thumbnails
+  $: maxWidth = compact ? 80 : 100;
+  $: maxHeight = compact ? 60 : 75;
 
   let imageElement: HTMLImageElement;
   let isLoading = true;

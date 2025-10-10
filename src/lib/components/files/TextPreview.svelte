@@ -190,10 +190,19 @@
       </svg>
       <span>{error}</span>
     </div>
+  {:else if compact}
+    <div class="compact-preview">
+      <div class="file-icon text">
+        <span>📝</span>
+      </div>
+      <div class="compact-info">
+        <div class="file-name" title={fileName}>{fileName}</div>
+        <div class="file-size">{formattedSize}</div>
+      </div>
+    </div>
   {:else}
     <div class="preview-container">
-      {#if !compact}
-        <div class="preview-header">
+      <div class="preview-header">
           <div class="file-info">
             <span class="file-name">{fileName}</span>
             <span class="file-meta">
@@ -233,7 +242,6 @@
             </button>
           </div>
         </div>
-      {/if}
 
       <div class="text-content">
         {#if shouldHighlight && highlightedContent}
@@ -273,6 +281,58 @@
 
   .text-preview.compact {
     border-radius: 0.375rem;
+    max-width: 100px;
+    background: transparent;
+    border: none;
+  }
+
+  .compact-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+
+  .file-icon {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.375rem;
+    font-size: 2rem;
+  }
+
+  .file-icon.text {
+    border-color: #586069;
+    background: rgba(88, 96, 105, 0.1);
+  }
+
+  .compact-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    width: 100%;
+  }
+
+  .compact-info .file-name {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    text-align: center;
+  }
+
+  .compact-info .file-size {
+    font-size: 0.6875rem;
+    color: var(--color-text-secondary);
   }
 
   .loading-container {
