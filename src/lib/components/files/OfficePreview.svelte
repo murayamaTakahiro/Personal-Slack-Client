@@ -30,6 +30,12 @@
   $: fileTypeColor = isExcel ? '#22863a' : isWord ? '#0366d6' : isPowerPoint ? '#d24726' : '#586069';
 
   onMount(async () => {
+    // Skip thumbnail loading in compact mode
+    if (compact) {
+      console.log('[OfficePreview] Skipping thumbnail load in compact mode');
+      return;
+    }
+
     // Debug: Log file object to check for preview fields
     console.log('[OfficePreview] File object:', {
       name: file.name,

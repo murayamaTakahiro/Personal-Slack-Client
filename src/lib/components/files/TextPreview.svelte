@@ -11,7 +11,7 @@
   export let workspaceId: string;
   export let compact: boolean = false;
 
-  let isLoading = true;
+  let isLoading = !compact; // Don't load if compact mode
   let isDownloading = false;
   let fileContent: string = '';
   let error: string | null = null;
@@ -78,7 +78,10 @@
   }
 
   onMount(() => {
-    loadFileContent();
+    // Only load content if not in compact mode
+    if (!compact) {
+      loadFileContent();
+    }
   });
 
   async function loadFileContent() {

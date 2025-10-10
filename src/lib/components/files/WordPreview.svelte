@@ -12,7 +12,7 @@
   export let workspaceId: string;
   export let compact: boolean = false;
 
-  let isLoading = true;
+  let isLoading = !compact; // Don't load if compact mode
   let isDownloading = false;
   let error: string | null = null;
   let htmlContent: string = '';
@@ -23,8 +23,14 @@
   $: fileName = file.name || file.title || 'Untitled';
 
   onMount(() => {
-    loadWordContent();
+    // Only load content if not in compact mode
+    if (!compact) {
+      loadWordContent();
+    }
   });
+
+  // Note: Do NOT add reactive statement for file changes here
+  // It would cause content to load even in compact mode
 
   async function loadWordContent() {
     isLoading = true;

@@ -11,7 +11,7 @@
   export let workspaceId: string;
   export let compact: boolean = false;
 
-  let isLoading = true;
+  let isLoading = !compact; // Don't load if compact mode
   let isDownloading = false;
   let error: string | null = null;
   let tableData: any[][] = [];
@@ -31,11 +31,6 @@
   $: formattedSize = formatFileSize(file.size);
   $: fileName = file.name || file.title || 'Untitled';
   $: currentSheetName = sheetNames[currentSheetIndex] || 'Sheet 1';
-
-  // Reload content when file changes
-  $: if (file && file.id) {
-    loadExcelContent();
-  }
 
   // Sync horizontal scroll between header and body
   function handleBodyScroll() {
@@ -96,7 +91,10 @@
   }
 
   onMount(() => {
-    loadExcelContent();
+    // Only load content if not in compact mode
+    if (!compact) {
+      loadExcelContent();
+    }
   });
 
   // Sync column widths after data loads
