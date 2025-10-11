@@ -1303,30 +1303,36 @@
         </div>
       {:else if isText}
         <div class="text-preview-wrapper" style="zoom: {zoomLevel};">
-          <TextPreview
-            bind:this={textPreviewRef}
-            file={file.file}
-            workspaceId={$activeWorkspace?.id || 'default'}
-            compact={false}
-          />
+          {#key file.file.id}
+            <TextPreview
+              bind:this={textPreviewRef}
+              file={file.file}
+              workspaceId={$activeWorkspace?.id || 'default'}
+              compact={false}
+            />
+          {/key}
         </div>
       {:else if isCsv}
         <div class="csv-preview-wrapper" style="zoom: {zoomLevel};">
-          <CsvPreview
-            bind:this={csvPreviewRef}
-            file={file.file}
-            workspaceId={$activeWorkspace?.id || 'default'}
-            compact={false}
-          />
+          {#key file.file.id}
+            <CsvPreview
+              bind:this={csvPreviewRef}
+              file={file.file}
+              workspaceId={$activeWorkspace?.id || 'default'}
+              compact={false}
+            />
+          {/key}
         </div>
       {:else if isExcel}
         <div class="excel-preview-wrapper" style="zoom: {zoomLevel};">
-          <ExcelPreview
-            bind:this={excelPreviewRef}
-            file={file.file}
-            workspaceId={$activeWorkspace?.id || 'default'}
-            compact={false}
-          />
+          {#key file.file.id}
+            <ExcelPreview
+              bind:this={excelPreviewRef}
+              file={file.file}
+              workspaceId={$activeWorkspace?.id || 'default'}
+              compact={false}
+            />
+          {/key}
         </div>
       {:else if isWord}
         <div class="word-preview-wrapper" style="zoom: {zoomLevel};">

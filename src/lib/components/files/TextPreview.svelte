@@ -53,10 +53,8 @@
     })();
   }
 
-  // Reload content when file changes
-  $: if (file && file.id) {
-    loadFileContent();
-  }
+  // Note: Do NOT add reactive statement for file changes here
+  // It would cause content to load even in compact mode when focus changes
 
   /**
    * シンタックスハイライトを適用
