@@ -518,10 +518,11 @@
   .bookmark-manager-wrapper {
     position: absolute;
     top: 100%;
-    left: 0;
     right: 0;
     margin-top: 4px;
     z-index: 1000;
+    min-width: 500px;
+    max-width: 800px;
   }
 
   .bookmark-dropdown {
@@ -531,6 +532,7 @@
     max-height: 400px;
     overflow-y: auto;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    width: 100%;
   }
 
   .bookmark-dropdown:focus {

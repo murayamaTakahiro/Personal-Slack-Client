@@ -753,19 +753,29 @@
       {/if}
     </button>
 
-    <button
-      bind:this={bookmarkButton}
-      on:click={toggleBookmarks}
-      class="btn-toggle {showBookmarks ? 'active' : ''}"
-      title="Bookmarked messages (B key)"
-    >
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-      </svg>
-      {#if $bookmarkStore.length > 0}
-        <span class="saved-count">{$bookmarkStore.length}</span>
+    <div class="bookmark-button-container">
+      <button
+        bind:this={bookmarkButton}
+        on:click={toggleBookmarks}
+        class="btn-toggle {showBookmarks ? 'active' : ''}"
+        title="Bookmarked messages (B key)"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+        </svg>
+        {#if $bookmarkStore.length > 0}
+          <span class="saved-count">{$bookmarkStore.length}</span>
+        {/if}
+      </button>
+
+      {#if showBookmarks && bookmarkButton}
+        <BookmarkManager
+          on:select={handleBookmarkSelect}
+          on:close={closeBookmarks}
+          triggerElement={bookmarkButton}
+        />
       {/if}
-    </button>
+    </div>
 
     <button
       on:click={handleSearch}
@@ -1077,14 +1087,6 @@
     {/key}
   {/if}
 
-  <!-- Bookmark Manager -->
-  {#if showBookmarks && bookmarkButton}
-    <BookmarkManager
-      on:select={handleBookmarkSelect}
-      on:close={closeBookmarks}
-      triggerElement={bookmarkButton}
-    />
-  {/if}
 
 </div>
 
@@ -1131,7 +1133,11 @@
     color: white;
     border-color: var(--primary);
   }
-  
+
+  .bookmark-button-container {
+    position: relative;
+  }
+
   .search-advanced {
     margin-top: 0.5rem;
     padding-top: 0.5rem;
