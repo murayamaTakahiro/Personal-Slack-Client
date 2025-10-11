@@ -20,6 +20,7 @@
   import { ThreadExportService } from '../services/threadExportService';
   import type { ExportOptions } from '../types/export';
   import { invoke } from '@tauri-apps/api/core';
+  import { bookmarkStore } from '../stores/bookmarks';
 
   export let message: Message | null = null;
 
@@ -648,6 +649,28 @@
           } else {
             showInfo('No attachments', 'This message has no file attachments to preview.');
           }
+        }
+      }
+
+      // Handle B key for bookmark toggle
+      if (event.key.toLowerCase() === 'b' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        // Get the selected message
+        const messages = getAllMessages();
+        if (selectedIndex >= 0 && selectedIndex < messages.length) {
+          const selectedMsg = messages[selectedIndex].message;
+
+          // Toggle bookmark
+          bookmarkStore.toggleBookmark(selectedMsg).then(result => {
+            if (result.added) {
+              showInfo('Bookmark added', `Message from ${selectedMsg.userName} has been bookmarked`);
+            } else {
+              showInfo('Bookmark removed', 'Bookmark has been removed');
+            }
+          });
         }
       }
     };

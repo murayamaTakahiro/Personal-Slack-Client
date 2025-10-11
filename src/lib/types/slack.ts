@@ -168,12 +168,27 @@ export interface KeyboardShortcuts {
   downloadAllAttachments?: string | string[];
   // File preview shortcut
   openFilePreview?: string | string[];
+  // Bookmark shortcuts
+  toggleBookmark?: string | string[];
 }
 
 export interface MentionHistory {
   userId: string;
   count: number;
   lastUsed: string; // ISO date string
+}
+
+export interface MessageBookmark {
+  id: string;
+  messageTs: string;
+  channelId: string;
+  channelName: string;
+  alias?: string;  // User-defined custom name
+  summary: string; // Message text summary
+  timestamp: Date;
+  usageCount: number;
+  lastUsed?: Date;
+  isFavorite?: boolean;
 }
 
 export interface AppSettings {

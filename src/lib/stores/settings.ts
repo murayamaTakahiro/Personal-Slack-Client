@@ -76,7 +76,9 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   lightboxClose: 'Escape',
   // File shortcuts
   downloadAllAttachments: 'd',
-  uploadFiles: 'Ctrl+U'
+  uploadFiles: 'Ctrl+U',
+  // Bookmark shortcuts
+  toggleBookmark: 'b'
 };
 
 // Default settings

@@ -372,6 +372,16 @@
         ]
       },
       {
+        name: 'Bookmarks',
+        shortcuts: [
+          {
+            key: 'toggleBookmark',
+            description: 'Toggle Bookmark for Selected Message',
+            shortcut: shortcuts.toggleBookmark || 'b'
+          }
+        ]
+      },
+      {
         name: 'View',
         shortcuts: [
           {

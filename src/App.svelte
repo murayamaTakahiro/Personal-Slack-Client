@@ -43,6 +43,7 @@
   import { savedSearchesStore } from './lib/stores/savedSearches';
   import { urlHistoryStore } from './lib/stores/urlHistory';
   import { searchKeywordHistoryStore } from './lib/stores/searchKeywordHistory';
+  import { bookmarkStore } from './lib/stores/bookmarks';
   import RealtimeSettings from './lib/components/RealtimeSettings.svelte';
   import PerformanceSettings from './lib/components/PerformanceSettings.svelte';
   import PerformanceDashboard from './lib/components/PerformanceDashboard.svelte';
@@ -253,6 +254,18 @@
         }),
         new Promise(resolve => setTimeout(() => {
           console.warn('[App] Search keyword history initialization timed out');
+          resolve(null);
+        }, 2000)) // Reduced timeout
+      ]),
+
+      // Initialize bookmark store with timeout
+      Promise.race([
+        bookmarkStore.initialize().catch(error => {
+          console.warn('[App] Bookmark store initialization failed:', error);
+          return null; // Don't let this break the app
+        }),
+        new Promise(resolve => setTimeout(() => {
+          console.warn('[App] Bookmark store initialization timed out');
           resolve(null);
         }, 2000)) // Reduced timeout
       ]),
@@ -1282,7 +1295,12 @@
           logger.debug('[App] Re-initializing search keyword history for workspace switch...');
           await searchKeywordHistoryStore.initialize();
           logger.debug('[App] Search keyword history re-initialized');
-          
+
+          // Re-initialize bookmarks for the new workspace
+          logger.debug('[App] Re-initializing bookmarks for workspace switch...');
+          await bookmarkStore.initialize();
+          logger.debug('[App] Bookmarks re-initialized');
+
           // Force UI update by reassigning channels
           channels = [...channels];
           

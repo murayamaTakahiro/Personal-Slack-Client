@@ -17,6 +17,8 @@
   import SearchKeywordHistory from './SearchKeywordHistory.svelte';
   import { searchKeywordHistoryStore } from '../stores/searchKeywordHistory';
   import { isDMChannelsEnabled } from '../stores/settings';
+  import BookmarkManager from './BookmarkManager.svelte';
+  import { bookmarkStore } from '../stores/bookmarks';
 
   export let channels: [string, string][] = [];
   export let showAdvanced = true;
@@ -45,6 +47,8 @@
   let urlHistoryButton: HTMLButtonElement;
   let showKeywordHistory = false;
   let keywordHistoryButton: HTMLButtonElement;
+  let showBookmarks = false;
+  let bookmarkButton: HTMLButtonElement;
 
   // DM search state
   export let dmSearchMode = false;
@@ -264,6 +268,36 @@
     // Return focus to the button when closing
     if (keywordHistoryButton) {
       keywordHistoryButton.focus();
+    }
+  }
+
+  function toggleBookmarks() {
+    showBookmarks = !showBookmarks;
+    if (!showBookmarks) {
+      // Return focus to the button when closing
+      if (bookmarkButton) {
+        bookmarkButton.focus();
+      }
+    }
+  }
+
+  function handleBookmarkSelect(event: CustomEvent<{ messageTs: string; channelId: string }>) {
+    const { messageTs, channelId } = event.detail;
+    showBookmarks = false;
+
+    // Load the bookmarked message directly into the thread view
+    // This does NOT trigger a search in the message list
+    // It only displays the message and its thread in the thread view panel
+    const slackUrl = `https://slack.com/archives/${channelId}/p${messageTs.replace('.', '')}`;
+    urlInput = slackUrl;
+    handleUrlPaste();
+  }
+
+  function closeBookmarks() {
+    showBookmarks = false;
+    // Return focus to the button when closing
+    if (bookmarkButton) {
+      bookmarkButton.focus();
     }
   }
   
@@ -718,7 +752,21 @@
         <span class="saved-count">{$savedSearchesStore.length}</span>
       {/if}
     </button>
-    
+
+    <button
+      bind:this={bookmarkButton}
+      on:click={toggleBookmarks}
+      class="btn-toggle {showBookmarks ? 'active' : ''}"
+      title="Bookmarked messages (B key)"
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+      </svg>
+      {#if $bookmarkStore.length > 0}
+        <span class="saved-count">{$bookmarkStore.length}</span>
+      {/if}
+    </button>
+
     <button
       on:click={handleSearch}
       disabled={$searchLoading || (!$searchQuery.trim() && !channel && !user && !fromDate && !toDate)}
@@ -1027,6 +1075,15 @@
         }}
       />
     {/key}
+  {/if}
+
+  <!-- Bookmark Manager -->
+  {#if showBookmarks && bookmarkButton}
+    <BookmarkManager
+      on:select={handleBookmarkSelect}
+      on:close={closeBookmarks}
+      triggerElement={bookmarkButton}
+    />
   {/if}
 
 </div>
@@ -1479,6 +1536,60 @@
 
   .checkbox-label input[type="checkbox"]:checked + .checkbox-icon {
     color: var(--primary);
+  }
+
+  .bookmark-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .bookmark-field label {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+  }
+
+  .btn-bookmarks {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+    min-width: 80px;
+  }
+
+  .btn-bookmarks:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .btn-bookmarks.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  .bookmark-count {
+    padding: 1px 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 500;
+    min-width: 16px;
+    text-align: center;
+  }
+
+  .btn-bookmarks:not(.active) .bookmark-count {
+    background: var(--primary);
+    color: white;
   }
 
   .info-message {

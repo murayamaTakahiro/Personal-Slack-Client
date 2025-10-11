@@ -20,6 +20,7 @@
   import { processFileMetadata } from '../services/fileService';
   import { downloadFilesInBatch } from '../api/files';
   import { settings, getDownloadFolder } from '../stores/settings';
+  import { bookmarkStore } from '../stores/bookmarks';
 
   export let message: Message;
   export let selected = false;
@@ -307,6 +308,9 @@
     return null;
   };
 
+  // Check if this message is bookmarked
+  $: isBookmarked = bookmarkStore.isBookmarked(message.ts, message.channel);
+
   function openReactionPicker(event: MouseEvent) {
     if (!enableReactions || isPickerOpen) return;
 
@@ -566,7 +570,15 @@
           {message.replyCount}
         </span>
       {/if}
-      
+
+      {#if isBookmarked}
+        <span class="bookmark-indicator" title="Bookmarked">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+          </svg>
+        </span>
+      {/if}
+
       <button
         class="btn-open"
         on:click={handleOpenInSlack}
@@ -578,7 +590,7 @@
           <line x1="10" y1="14" x2="21" y2="3"/>
         </svg>
       </button>
-      
+
       {#if enableReactions}
         <button
           class="btn-reaction"
@@ -774,7 +786,18 @@
     font-size: 0.75rem;
     color: var(--text-secondary);
   }
-  
+
+  .bookmark-indicator {
+    display: flex;
+    align-items: center;
+    color: var(--primary);
+    opacity: 0.8;
+  }
+
+  .bookmark-indicator:hover {
+    opacity: 1;
+  }
+
   .btn-open {
     padding: 0.25rem;
     background: transparent;

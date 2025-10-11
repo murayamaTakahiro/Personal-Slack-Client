@@ -22,6 +22,7 @@
   import { realtimeStore } from '../stores/realtime';
   import { settings } from '../stores/settings';
   import { searchHistoryTracker } from '../services/searchHistoryTracker';
+  import { bookmarkStore } from '../stores/bookmarks';
 
   export let messages: Message[] = [];
   export let loading = false;
@@ -959,6 +960,42 @@
       },
       allowInInput: false
     });
+
+    // Toggle Bookmark (B key)
+    keyboardService.registerHandler('toggleBookmark', {
+      action: async () => {
+        // Check if lightbox is open - if so, don't handle
+        if ($lightboxOpen) {
+          return;
+        }
+
+        // Check if thread view has focus - if so, don't handle
+        const threadViewElement = document.querySelector('.thread-view');
+        if (threadViewElement && threadViewElement.contains(document.activeElement)) {
+          return; // Let thread view handle its own bookmark
+        }
+
+        // Check if the result list actually has focus
+        if (!listContainer || (!listContainer.contains(document.activeElement) && document.activeElement !== listContainer)) {
+          return; // Don't handle if focus is elsewhere
+        }
+
+        // Check if we have a valid focused message
+        if (focusedIndex < 0 || focusedIndex >= messages.length) {
+          return;
+        }
+
+        const message = messages[focusedIndex];
+        const result = await bookmarkStore.toggleBookmark(message);
+
+        if (result.added) {
+          showInfo('Bookmark added', `Message from ${message.userName} has been bookmarked`);
+        } else {
+          showInfo('Bookmark removed', 'Bookmark has been removed');
+        }
+      },
+      allowInInput: false
+    });
   });
   
   onDestroy(() => {
@@ -985,6 +1022,7 @@
       keyboardService.unregisterHandler('quoteMessage');
       keyboardService.unregisterHandler('openUrls');
       keyboardService.unregisterHandler('openLightbox');
+      keyboardService.unregisterHandler('toggleBookmark');
     }
   });
 </script>
