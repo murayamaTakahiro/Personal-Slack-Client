@@ -469,7 +469,7 @@
     return `${Math.floor(days / 365)} years ago`;
   }
 
-  function getSearchDescription(search: SavedSearch): { criteria: string; displayName: string } {
+  function getSearchDescription(search: SavedSearch): { mainDisplay: string; subDisplay: string } {
     const parts = [];
     if (search.channel) parts.push(`in #${search.channel}`);
     if (search.query) parts.push(`"${search.query}"`);
@@ -487,14 +487,25 @@
         parts.push(`until ${search.toDate}`);
       }
     }
+    if (search.hasFiles) {
+      parts.push('with attachments');
+    }
 
-    // Criteria is the main display (search conditions)
     const criteria = parts.length > 0 ? parts.join(' ') : 'All messages';
 
-    // Display name shows alias if exists, otherwise just "Search"
-    const displayName = search.name ? ` · ${search.name}` : '';
-
-    return { criteria, displayName };
+    // If alias exists, show alias on top and criteria below
+    // Otherwise, show criteria on top and criteria below as well (same content)
+    if (search.name) {
+      return {
+        mainDisplay: search.name,
+        subDisplay: ` · ${criteria}`
+      };
+    } else {
+      return {
+        mainDisplay: criteria,
+        subDisplay: ` · ${criteria}`
+      };
+    }
   }
 
   onMount(() => {
@@ -673,7 +684,7 @@
               {:else}
                 {@const display = getSearchDescription(search)}
                 <div class="search-header">
-                  <span class="search-name">{display.criteria}</span>
+                  <span class="search-name">{display.mainDisplay}</span>
                   <div class="search-meta">
                     {#if search.usageCount > 1}
                       <span class="usage-count" title="Used {search.usageCount} times">
@@ -684,7 +695,7 @@
                   </div>
                 </div>
                 <div class="search-description">
-                  {display.displayName}
+                  {display.subDisplay}
                 </div>
               {/if}
             </div>
