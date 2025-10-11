@@ -584,10 +584,10 @@
   </div>
   
   {#if message.files && message.files.length > 0}
-    <FileAttachments 
-      files={message.files} 
+    <FileAttachments
+      files={message.files}
       workspaceId={$activeWorkspace?.id || 'default'}
-      compact={!selected}
+      compact={true}
     />
   {/if}
   

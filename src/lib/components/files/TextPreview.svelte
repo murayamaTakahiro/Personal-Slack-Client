@@ -11,7 +11,7 @@
   export let workspaceId: string;
   export let compact: boolean = false;
 
-  let isLoading = !compact; // Don't load if compact mode
+  let isLoading = true;
   let isDownloading = false;
   let fileContent: string = '';
   let error: string | null = null;
@@ -76,10 +76,8 @@
   }
 
   onMount(() => {
-    // Only load content if not in compact mode
-    if (!compact) {
-      loadFileContent();
-    }
+    // Always load content for preview (thumbnail or full)
+    loadFileContent();
   });
 
   async function loadFileContent() {
@@ -192,15 +190,25 @@
       <span>{error}</span>
     </div>
   {:else if compact}
-    <div class="compact-preview">
-      <div class="file-icon text">
-        <span>📝</span>
+    <button class="compact-preview" on:click={() => {}} title={fileName}>
+      <div class="compact-thumbnail">
+        {#if shouldHighlight && highlightedContent}
+          <div class="highlighted-code-thumbnail">
+            {@html highlightedContent}
+          </div>
+        {:else if fileContent && !fileContent.includes('[Preview not available')}
+          <pre class="code-thumbnail">{fileContent}</pre>
+        {:else}
+          <div class="file-icon text">
+            <span>📝</span>
+          </div>
+        {/if}
       </div>
       <div class="compact-info">
-        <div class="file-name" title={fileName}>{fileName}</div>
+        <div class="file-name">{fileName}</div>
         <div class="file-size">{formattedSize}</div>
       </div>
-    </div>
+    </button>
   {:else}
     <div class="preview-container">
       <div class="preview-header">
@@ -282,7 +290,8 @@
 
   .text-preview.compact {
     border-radius: 0.375rem;
-    max-width: 120px;
+    width: 100%;
+    max-width: 100px;
     background: transparent;
     border: none;
   }
@@ -291,43 +300,111 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem;
+    gap: 0.25rem;
+    padding: 0;
+    width: 100%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .compact-preview:hover {
+    transform: scale(1.02);
+  }
+
+  .compact-thumbnail {
+    width: 100px;
+    height: 75px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-code-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 0.375rem;
+    overflow: hidden;
+    position: relative;
+    transition: all 0.2s;
+  }
+
+  .compact-preview:hover .compact-thumbnail {
+    border-color: var(--color-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
   .file-icon {
-    width: 80px;
-    height: 80px;
+    width: 100%;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--color-surface);
-    border: 2px solid var(--color-border);
-    border-radius: 0.5rem;
-    font-size: 2.5rem;
-    transition: all 0.2s;
+    border: none;
+    font-size: 2rem;
   }
 
   .file-icon.text {
-    border-color: #586069;
     background: rgba(88, 96, 105, 0.15);
   }
 
-  .text-preview.compact:hover .file-icon {
-    transform: scale(1.05);
-    border-color: var(--color-primary);
+  .code-thumbnail {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0.25rem;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
+    font-size: 0.5rem;
+    line-height: 1.2;
+    white-space: pre;
+    color: var(--color-text-primary);
+    overflow: hidden;
+    text-align: left;
+  }
+
+  .highlighted-code-thumbnail {
+    width: 100%;
+    height: 100%;
+    padding: 0.25rem;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
+    font-size: 0.5rem;
+    line-height: 1.2;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .highlighted-code-thumbnail :global(pre) {
+    margin: 0;
+    padding: 0;
+    background: transparent !important;
+  }
+
+  .highlighted-code-thumbnail :global(code) {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    white-space: pre !important;
+  }
+
+  .highlighted-code-thumbnail :global(.line) {
+    display: block;
+    white-space: pre;
+  }
+
+  .highlighted-code-thumbnail :global(.line-number) {
+    display: none;
   }
 
   .compact-info {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.125rem;
     width: 100%;
+    padding: 0 0.25rem;
   }
 
   .compact-info .file-name {
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
     font-weight: 500;
     color: var(--color-text-primary);
     white-space: nowrap;
@@ -338,7 +415,7 @@
   }
 
   .compact-info .file-size {
-    font-size: 0.6875rem;
+    font-size: 0.625rem;
     color: var(--color-text-secondary);
   }
 
