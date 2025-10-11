@@ -168,6 +168,48 @@
           }, 10);
         }
         break;
+
+      case 'Tab':
+        // Implement focus trap within the dropdown
+        event.preventDefault();
+        event.stopPropagation();
+
+        const focusableElements = dropdownElement?.querySelectorAll(
+          'button:not([tabindex="-1"]):not(:disabled), input:not([tabindex="-1"]):not(:disabled), [tabindex="0"]'
+        );
+
+        if (!focusableElements || focusableElements.length === 0) {
+          break;
+        }
+
+        const firstElement = focusableElements[0] as HTMLElement;
+        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+        const activeElement = document.activeElement as HTMLElement;
+
+        if (event.shiftKey) {
+          // Shift+Tab - move backwards
+          if (activeElement === firstElement || !dropdownElement?.contains(activeElement)) {
+            lastElement.focus();
+          } else {
+            // Find the previous focusable element
+            const currentIndex = Array.from(focusableElements).indexOf(activeElement);
+            if (currentIndex > 0) {
+              (focusableElements[currentIndex - 1] as HTMLElement).focus();
+            }
+          }
+        } else {
+          // Tab - move forwards
+          if (activeElement === lastElement || !dropdownElement?.contains(activeElement)) {
+            firstElement.focus();
+          } else {
+            // Find the next focusable element
+            const currentIndex = Array.from(focusableElements).indexOf(activeElement);
+            if (currentIndex < focusableElements.length - 1) {
+              (focusableElements[currentIndex + 1] as HTMLElement).focus();
+            }
+          }
+        }
+        break;
     }
   }
 
