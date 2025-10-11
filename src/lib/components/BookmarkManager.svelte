@@ -332,14 +332,16 @@
     return d.toLocaleDateString();
   }
 
-  function getBookmarkDisplay(bookmark: MessageBookmark): string {
-    // If alias exists, use it
-    if (bookmark.alias) {
-      return bookmark.alias;
-    }
+  function getBookmarkDisplay(bookmark: MessageBookmark): { summary: string; channel: string } {
+    // Always show the original message summary
+    const summary = bookmark.summary;
 
-    // Use channel name and summary
-    return `#${bookmark.channelName}: ${bookmark.summary}`;
+    // Show alias in channel section if it exists
+    const channel = bookmark.alias
+      ? `#${bookmark.channelName} · ${bookmark.alias}`
+      : `#${bookmark.channelName}`;
+
+    return { summary, channel };
   }
 </script>
 
@@ -377,8 +379,9 @@
                     autofocus
                   />
                 {:else}
-                  <span class="bookmark-name">{getBookmarkDisplay(bookmark)}</span>
-                  <span class="bookmark-channel">#{bookmark.channelName}</span>
+                  {@const display = getBookmarkDisplay(bookmark)}
+                  <span class="bookmark-name">{display.summary}</span>
+                  <span class="bookmark-channel">{display.channel}</span>
                 {/if}
               </div>
               <span class="bookmark-meta">{formatDate(bookmark.lastUsed || bookmark.timestamp)}</span>
@@ -435,8 +438,9 @@
                     autofocus
                   />
                 {:else}
-                  <span class="bookmark-name">{getBookmarkDisplay(bookmark)}</span>
-                  <span class="bookmark-channel">#{bookmark.channelName}</span>
+                  {@const display = getBookmarkDisplay(bookmark)}
+                  <span class="bookmark-name">{display.summary}</span>
+                  <span class="bookmark-channel">{display.channel}</span>
                 {/if}
               </div>
               <span class="bookmark-meta">{formatDate(bookmark.lastUsed || bookmark.timestamp)}</span>
@@ -493,8 +497,9 @@
                     autofocus
                   />
                 {:else}
-                  <span class="bookmark-name">{getBookmarkDisplay(bookmark)}</span>
-                  <span class="bookmark-channel">#{bookmark.channelName}</span>
+                  {@const display = getBookmarkDisplay(bookmark)}
+                  <span class="bookmark-name">{display.summary}</span>
+                  <span class="bookmark-channel">{display.channel}</span>
                 {/if}
               </div>
               <span class="bookmark-meta">{formatDate(bookmark.lastUsed || bookmark.timestamp)}</span>
