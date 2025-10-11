@@ -469,25 +469,32 @@
     return `${Math.floor(days / 365)} years ago`;
   }
 
-  function getSearchDescription(search: SavedSearch): string {
+  function getSearchDescription(search: SavedSearch): { criteria: string; displayName: string } {
     const parts = [];
-    if (search.query) parts.push(`Query: "${search.query}"`);
-    if (search.channel) parts.push(`Channel: ${search.channel}`);
+    if (search.channel) parts.push(`in #${search.channel}`);
+    if (search.query) parts.push(`"${search.query}"`);
     // Display userName if available, fallback to user or userId
     if (search.userName || search.user || search.userId) {
       const displayName = search.userName || search.user || search.userId;
-      parts.push(`User: ${displayName}`);
+      parts.push(`from ${displayName}`);
     }
     if (search.fromDate || search.toDate) {
       if (search.fromDate && search.toDate) {
-        parts.push(`Date: ${search.fromDate} to ${search.toDate}`);
+        parts.push(`${search.fromDate} to ${search.toDate}`);
       } else if (search.fromDate) {
-        parts.push(`From: ${search.fromDate}`);
+        parts.push(`from ${search.fromDate}`);
       } else if (search.toDate) {
-        parts.push(`Until: ${search.toDate}`);
+        parts.push(`until ${search.toDate}`);
       }
     }
-    return parts.join(' • ');
+
+    // Criteria is the main display (search conditions)
+    const criteria = parts.length > 0 ? parts.join(' ') : 'All messages';
+
+    // Display name shows alias if exists, otherwise just "Search"
+    const displayName = search.name ? ` · ${search.name}` : '';
+
+    return { criteria, displayName };
   }
 
   onMount(() => {
@@ -664,8 +671,9 @@
                   autofocus
                 />
               {:else}
+                {@const display = getSearchDescription(search)}
                 <div class="search-header">
-                  <span class="search-name">{search.name}</span>
+                  <span class="search-name">{display.criteria}</span>
                   <div class="search-meta">
                     {#if search.usageCount > 1}
                       <span class="usage-count" title="Used {search.usageCount} times">
@@ -676,7 +684,7 @@
                   </div>
                 </div>
                 <div class="search-description">
-                  {getSearchDescription(search)}
+                  {display.displayName}
                 </div>
               {/if}
             </div>
