@@ -655,10 +655,10 @@
       filesCount: message.files.length,
       files: message.files
     })}
-    <FileAttachments 
-      files={message.files} 
+    <FileAttachments
+      files={message.files}
       workspaceId={$activeWorkspace?.id || 'default'}
-      compact={!selected}
+      compact={true}
     />
   {/if}
   
