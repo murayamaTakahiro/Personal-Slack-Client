@@ -9,6 +9,7 @@
   import { showSuccess, showError, showInfo } from '$lib/stores/toast';
   import LightboxHelp from './LightboxHelp.svelte';
   import PdfRenderer from './PdfRenderer.svelte';
+  import MultiPagePdfRenderer from './MultiPagePdfRenderer.svelte';
   import TextPreview from './TextPreview.svelte';
   import CsvPreview from './CsvPreview.svelte';
   import ExcelPreview from './ExcelPreview.svelte';
@@ -38,8 +39,7 @@
   let showHelp = false;
   
   // PDF-specific state
-  let pdfRenderer: PdfRenderer;
-  let pdfCurrentPage = 1;
+  let multiPagePdfRenderer: MultiPagePdfRenderer;
   let pdfTotalPages = 0;
   let pdfScale = 1.0;
   let pdfUrl: string | null = null;
@@ -100,36 +100,6 @@
     // when lightbox is open - we handle everything here
     event.stopPropagation();
     event.stopImmediatePropagation();
-    
-    // Handle PDF-specific navigation for arrow keys only (not h/l)
-    if (isPdf) {
-      switch (event.key) {
-        case 'ArrowLeft':
-          // Multi-page PDF: navigate pages first
-          if (pdfTotalPages > 1 && pdfCurrentPage > 1) {
-            pdfPreviousPage();
-            return;
-          } 
-          // At first page or single-page PDF: navigate to previous file
-          else if (hasPrevious) {
-            onPrevious();
-            return;
-          }
-          break;
-        case 'ArrowRight':
-          // Multi-page PDF: navigate pages first
-          if (pdfTotalPages > 1 && pdfCurrentPage < pdfTotalPages) {
-            pdfNextPage();
-            return;
-          } 
-          // At last page or single-page PDF: navigate to next file
-          else if (hasNext) {
-            onNext();
-            return;
-          }
-          break;
-      }
-    }
     
     switch (event.key) {
       case 'Escape':
@@ -269,8 +239,8 @@
   
   function scrollUp() {
     if (isPdf) {
-      // For PDF, scroll the PDF renderer container (which has overflow: auto)
-      const pdfContainer = containerDiv?.querySelector('.pdf-renderer');
+      // For PDF, scroll the multi-page PDF renderer container
+      const pdfContainer = containerDiv?.querySelector('.multi-page-pdf-renderer');
       if (pdfContainer) {
         pdfContainer.scrollTop = Math.max(0, pdfContainer.scrollTop - scrollSpeed);
       }
@@ -321,8 +291,8 @@
   
   function scrollDown() {
     if (isPdf) {
-      // For PDF, scroll the PDF renderer container (which has overflow: auto)
-      const pdfContainer = containerDiv?.querySelector('.pdf-renderer');
+      // For PDF, scroll the multi-page PDF renderer container
+      const pdfContainer = containerDiv?.querySelector('.multi-page-pdf-renderer');
       if (pdfContainer) {
         pdfContainer.scrollTop = Math.min(
           pdfContainer.scrollHeight - pdfContainer.clientHeight,
@@ -397,8 +367,8 @@
   
   function scrollLeft() {
     if (isPdf) {
-      // For PDF, scroll the PDF renderer container horizontally
-      const pdfContainer = containerDiv?.querySelector('.pdf-renderer');
+      // For PDF, scroll the multi-page PDF renderer container horizontally
+      const pdfContainer = containerDiv?.querySelector('.multi-page-pdf-renderer');
       if (pdfContainer) {
         pdfContainer.scrollLeft = Math.max(0, pdfContainer.scrollLeft - scrollSpeed);
       }
@@ -459,8 +429,8 @@
   
   function scrollRight() {
     if (isPdf) {
-      // For PDF, scroll the PDF renderer container horizontally
-      const pdfContainer = containerDiv?.querySelector('.pdf-renderer');
+      // For PDF, scroll the multi-page PDF renderer container horizontally
+      const pdfContainer = containerDiv?.querySelector('.multi-page-pdf-renderer');
       if (pdfContainer) {
         pdfContainer.scrollLeft = Math.min(
           pdfContainer.scrollWidth - pdfContainer.clientWidth,
@@ -545,14 +515,10 @@
   
   function scrollPageUp() {
     if (isPdf) {
-      // For PDF, try to go to previous page first, then scroll
-      if (pdfCurrentPage > 1) {
-        pdfPreviousPage();
-      } else {
-        const pdfContainer = containerDiv?.querySelector('.pdf-renderer');
-        if (pdfContainer) {
-          pdfContainer.scrollTop = Math.max(0, pdfContainer.scrollTop - pdfContainer.clientHeight);
-        }
+      // For PDF, scroll up by one viewport height
+      const pdfContainer = containerDiv?.querySelector('.multi-page-pdf-renderer');
+      if (pdfContainer) {
+        pdfContainer.scrollTop = Math.max(0, pdfContainer.scrollTop - pdfContainer.clientHeight);
       }
     } else if (isImage && imageElement) {
       const container = imageElement.parentElement;
@@ -594,17 +560,13 @@
   
   function scrollPageDown() {
     if (isPdf) {
-      // For PDF, try to go to next page first, then scroll
-      if (pdfCurrentPage < pdfTotalPages) {
-        pdfNextPage();
-      } else {
-        const pdfContainer = containerDiv?.querySelector('.pdf-renderer');
-        if (pdfContainer) {
-          pdfContainer.scrollTop = Math.min(
-            pdfContainer.scrollHeight - pdfContainer.clientHeight,
-            pdfContainer.scrollTop + pdfContainer.clientHeight
-          );
-        }
+      // For PDF, scroll down by one viewport height
+      const pdfContainer = containerDiv?.querySelector('.multi-page-pdf-renderer');
+      if (pdfContainer) {
+        pdfContainer.scrollTop = Math.min(
+          pdfContainer.scrollHeight - pdfContainer.clientHeight,
+          pdfContainer.scrollTop + pdfContainer.clientHeight
+        );
       }
     } else if (isImage && imageElement) {
       const container = imageElement.parentElement;
@@ -667,14 +629,8 @@
   
   function scrollToTop() {
     if (isPdf) {
-      // For PDF, go to first page and scroll to top
-      if (pdfCurrentPage !== 1) {
-        pdfCurrentPage = 1;
-        if (pdfRenderer) {
-          pdfRenderer.forceRender();
-        }
-      }
-      const pdfContainer = containerDiv?.querySelector('.pdf-renderer');
+      // For PDF, scroll to the top of all pages
+      const pdfContainer = containerDiv?.querySelector('.multi-page-pdf-renderer');
       if (pdfContainer) {
         pdfContainer.scrollTop = 0;
       }
@@ -718,14 +674,8 @@
   
   function scrollToBottom() {
     if (isPdf) {
-      // For PDF, go to last page and scroll to bottom
-      if (pdfCurrentPage !== pdfTotalPages) {
-        pdfCurrentPage = pdfTotalPages;
-        if (pdfRenderer) {
-          pdfRenderer.forceRender();
-        }
-      }
-      const pdfContainer = containerDiv?.querySelector('.pdf-renderer');
+      // For PDF, scroll to the bottom of all pages
+      const pdfContainer = containerDiv?.querySelector('.multi-page-pdf-renderer');
       if (pdfContainer) {
         pdfContainer.scrollTop = pdfContainer.scrollHeight - pdfContainer.clientHeight;
       }
@@ -1023,8 +973,7 @@
   async function loadPdf() {
     isPdfLoading = true;
     pdfError = null;
-    pdfCurrentPage = 1;
-    
+
     try {
       if (file.file.url_private) {
         pdfUrl = file.file.url_private;
@@ -1039,42 +988,28 @@
       isPdfLoading = false;
     }
   }
-  
-  function pdfNextPage() {
-    if (pdfRenderer && pdfCurrentPage < pdfTotalPages) {
-      pdfCurrentPage++;
-      pdfRenderer.nextPage();
-    }
-  }
-  
-  function pdfPreviousPage() {
-    if (pdfRenderer && pdfCurrentPage > 1) {
-      pdfCurrentPage--;
-      pdfRenderer.prevPage();
-    }
-  }
-  
+
   function pdfZoomIn() {
-    if (pdfRenderer) {
+    if (multiPagePdfRenderer) {
       pdfScale = Math.min(pdfScale * 1.2, 3);
-      pdfRenderer.zoomIn();
+      multiPagePdfRenderer.zoomIn();
     }
   }
-  
+
   function pdfZoomOut() {
-    if (pdfRenderer) {
+    if (multiPagePdfRenderer) {
       pdfScale = Math.max(pdfScale * 0.8, 0.5);
-      pdfRenderer.zoomOut();
+      multiPagePdfRenderer.zoomOut();
     }
   }
-  
+
   function pdfResetZoom() {
-    if (pdfRenderer) {
+    if (multiPagePdfRenderer) {
       pdfScale = 1.0;
-      pdfRenderer.resetZoom();
+      multiPagePdfRenderer.resetZoom();
     }
   }
-  
+
   function updatePdfTotalPages(event: CustomEvent) {
     pdfTotalPages = event.detail;
   }
@@ -1120,34 +1055,32 @@
           {/if}
           <span class="separator">•</span>
           <span>{file.type === 'code' ? 'Code' : (file.file.pretty_type || file.type)}</span>
+          {#if isPdf && pdfTotalPages > 0}
+            <span class="separator">•</span>
+            <span>{pdfTotalPages} {pdfTotalPages === 1 ? 'page' : 'pages'}</span>
+          {/if}
         </div>
       </div>
-      
+
       <div class="lightbox-actions">
         {#if isPdf && pdfTotalPages > 0}
-          <div class="page-info">
-            Page {pdfCurrentPage} of {pdfTotalPages}
-          </div>
-          
-          <div class="separator-vertical"></div>
-          
-          <button 
+          <button
             class="action-btn"
             on:click={pdfZoomOut}
-            title="Zoom out (Ctrl/-)">
+            title="Zoom out (-)">
             <svg width="20" height="20" viewBox="0 0 20 20">
               <circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.5" fill="none"/>
               <line x1="5" y1="9" x2="13" y2="9" stroke="currentColor" stroke-width="1.5"/>
               <line x1="14" y1="14" x2="17" y2="17" stroke="currentColor" stroke-width="1.5"/>
             </svg>
           </button>
-          
+
           <span class="zoom-level">{Math.round(pdfScale * 100)}%</span>
-          
-          <button 
+
+          <button
             class="action-btn"
             on:click={pdfZoomIn}
-            title="Zoom in (Ctrl/+)">
+            title="Zoom in (+)">
             <svg width="20" height="20" viewBox="0 0 20 20">
               <circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.5" fill="none"/>
               <line x1="5" y1="9" x2="13" y2="9" stroke="currentColor" stroke-width="1.5"/>
@@ -1155,8 +1088,8 @@
               <line x1="14" y1="14" x2="17" y2="17" stroke="currentColor" stroke-width="1.5"/>
             </svg>
           </button>
-          
-          <button 
+
+          <button
             class="action-btn"
             on:click={pdfResetZoom}
             title="Reset zoom (Ctrl+0)">
@@ -1164,7 +1097,7 @@
               <text x="10" y="14" text-anchor="middle" font-size="12" fill="currentColor">100%</text>
             </svg>
           </button>
-          
+
           <div class="separator-vertical"></div>
         {:else if isImage || isGoogleFile}
           <button
@@ -1286,18 +1219,14 @@
               <p>{pdfError}</p>
             </div>
           {:else if pdfUrl}
-            <PdfRenderer
-              bind:this={pdfRenderer}
+            <MultiPagePdfRenderer
+              bind:this={multiPagePdfRenderer}
               url={pdfUrl}
-              bind:pageNumber={pdfCurrentPage}
               bind:scale={pdfScale}
               mimeType={file.file.mimetype || 'application/pdf'}
               on:totalPages={updatePdfTotalPages}
-              renderText={true}
-              maxWidth={window.innerWidth * 0.9}
-              maxHeight={window.innerHeight * 0.75}
+              maxWidth={window.innerWidth * 0.85}
               fitToViewport={true}
-              allowScrollOnZoom={true}
             />
           {/if}
         </div>
@@ -1451,71 +1380,7 @@
     </div>
 
     <!-- Navigation -->
-    {#if isPdf && pdfTotalPages > 1}
-      <div class="lightbox-navigation">
-        <button 
-          class="nav-btn prev"
-          on:click={pdfPreviousPage}
-          disabled={pdfCurrentPage <= 1}
-          title="Previous Page (←)">
-          <svg width="24" height="24" viewBox="0 0 24 24">
-            <path fill="currentColor" d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
-          </svg>
-        </button>
-        
-        <div class="page-input-container">
-          <input
-            type="number"
-            bind:value={pdfCurrentPage}
-            min="1"
-            max={pdfTotalPages}
-            on:change={() => {
-              pdfCurrentPage = Math.max(1, Math.min(pdfCurrentPage, pdfTotalPages));
-            }}
-            class="page-input"
-          />
-          <span class="page-separator">/ {pdfTotalPages}</span>
-        </div>
-        
-        <button 
-          class="nav-btn next"
-          on:click={pdfNextPage}
-          disabled={pdfCurrentPage >= pdfTotalPages}
-          title="Next Page (→)">
-          <svg width="24" height="24" viewBox="0 0 24 24">
-            <path fill="currentColor" d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/>
-          </svg>
-        </button>
-        
-        {#if allFiles.length > 1}
-          <div class="separator-vertical"></div>
-          
-          <button 
-            class="nav-btn prev"
-            on:click={onPrevious}
-            disabled={!hasPrevious}
-            title="Previous File">
-            <svg width="20" height="20" viewBox="0 0 20 20">
-              <path fill="currentColor" d="M12.41 5.41L11 4l-5 5 5 5 1.41-1.41L7.83 9z"/>
-            </svg>
-          </button>
-          
-          <div class="nav-indicator">
-            File {currentIndex + 1} / {allFiles.length}
-          </div>
-          
-          <button 
-            class="nav-btn next"
-            on:click={onNext}
-            disabled={!hasNext}
-            title="Next File">
-            <svg width="20" height="20" viewBox="0 0 20 20">
-              <path fill="currentColor" d="M7.59 14.59L9 16l5-5-5-5-1.41 1.41L12.17 11z"/>
-            </svg>
-          </button>
-        {/if}
-      </div>
-    {:else if allFiles.length > 1}
+    {#if allFiles.length > 1}
       <div class="lightbox-navigation">
         <button 
           class="nav-btn prev"
@@ -1762,19 +1627,17 @@
   }
 
   .pdf-content {
-    /* SIMPLE SOLUTION: Fixed size container for PDF */
+    /* Fixed size container for PDF with scrolling */
     width: 100%;
     height: 100%;
-    /* Don't use flexbox - it can interfere with child sizing */
     overflow: hidden;
     position: relative;
     background: #525252;
-    /* Ensure the container has defined dimensions */
     display: block;
   }
-  
-  /* CRITICAL: PdfRenderer must fill the container exactly */
-  .pdf-content :global(.pdf-renderer) {
+
+  /* Multi-page PDF renderer fills container */
+  .pdf-content :global(.multi-page-pdf-renderer) {
     width: 100%;
     height: 100%;
     position: absolute;
