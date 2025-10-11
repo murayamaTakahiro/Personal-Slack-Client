@@ -282,7 +282,7 @@
 
   .text-preview.compact {
     border-radius: 0.375rem;
-    max-width: 100px;
+    max-width: 120px;
     background: transparent;
     border: none;
   }
@@ -296,20 +296,26 @@
   }
 
   .file-icon {
-    width: 60px;
-    height: 60px;
+    width: 80px;
+    height: 80px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 0.375rem;
-    font-size: 2rem;
+    border: 2px solid var(--color-border);
+    border-radius: 0.5rem;
+    font-size: 2.5rem;
+    transition: all 0.2s;
   }
 
   .file-icon.text {
     border-color: #586069;
-    background: rgba(88, 96, 105, 0.1);
+    background: rgba(88, 96, 105, 0.15);
+  }
+
+  .text-preview.compact:hover .file-icon {
+    transform: scale(1.05);
+    border-color: var(--color-primary);
   }
 
   .compact-info {

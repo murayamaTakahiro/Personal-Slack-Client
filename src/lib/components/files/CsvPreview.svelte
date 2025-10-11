@@ -418,7 +418,7 @@
 
   .csv-preview.compact {
     border-radius: 0.375rem;
-    max-width: 100px;
+    max-width: 120px;
     background: transparent;
     border: none;
   }
@@ -432,20 +432,26 @@
   }
 
   .file-icon {
-    width: 60px;
-    height: 60px;
+    width: 80px;
+    height: 80px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 0.375rem;
-    font-size: 2rem;
+    border: 2px solid var(--color-border);
+    border-radius: 0.5rem;
+    font-size: 2.5rem;
+    transition: all 0.2s;
   }
 
   .file-icon.csv {
     border-color: #10b981;
-    background: rgba(16, 185, 129, 0.1);
+    background: rgba(16, 185, 129, 0.15);
+  }
+
+  .csv-preview.compact:hover .file-icon {
+    transform: scale(1.05);
+    border-color: var(--color-primary);
   }
 
   .compact-info {

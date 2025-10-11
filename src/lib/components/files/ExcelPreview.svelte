@@ -248,23 +248,8 @@
 </script>
 
 <div class="excel-preview" class:compact>
-  {#if isLoading}
-    <div class="loading-container">
-      <div class="spinner"></div>
-      <span>Loading Excel file...</span>
-    </div>
-  {:else if error}
-    <div class="error-container">
-      <svg class="error-icon" width="16" height="16" viewBox="0 0 16 16">
-        <path fill="currentColor" d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13a6 6 0 110-12 6 6 0 010 12zm1-6V4H7v4h2zm0 3V9H7v2h2z"/>
-      </svg>
-      <span>{error}</span>
-    </div>
-  {:else if tableData.length === 0}
-    <div class="empty-container">
-      <span>No data in this sheet</span>
-    </div>
-  {:else if compact}
+  {#if compact}
+    <!-- Always show icon in compact mode, regardless of data state -->
     <!-- Simple compact display with file icon only -->
     <div class="compact-preview">
       <div class="file-icon excel">
@@ -274,6 +259,22 @@
         <div class="file-name" title={fileName}>{fileName}</div>
         <div class="file-size">{formattedSize}</div>
       </div>
+    </div>
+  {:else if isLoading}
+    <div class="loading-container">
+      <div class="spinner"></div>
+      <span>Loading Excel file...</span>
+    </div>
+  {:else if error && tableData.length === 0}
+    <div class="error-container">
+      <svg class="error-icon" width="16" height="16" viewBox="0 0 16 16">
+        <path fill="currentColor" d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 13a6 6 0 110-12 6 6 0 010 12zm1-6V4H7v4h2zm0 3V9H7v2h2z"/>
+      </svg>
+      <span>{error}</span>
+    </div>
+  {:else if tableData.length === 0}
+    <div class="empty-container">
+      <span>No data in this sheet</span>
     </div>
   {:else}
     <div class="preview-container">
@@ -374,7 +375,7 @@
   }
 
   .excel-preview.compact {
-    max-width: 100px;
+    max-width: 120px;
     background: transparent;
     border: none;
   }
@@ -388,20 +389,26 @@
   }
 
   .file-icon {
-    width: 60px;
-    height: 60px;
+    width: 80px;
+    height: 80px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 0.375rem;
-    font-size: 2rem;
+    border: 2px solid var(--color-border);
+    border-radius: 0.5rem;
+    font-size: 2.5rem;
+    transition: all 0.2s;
   }
 
   .file-icon.excel {
     border-color: #22863a;
-    background: rgba(34, 134, 58, 0.1);
+    background: rgba(34, 134, 58, 0.15);
+  }
+
+  .excel-preview.compact:hover .file-icon {
+    transform: scale(1.05);
+    border-color: var(--color-primary);
   }
 
   .compact-info {
