@@ -52,7 +52,10 @@
   $: mappings = $reactionMappings;
 
   // Check if this message is bookmarked
-  $: isBookmarked = bookmarkStore.isBookmarked(message.ts, message.channel);
+  // Subscribe to bookmarkStore to get reactive updates
+  $: isBookmarked = $bookmarkStore.some(
+    bookmark => bookmark.messageTs === message.ts && bookmark.channelId === message.channel
+  );
 
   function formatTimestamp(ts: string) {
     const timestamp = parseFloat(ts) * 1000;

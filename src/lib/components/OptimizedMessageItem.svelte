@@ -309,7 +309,10 @@
   };
 
   // Check if this message is bookmarked
-  $: isBookmarked = bookmarkStore.isBookmarked(message.ts, message.channel);
+  // Subscribe to bookmarkStore to get reactive updates
+  $: isBookmarked = $bookmarkStore.some(
+    bookmark => bookmark.messageTs === message.ts && bookmark.channelId === message.channel
+  );
 
   function openReactionPicker(event: MouseEvent) {
     if (!enableReactions || isPickerOpen) return;
