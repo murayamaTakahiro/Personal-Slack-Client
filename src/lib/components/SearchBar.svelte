@@ -303,9 +303,6 @@
     fromDate = dateStr;
     toDate = dateStr;
 
-    // フィルタパネルを開いて検索条件を表示
-    showAdvanced = true;
-
     // 検索完了後にメッセージにフォーカス
     // searchLoadingの変化を監視して、loadingがfalseになったらfocusを実行
     let hasStartedLoading = false;

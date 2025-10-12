@@ -175,6 +175,9 @@
     const index = messages.findIndex(m => m.ts === messageTs);
     if (index >= 0) {
       console.log('[ResultList] Found message at index', index);
+      const message = messages[index];
+
+      // メッセージにフォーカスを設定
       focusedIndex = index;
 
       // メッセージが progressive loading で未表示の場合は表示する
@@ -183,11 +186,15 @@
         displayedCount = Math.min(index + LOAD_INCREMENT, messages.length);
       }
 
+      // 即座に selectedMessage を設定してスレッドビューに表示
+      selectedMessage.set(message);
+      console.log('[ResultList] selectedMessage set to:', message.ts);
+
+      // フォーカスを更新（スクロールとハイライト）
       updateFocus();
 
       // メッセージをスクロールして表示
       setTimeout(() => {
-        const message = messages[index];
         const messageElement = document.querySelector(`[data-message-ts="${message.ts}"]`) as HTMLElement;
         if (messageElement) {
           console.log('[ResultList] Scrolling to message element');

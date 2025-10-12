@@ -1372,6 +1372,22 @@
       setTimeout(() => {
         console.log('[App] Calling focusMessageByTs with delay');
         resultListElement.focusMessageByTs(messageTs);
+
+        // メッセージにフォーカスした後、さらに0.1秒遅延してCtrl+Shift+Fを送信
+        setTimeout(() => {
+          console.log('[App] Triggering toggleAdvancedSearch programmatically');
+          if (searchBarElement && typeof searchBarElement.toggleAdvancedSearch === 'function') {
+            searchBarElement.toggleAdvancedSearch();
+
+            // Reset expanded state for both ResultList and ThreadView
+            if (resultListElement && typeof resultListElement.resetExpanded === 'function') {
+              resultListElement.resetExpanded();
+            }
+            if (threadViewElement && typeof threadViewElement.resetExpanded === 'function') {
+              threadViewElement.resetExpanded();
+            }
+          }
+        }, 100);
       }, 300);
     } else {
       console.warn('[App] resultListElement or focusMessageByTs function not available');
