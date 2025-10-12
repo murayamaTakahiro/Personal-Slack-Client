@@ -1362,6 +1362,22 @@
     // }
   }
 
+  function handleFocusMessage(event: CustomEvent<{ messageTs: string }>) {
+    const { messageTs } = event.detail;
+    console.log('[App] handleFocusMessage called', { messageTs, resultListElement: !!resultListElement });
+
+    // ResultListコンポーネントのfocusMessageByTs関数を呼び出す
+    if (resultListElement && typeof resultListElement.focusMessageByTs === 'function') {
+      // 少し遅延させて検索結果が完全に表示されてから実行
+      setTimeout(() => {
+        console.log('[App] Calling focusMessageByTs with delay');
+        resultListElement.focusMessageByTs(messageTs);
+      }, 300);
+    } else {
+      console.warn('[App] resultListElement or focusMessageByTs function not available');
+    }
+  }
+
   async function handleSearch(event?: CustomEvent) {
     // Use params from event if available, otherwise from store
     const params = event?.detail || $searchParams;
@@ -1987,6 +2003,7 @@
         bind:selectedDMId={selectedDMId}
         bind:selectedDMName={selectedDMName}
         on:search={handleSearch}
+        on:focusMessage={handleFocusMessage}
       />
     </ErrorBoundary>
 

@@ -168,6 +168,39 @@
     }
   }
 
+  // メッセージタイムスタンプでメッセージを検索してフォーカスする
+  export function focusMessageByTs(messageTs: string) {
+    console.log('[ResultList] focusMessageByTs called', { messageTs, messagesLength: messages.length });
+
+    const index = messages.findIndex(m => m.ts === messageTs);
+    if (index >= 0) {
+      console.log('[ResultList] Found message at index', index);
+      focusedIndex = index;
+
+      // メッセージが progressive loading で未表示の場合は表示する
+      if (index >= displayedCount) {
+        console.log('[ResultList] Message not yet displayed, loading more messages');
+        displayedCount = Math.min(index + LOAD_INCREMENT, messages.length);
+      }
+
+      updateFocus();
+
+      // メッセージをスクロールして表示
+      setTimeout(() => {
+        const message = messages[index];
+        const messageElement = document.querySelector(`[data-message-ts="${message.ts}"]`) as HTMLElement;
+        if (messageElement) {
+          console.log('[ResultList] Scrolling to message element');
+          messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+          console.warn('[ResultList] Message element not found in DOM');
+        }
+      }, 100);
+    } else {
+      console.warn('[ResultList] Message not found with ts:', messageTs);
+    }
+  }
+
   // Handle focus events for expansion
   function handleContainerFocus() {
     isExpanded = true;

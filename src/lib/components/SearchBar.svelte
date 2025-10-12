@@ -281,16 +281,48 @@
     }
   }
 
-  function handleBookmarkSelect(event: CustomEvent<{ messageTs: string; channelId: string }>) {
-    const { messageTs, channelId } = event.detail;
+  function handleBookmarkSelect(event: CustomEvent<{
+    messageTs: string;
+    channelId: string;
+    channelName: string;  // BookmarkManagerから追加で受け取る
+    timestamp: Date;       // BookmarkManagerから追加で受け取る
+  }>) {
+    const { messageTs, channelId, channelName, timestamp } = event.detail;
     showBookmarks = false;
 
-    // Load the bookmarked message directly into the thread view
-    // This does NOT trigger a search in the message list
-    // It only displays the message and its thread in the thread view panel
-    const slackUrl = `https://slack.com/archives/${channelId}/p${messageTs.replace('.', '')}`;
-    urlInput = slackUrl;
-    handleUrlPaste();
+    console.log('[SearchBar] Bookmark selected', { messageTs, channelId, channelName, timestamp });
+
+    // メッセージの日付を取得
+    const messageDate = new Date(parseFloat(messageTs) * 1000);
+    const dateStr = messageDate.toISOString().split('T')[0]; // YYYY-MM-DD形式
+
+    console.log('[SearchBar] Setting filters', { channel: channelName, fromDate: dateStr, toDate: dateStr });
+
+    // チャンネルと日付でフィルタを設定
+    channel = channelName;
+    fromDate = dateStr;
+    toDate = dateStr;
+
+    // 検索完了後にメッセージにフォーカス
+    // searchLoadingの変化を監視して、loadingがfalseになったらfocusを実行
+    let hasStartedLoading = false;
+    const unsubscribe = searchLoading.subscribe(isLoading => {
+      if (isLoading) {
+        hasStartedLoading = true;
+      } else if (hasStartedLoading) {
+        // 検索が完了した（loading: true → false）
+        console.log('[SearchBar] Search completed, dispatching focusMessage event');
+        // 少し遅延させて、検索結果が確実に反映されてから実行
+        setTimeout(() => {
+          dispatch('focusMessage', { messageTs });
+        }, 100);
+        unsubscribe();
+      }
+    });
+
+    // 検索を実行
+    console.log('[SearchBar] Executing search');
+    handleSearch();
   }
 
   function closeBookmarks() {

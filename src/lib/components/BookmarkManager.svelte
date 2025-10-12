@@ -229,7 +229,9 @@
     // Emit event with message details to jump to the message
     dispatch('select', {
       messageTs: bookmark.messageTs,
-      channelId: bookmark.channelId
+      channelId: bookmark.channelId,
+      channelName: bookmark.channelName,  // 追加: チャンネル名
+      timestamp: bookmark.timestamp        // 追加: タイムスタンプ
     });
 
     // Close the dropdown
