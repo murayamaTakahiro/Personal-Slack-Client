@@ -216,3 +216,17 @@ export async function markMessageAsRead(
     throw error; // Re-throw to allow caller to handle
   }
 }
+
+/**
+ * Get all unmuted channels where the user is a member
+ *
+ * Returns channels filtered by:
+ * - is_member = true
+ * - is_muted = false
+ * - is_archived = false
+ *
+ * @returns Array of [channelId, channelName] tuples
+ */
+export async function getUnmutedMemberChannels(): Promise<[string, string][]> {
+  return await invoke('get_unmuted_member_channels', {});
+}

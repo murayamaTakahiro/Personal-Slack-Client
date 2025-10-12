@@ -78,8 +78,6 @@ pub async fn mark_message_as_read(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_mark_message_as_read_signature() {
         // This test just ensures the function signature compiles correctly

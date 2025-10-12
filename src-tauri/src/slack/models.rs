@@ -257,6 +257,9 @@ pub struct SlackConversation {
     pub is_mpim: Option<bool>,
     pub is_private: Option<bool>,
     pub user: Option<String>,  // For DM channels: ID of the other user
+    pub is_member: Option<bool>,  // User is a member of this channel
+    pub is_muted: Option<bool>,  // Channel is muted by the user
+    pub is_archived: Option<bool>,  // Channel is archived
 }
 
 #[derive(Debug, Deserialize)]

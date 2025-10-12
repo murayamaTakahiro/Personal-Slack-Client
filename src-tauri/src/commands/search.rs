@@ -1305,6 +1305,9 @@ pub async fn get_user_channels(
                         is_mpim: Some(is_mpim),
                         is_private: Some(true), // Both DMs and Group DMs are private
                         user: dm.user,
+                        is_member: None,  // Not applicable for DMs
+                        is_muted: None,   // Not applicable for DMs
+                        is_archived: None, // Not applicable for DMs
                     });
 
                     let channel_type = if is_mpim { "Group DM" } else { "DM" };

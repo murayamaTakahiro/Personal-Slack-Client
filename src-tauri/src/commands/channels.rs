@@ -170,3 +170,38 @@ pub async fn search_dm_messages(
         }
     }
 }
+
+/// Get all channels where user is a member and not muted
+///
+/// Returns a list of (channel_id, channel_name) tuples for channels that:
+/// - User is a member of (is_member = true)
+/// - Are not muted (is_muted = false)
+/// - Are not archived (is_archived = false)
+#[tauri::command]
+pub async fn get_unmuted_member_channels(
+    state: State<'_, AppState>
+) -> AppResult<Vec<(String, String)>> {
+    info!("[get_unmuted_member_channels] Fetching unmuted channels");
+
+    let client = state.get_client().await?;
+    let all_channels = client.get_channels().await?;
+
+    info!("[get_unmuted_member_channels] Total channels fetched: {}", all_channels.len());
+
+    // Filter: is_member AND NOT is_muted AND NOT is_archived
+    let unmuted: Vec<(String, String)> = all_channels
+        .into_iter()
+        .filter(|ch| {
+            let is_member = ch.is_member.unwrap_or(false);
+            let is_muted = ch.is_muted.unwrap_or(false);
+            let is_archived = ch.is_archived.unwrap_or(false);
+
+            is_member && !is_muted && !is_archived
+        })
+        .map(|ch| (ch.id.clone(), ch.name.unwrap_or_default()))
+        .collect();
+
+    info!("[get_unmuted_member_channels] Unmuted channels found: {}", unmuted.len());
+
+    Ok(unmuted)
+}

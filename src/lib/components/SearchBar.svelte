@@ -9,8 +9,8 @@
   import { getKeyboardService } from '../services/keyboardService';
   import { userService } from '../services/userService';
   import { realtimeStore } from '../stores/realtime';
-  import { channelStore } from '../stores/channels';
-  import { getThreadFromUrl } from '../api/slack';
+  import { channelStore, favoriteChannels, recentChannelsList } from '../stores/channels';
+  import { getThreadFromUrl, getUnmutedMemberChannels, markMessageAsRead } from '../api/slack';
   import { isPostDialogOpen } from '../stores/postDialog';
   import UrlHistoryManager from './UrlHistoryManager.svelte';
   import { urlHistoryStore } from '../stores/urlHistory';
@@ -49,6 +49,7 @@
   let keywordHistoryButton: HTMLButtonElement;
   let showBookmarks = false;
   let bookmarkButton: HTMLButtonElement;
+  let catchUpLoading = false;
 
   // DM search state
   export let dmSearchMode = false;
@@ -322,7 +323,107 @@
       bookmarkButton.focus();
     }
   }
-  
+
+  // Helper function to group messages by channel
+  function groupMessagesByChannel(messages: any[]): Record<string, any[]> {
+    const grouped: Record<string, any[]> = {};
+
+    for (const msg of messages) {
+      if (!grouped[msg.channel]) {
+        grouped[msg.channel] = [];
+      }
+      grouped[msg.channel].push(msg);
+    }
+
+    // Sort messages by timestamp (newest first) within each channel
+    for (const channelId in grouped) {
+      grouped[channelId].sort((a, b) => parseFloat(b.ts) - parseFloat(a.ts));
+    }
+
+    return grouped;
+  }
+
+  // Today's Catch Up handler
+  async function handleTodaysCatchUp() {
+    catchUpLoading = true;
+
+    try {
+      // Step 1: Fetch unmuted member channels (1-2 seconds)
+      console.log('[CatchUp] Fetching unmuted channels...');
+      const unmutedChannels = await getUnmutedMemberChannels();
+
+      if (unmutedChannels.length === 0) {
+        showToast('No unmuted channels found', 'info');
+        return;
+      }
+
+      console.log(`[CatchUp] Found ${unmutedChannels.length} unmuted channels`);
+
+      // Step 2: Prioritize favorites + recent (max 20 channels)
+      const favoriteIds = $favoriteChannels.map(ch => ch.id);
+      const recentIds = $recentChannelsList.map(ch => ch.id);
+
+      const priorityChannels = unmutedChannels
+        .filter(([id]) => favoriteIds.includes(id) || recentIds.includes(id))
+        .slice(0, 20);
+
+      const targetChannels = priorityChannels.length > 0
+        ? priorityChannels
+        : unmutedChannels.slice(0, 20);
+
+      console.log(`[CatchUp] Targeting ${targetChannels.length} channels (${priorityChannels.length} priority)`);
+
+      // Step 3: Set today's date for search
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+      channel = targetChannels.map(([_, name]) => name).join(',');
+      fromDate = dateStr;
+      toDate = dateStr;
+
+      console.log(`[CatchUp] Searching messages from ${dateStr} in ${targetChannels.length} channels`);
+      showToast(`Searching ${targetChannels.length} channels...`, 'info');
+
+      // Step 4: Execute search using existing functionality
+      await handleSearch();
+
+      // Step 5: Mark latest message in each channel as read
+      // Wait for search results to be available
+      await tick();
+
+      // Group messages by channel
+      const currentSearchParams = $searchParams;
+      if (currentSearchParams && currentSearchParams.messages) {
+        const messagesGroupedByChannel = groupMessagesByChannel(currentSearchParams.messages);
+
+        let markedCount = 0;
+        for (const [channelId, messages] of Object.entries(messagesGroupedByChannel)) {
+          if (messages.length > 0) {
+            const latestMessage = messages[0]; // Already sorted newest first
+            try {
+              await markMessageAsRead(channelId, latestMessage.ts);
+              markedCount++;
+              console.log(`[CatchUp] Marked ${channelId} as read at ${latestMessage.ts}`);
+            } catch (err) {
+              console.warn(`[CatchUp] Failed to mark ${channelId} as read:`, err);
+              // Continue with other channels even if one fails
+            }
+          }
+        }
+
+        console.log(`[CatchUp] Marked ${markedCount}/${Object.keys(messagesGroupedByChannel).length} channels as read`);
+      }
+
+      showToast(`✅ Caught up on ${targetChannels.length} channels!`, 'success');
+
+    } catch (error) {
+      console.error('[CatchUp] Failed:', error);
+      showToast('Failed to catch up. Please try again.', 'error');
+    } finally {
+      catchUpLoading = false;
+    }
+  }
+
   // Store the last valid date values to restore if needed
   let lastValidFromDate = '';
   let lastValidToDate = '';
@@ -769,7 +870,28 @@
         {/if}
       </button>
     {/if}
-    
+
+    <button
+      on:click={handleTodaysCatchUp}
+      class="btn-toggle catch-up-toggle"
+      class:loading={catchUpLoading}
+      class:disabled={catchUpLoading}
+      title="Catch up on today's messages from unmuted channels (favorites + recent)"
+      disabled={catchUpLoading}
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        <circle cx="9" cy="10" r="1" fill="currentColor"/>
+        <circle cx="12" cy="10" r="1" fill="currentColor"/>
+        <circle cx="15" cy="10" r="1" fill="currentColor"/>
+      </svg>
+      {#if catchUpLoading}
+        <span class="catch-up-loading">Catching up...</span>
+      {:else}
+        <span class="catch-up-text">📬</span>
+      {/if}
+    </button>
+
     <button
       bind:this={savedSearchButton}
       on:click={toggleSavedSearches}
@@ -1704,5 +1826,47 @@
     font-weight: 500;
     z-index: 1;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Today's Catch Up button styles */
+  .catch-up-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    transition: all 0.2s ease;
+  }
+
+  .catch-up-toggle:hover:not(.disabled) {
+    background: var(--bg-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .catch-up-toggle.loading {
+    opacity: 0.7;
+    cursor: wait;
+  }
+
+  .catch-up-toggle.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .catch-up-text {
+    font-size: 1rem;
+  }
+
+  .catch-up-loading {
+    font-size: 0.75rem;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
   }
 </style>

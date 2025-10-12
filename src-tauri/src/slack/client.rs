@@ -688,6 +688,9 @@ impl SlackClient {
                     is_mpim: None,
                     is_private: None,
                     user: None,
+                    is_member: None,
+                    is_muted: None,
+                    is_archived: None,
                 });
             }
             return Err(anyhow!("Slack API error: {}", error_msg));
@@ -1651,7 +1654,7 @@ impl SlackClient {
     /// * Network errors
     ///
     /// # Example
-    /// ```rust
+    /// ```ignore
     /// client.mark_conversation_as_read("C1234567890", "1234567890.123456").await?;
     /// ```
     pub async fn mark_conversation_as_read(
