@@ -160,3 +160,59 @@ export async function fetchReactionsProgressive(
 export async function clearReactionCache(): Promise<void> {
   return await invoke('clear_reaction_cache', {});
 }
+
+/**
+ * Mark a message as read on Slack
+ *
+ * This function calls the Slack API to update the read cursor for a specific
+ * channel, marking all messages up to and including the specified timestamp as read.
+ *
+ * This is useful for:
+ * - Syncing read status between this app and Slack
+ * - Marking messages as read after viewing them in this app
+ * - Bulk marking messages as read
+ *
+ * @param channelId - The channel ID where the message is located
+ *   - Public/private channels: "C..." format (e.g., "C1234567890")
+ *   - DMs: "D..." format (e.g., "D1234567890")
+ *   - Group DMs: "G..." format (e.g., "G1234567890")
+ * @param timestamp - The timestamp of the message to mark as read
+ *   - Format: "1234567890.123456" (Unix timestamp with microseconds)
+ *   - All messages up to and including this timestamp will be marked as read
+ *
+ * @throws Error if the API call fails (authentication, permission, network errors)
+ *
+ * @example
+ * ```typescript
+ * // Mark a single message as read
+ * await markMessageAsRead('C1234567890', '1234567890.123456');
+ *
+ * // Mark a DM message as read
+ * await markMessageAsRead('D1234567890', '1234567890.123456');
+ *
+ * // With error handling
+ * try {
+ *   await markMessageAsRead(message.channel, message.ts);
+ *   console.log('Message marked as read successfully');
+ * } catch (error) {
+ *   console.error('Failed to mark message as read:', error);
+ * }
+ * ```
+ */
+export async function markMessageAsRead(
+  channelId: string,
+  timestamp: string
+): Promise<void> {
+  console.log(`[markMessageAsRead] Marking message as read: channel=${channelId}, ts=${timestamp}`);
+
+  try {
+    await invoke('mark_message_as_read', {
+      channelId,
+      timestamp
+    });
+    console.log(`[markMessageAsRead] Successfully marked message as read`);
+  } catch (error) {
+    console.error(`[markMessageAsRead] Failed to mark message as read:`, error);
+    throw error; // Re-throw to allow caller to handle
+  }
+}

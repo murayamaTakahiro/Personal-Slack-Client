@@ -4,6 +4,7 @@ pub mod debug;
 pub mod emoji;
 pub mod export;
 pub mod files;
+pub mod mark;
 pub mod post;
 pub mod reactions;
 pub mod search;

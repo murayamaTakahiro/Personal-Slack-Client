@@ -79,7 +79,9 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   uploadFiles: 'Ctrl+U',
   // Bookmark shortcuts
   toggleBookmark: 'b',  // Toggle bookmark on a message
-  toggleBookmarkManager: 'Ctrl+B'  // Toggle bookmark dropdown list
+  toggleBookmarkManager: 'Ctrl+B',  // Toggle bookmark dropdown list
+  // Mark message as read
+  markMessageAsRead: 'shift+r'  // Mark the currently focused message as read on Slack
 };
 
 // Default settings

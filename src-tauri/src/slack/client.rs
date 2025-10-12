@@ -1628,8 +1628,110 @@ impl SlackClient {
         
         let emoji_map = result.emoji.unwrap_or_default();
         info!("Successfully fetched {} emojis", emoji_map.len());
-        
+
         Ok(emoji_map)
+    }
+
+    /// Mark a conversation as read up to a specific timestamp
+    ///
+    /// Sets the read cursor in a channel, marking all messages up to and including
+    /// the specified timestamp as read. This updates the user's read state on Slack.
+    ///
+    /// # Arguments
+    /// * `channel` - Channel ID (e.g., "C1234567890", "D1234567890", "G1234567890")
+    /// * `ts` - Timestamp of the message to mark as read (e.g., "1234567890.123456")
+    ///
+    /// # Returns
+    /// * `Result<()>` - Ok if successful, Err with error message if failed
+    ///
+    /// # Errors
+    /// * Rate limit errors
+    /// * Invalid channel or timestamp
+    /// * Permission errors
+    /// * Network errors
+    ///
+    /// # Example
+    /// ```rust
+    /// client.mark_conversation_as_read("C1234567890", "1234567890.123456").await?;
+    /// ```
+    pub async fn mark_conversation_as_read(
+        &self,
+        channel: &str,
+        ts: &str,
+    ) -> Result<()> {
+        // Rate limiting - reuse existing semaphore
+        let _permit = self.rate_limiter.acquire().await
+            .map_err(|e| anyhow!("Failed to acquire rate limit permit: {}", e))?;
+
+        let url = format!("{}/conversations.mark", SLACK_API_BASE);
+        let params = serde_json::json!({
+            "channel": channel,
+            "ts": ts
+        });
+
+        info!("Marking conversation as read: channel={}, ts={}", channel, ts);
+
+        let response = self
+            .client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.token))
+            .json(&params)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await?;
+            error!("Failed to mark as read: {} - {}", status, error_text);
+
+            // Provide specific error messages
+            if status == 401 {
+                return Err(anyhow!(
+                    "Authentication failed. Your Slack token may be invalid or expired."
+                ));
+            } else if status == 403 {
+                return Err(anyhow!(
+                    "Access denied. You may not have permission to mark this channel as read."
+                ));
+            } else if status == 429 {
+                return Err(anyhow!(
+                    "Rate limit exceeded. Please wait a moment and try again."
+                ));
+            }
+
+            return Err(anyhow!("Failed to mark as read: {}", error_text));
+        }
+
+        let result: serde_json::Value = response.json().await?;
+        if let Some(ok) = result.get("ok").and_then(|v| v.as_bool()) {
+            if !ok {
+                let error_msg = result
+                    .get("error")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown error");
+                error!("Slack API error when marking as read: {}", error_msg);
+
+                // Provide specific error messages based on Slack error codes
+                if error_msg.contains("invalid_auth") {
+                    return Err(anyhow!(
+                        "Invalid authentication token. Please check your Slack token in Settings."
+                    ));
+                } else if error_msg.contains("channel_not_found") {
+                    return Err(anyhow!(
+                        "Channel not found. The channel may have been deleted or you may not have access."
+                    ));
+                } else if error_msg.contains("invalid_timestamp") {
+                    return Err(anyhow!(
+                        "Invalid timestamp. The message may not exist."
+                    ));
+                }
+
+                return Err(anyhow!("Slack API error: {}", error_msg));
+            }
+        }
+
+        info!("Successfully marked conversation as read: channel={}, ts={}", channel, ts);
+        Ok(())
     }
 }
 

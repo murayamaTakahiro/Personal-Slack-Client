@@ -9,7 +9,7 @@
   import { getKeyboardService } from '../services/keyboardService';
   import { urlService } from '../services/urlService';
   import { openUrlsSmart } from '../api/urls';
-  import { getThreadFromUrl } from '../api/slack';
+  import { getThreadFromUrl, markMessageAsRead } from '../api/slack';
   import { showInfo, showError } from '../stores/toast';
   import { decodeSlackText } from '../utils/htmlEntities';
   import { performanceSettings } from '../stores/performance';
@@ -1036,6 +1036,42 @@
       },
       allowInInput: false
     });
+
+    // Mark Message as Read (Shift+R key)
+    keyboardService.registerHandler('markMessageAsRead', {
+      action: async () => {
+        // Check if lightbox is open - if so, don't handle
+        if ($lightboxOpen) {
+          return;
+        }
+
+        // Check if thread view has focus - if so, don't handle
+        const threadViewElement = document.querySelector('.thread-view');
+        if (threadViewElement && threadViewElement.contains(document.activeElement)) {
+          return; // Let thread view handle its own mark as read
+        }
+
+        // Check if the result list actually has focus
+        if (!listContainer || (!listContainer.contains(document.activeElement) && document.activeElement !== listContainer)) {
+          return; // Don't handle if focus is elsewhere
+        }
+
+        // Check if we have a valid focused message
+        if (focusedIndex < 0 || focusedIndex >= messages.length) {
+          return;
+        }
+
+        const message = messages[focusedIndex];
+
+        try {
+          await markMessageAsRead(message.channel, message.ts);
+          showInfo('Message marked as read', `Marked messages in ${message.channelName} as read up to this message`);
+        } catch (error) {
+          showError('Failed to mark as read', error instanceof Error ? error.message : 'Unknown error');
+        }
+      },
+      allowInInput: false
+    });
   });
   
   onDestroy(() => {
@@ -1063,6 +1099,7 @@
       keyboardService.unregisterHandler('openUrls');
       keyboardService.unregisterHandler('openLightbox');
       keyboardService.unregisterHandler('toggleBookmark');
+      keyboardService.unregisterHandler('markMessageAsRead');
     }
   });
 </script>

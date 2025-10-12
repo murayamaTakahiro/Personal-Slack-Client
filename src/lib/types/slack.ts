@@ -171,6 +171,24 @@ export interface KeyboardShortcuts {
   // Bookmark shortcuts
   toggleBookmark?: string | string[];  // "B" key - toggle bookmark on a message
   toggleBookmarkManager?: string | string[];  // Ctrl+B - toggle bookmark dropdown list
+  // Mark message as read shortcut
+  /**
+   * Mark the currently focused message as read on Slack
+   *
+   * Default: 'shift+r'
+   *
+   * This shortcut allows users to mark messages as read in Slack
+   * directly from this application. When triggered, it updates
+   * the read cursor on Slack for the focused message's channel.
+   *
+   * Recommended key combinations:
+   * - 'shift+r' (default) - Shift modifier prevents accidental triggers
+   * - 'ctrl+shift+r' - Extra safety with two modifiers
+   * - 'alt+r' - Alternative if shift+r conflicts
+   *
+   * Note: Single key 'r' is NOT recommended to avoid accidental triggers
+   */
+  markMessageAsRead?: string | string[];
 }
 
 export interface MentionHistory {
