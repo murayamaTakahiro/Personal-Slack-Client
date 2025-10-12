@@ -1080,8 +1080,32 @@
         preventDefault: true,  // Prevent default browser save action
         stopPropagation: true
       });
-      
+
       console.log('[App] toggleSavedSearches handler registered successfully');
+
+      // Toggle Bookmark Manager - delegate to SearchBar
+      console.log('[App] About to register toggleBookmarkManager handler', {
+        searchBarElement: !!searchBarElement,
+        hasToggleMethod: searchBarElement && typeof searchBarElement.toggleBookmarks === 'function'
+      });
+
+      keyboardService.registerHandler('toggleBookmarkManager', {
+        action: () => {
+          console.log('[App] toggleBookmarkManager triggered', {
+            showSettings,
+            searchBarElement: !!searchBarElement,
+            hasToggleMethod: searchBarElement && typeof searchBarElement.toggleBookmarks === 'function'
+          });
+          if (!showSettings && searchBarElement && typeof searchBarElement.toggleBookmarks === 'function') {
+            searchBarElement.toggleBookmarks();
+          }
+        },
+        allowInInput: true,  // Allow in input fields so Ctrl+B works everywhere
+        preventDefault: true,  // Prevent default browser action
+        stopPropagation: true
+      });
+
+      console.log('[App] toggleBookmarkManager handler registered successfully');
 
       // Save Current Search - delegate to SearchBar
       console.log('[App] About to register saveCurrentSearch handler', {

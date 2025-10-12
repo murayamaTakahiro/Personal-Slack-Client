@@ -169,7 +169,8 @@ export interface KeyboardShortcuts {
   // File preview shortcut
   openFilePreview?: string | string[];
   // Bookmark shortcuts
-  toggleBookmark?: string | string[];
+  toggleBookmark?: string | string[];  // "B" key - toggle bookmark on a message
+  toggleBookmarkManager?: string | string[];  // Ctrl+B - toggle bookmark dropdown list
 }
 
 export interface MentionHistory {

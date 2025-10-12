@@ -271,16 +271,6 @@
     }
   }
 
-  function toggleBookmarks() {
-    showBookmarks = !showBookmarks;
-    if (!showBookmarks) {
-      // Return focus to the button when closing
-      if (bookmarkButton) {
-        bookmarkButton.focus();
-      }
-    }
-  }
-
   function handleBookmarkSelect(event: CustomEvent<{
     messageTs: string;
     channelId: string;
@@ -638,6 +628,17 @@
     // Increment key to force component recreation if there were issues
     if (showSavedSearches) {
       savedSearchKey++;
+    }
+  }
+
+  // Bookmark manager functions
+  export function toggleBookmarks() {
+    showBookmarks = !showBookmarks;
+    if (!showBookmarks) {
+      // Return focus to the button when closing
+      if (bookmarkButton) {
+        bookmarkButton.focus();
+      }
     }
   }
   

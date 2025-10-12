@@ -78,7 +78,8 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   downloadAllAttachments: 'd',
   uploadFiles: 'Ctrl+U',
   // Bookmark shortcuts
-  toggleBookmark: 'b'
+  toggleBookmark: 'b',  // Toggle bookmark on a message
+  toggleBookmarkManager: 'Ctrl+B'  // Toggle bookmark dropdown list
 };
 
 // Default settings
