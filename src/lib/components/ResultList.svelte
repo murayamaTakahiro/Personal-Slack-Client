@@ -630,7 +630,11 @@
         // Markdown + attachments folder export
         const folderResult = await exportService.exportMessagesToMarkdownFolder(messages, searchQuery, options);
 
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        // Convert to JST (UTC+9) for folder name
+        const now = new Date();
+        const jstOffset = 9 * 60; // JST is UTC+9 hours in minutes
+        const jstTime = new Date(now.getTime() + jstOffset * 60 * 1000);
+        const timestamp = jstTime.toISOString().replace(/[:.]/g, '-').slice(0, -5);
         const folderName = `messages_${timestamp}`;
 
         const result = await invoke<{ success: boolean; path?: string; error?: string }>(
@@ -670,7 +674,11 @@
         }
 
         // Tauriバックエンドでファイル保存（既存のコマンドを再利用）
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        // Convert to JST (UTC+9) for file name
+        const now2 = new Date();
+        const jstOffset2 = 9 * 60; // JST is UTC+9 hours in minutes
+        const jstTime2 = new Date(now2.getTime() + jstOffset2 * 60 * 1000);
+        const timestamp = jstTime2.toISOString().replace(/[:.]/g, '-').slice(0, -5);
         const defaultName = `messages_${timestamp}.${extension}`;
 
         const result = await invoke<{ success: boolean; path?: string; error?: string }>(
