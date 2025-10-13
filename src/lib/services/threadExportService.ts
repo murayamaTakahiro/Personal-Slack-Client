@@ -1,5 +1,5 @@
 import type { ThreadMessages, Message, SlackFile, EmojiReaction } from '../types/slack';
-import type { ExportOptions, ExportedThread, ExportedMessage, ExportedAttachment, ExportedReaction, FolderExportResult, AttachmentFile, FileDownloadJob, FileDownloadResult } from '../types/export';
+import type { ExportOptions, ExportedThread, ExportedMessage, ExportedAttachment, ExportedReaction, FolderExportResult, AttachmentFile, FileDownloadJob, FileDownloadResult, ExportedMessagesData } from '../types/export';
 import { decodeSlackText } from '../utils/htmlEntities';
 import { getAuthenticatedFileUrl, createFileDataUrl } from '../api/files';
 
@@ -195,6 +195,90 @@ export class ThreadExportService {
   }
 
   /**
+   * メッセージリスト用の制限付き並列ダウンロード
+   */
+  private async downloadFilesForMessagesWithLimit(
+    jobs: Array<{ attachment: ExportedAttachment; filename: string; message: ExportedMessage }>,
+    messages: Message[],
+    concurrencyLimit: number
+  ): Promise<(FileDownloadResult | null)[]> {
+    const results: (FileDownloadResult | null)[] = [];
+
+    // バッチ処理
+    for (let i = 0; i < jobs.length; i += concurrencyLimit) {
+      const batch = jobs.slice(i, i + concurrencyLimit);
+
+      const batchResults = await Promise.all(
+        batch.map(job => this.downloadSingleFileForMessage(job, messages))
+      );
+
+      results.push(...batchResults);
+    }
+
+    return results;
+  }
+
+  /**
+   * メッセージリスト用の単一ファイルダウンロード
+   */
+  private async downloadSingleFileForMessage(
+    job: { attachment: ExportedAttachment; filename: string; message: ExportedMessage },
+    messages: Message[]
+  ): Promise<FileDownloadResult | null> {
+    try {
+      // メッセージリストから元ファイル情報を取得
+      const originalFile = this.findOriginalFileInMessages(messages, job.attachment.id);
+      if (!originalFile) {
+        console.error(`[Export] Could not find original file: ${job.filename}`);
+        return null;
+      }
+
+      const urlToFetch = originalFile.url_private_download || originalFile.url_private;
+      if (!urlToFetch) {
+        console.error(`[Export] No download URL for: ${job.filename}`);
+        return null;
+      }
+
+      // ダウンロード + base64変換
+      const dataUrl = await createFileDataUrl(urlToFetch, originalFile.mimetype);
+
+      // base64抽出
+      const base64Match = dataUrl.match(/^data:[^;]+;base64,(.+)$/);
+      if (!base64Match) {
+        console.error(`[Export] Invalid data URL format: ${job.filename}`);
+        return null;
+      }
+
+      return {
+        filename: job.filename,
+        content: base64Match[1],
+        attachment: job.attachment
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[Export] Failed to download ${job.filename}:`, {
+        attachmentId: job.attachment.id,
+        fileType: job.attachment.fileType,
+        error: errorMsg
+      });
+      return null;
+    }
+  }
+
+  /**
+   * メッセージリストから元ファイルを検索
+   */
+  private findOriginalFileInMessages(messages: Message[], fileId: string): SlackFile | undefined {
+    for (const message of messages) {
+      if (message.files) {
+        const file = message.files.find(f => f.id === fileId);
+        if (file) return file;
+      }
+    }
+    return undefined;
+  }
+
+  /**
    * エクスポート用データ準備
    */
   private async prepareExport(
@@ -243,6 +327,7 @@ export class ThreadExportService {
       index,
       timestamp: message.ts,
       isoDateTime,
+      channelName: message.channelName || message.channel,
       userId: message.user,
       userName: message.userName,
       userRealName: options.includeUserInfo ? message.userName : undefined,
@@ -540,5 +625,319 @@ export class ThreadExportService {
     if (videoTypes.includes(type)) return '🎬';
 
     return '📎';
+  }
+
+  /**
+   * メッセージ配列をTSV形式に変換
+   * @param messages メッセージ配列（検索結果等）
+   * @param searchQuery 検索クエリ（メタデータ用）
+   * @param options エクスポートオプション
+   */
+  async exportMessagesToTSV(
+    messages: Message[],
+    searchQuery: string,
+    options: ExportOptions
+  ): Promise<string> {
+    const exported = await this.prepareMessagesExport(messages, searchQuery, options);
+    return this.formatAsTSVForMessages(exported);
+  }
+
+  /**
+   * メッセージ配列をMarkdown形式に変換
+   */
+  async exportMessagesToMarkdown(
+    messages: Message[],
+    searchQuery: string,
+    options: ExportOptions
+  ): Promise<string> {
+    const exported = await this.prepareMessagesExport(messages, searchQuery, options);
+    return this.formatAsMarkdownForMessages(exported);
+  }
+
+  /**
+   * メッセージ配列をMarkdown+フォルダ形式に変換
+   */
+  async exportMessagesToMarkdownFolder(
+    messages: Message[],
+    searchQuery: string,
+    options: ExportOptions
+  ): Promise<FolderExportResult> {
+    // フォルダエクスポートでは、ファイルダウンロードをスキップ（後で並列ダウンロード）
+    const exportOptionsWithoutDownload: ExportOptions = {
+      ...options,
+      attachmentHandling: 'permalink-only' // ダウンロードをスキップ
+    };
+    const exported = await this.prepareMessagesExport(messages, searchQuery, exportOptionsWithoutDownload);
+
+    // Step 1: ファイル名を事前決定（順序保証）
+    const fileJobs: Array<{ attachment: ExportedAttachment; filename: string; message: ExportedMessage }> = [];
+    let fileCounter = 1;
+
+    for (const msg of exported.messages) {
+      for (const att of msg.attachments) {
+        const extension = att.name.split('.').pop() || 'bin';
+        const safeFileType = att.fileType.replace(/[^a-z0-9]/gi, '_');
+        const filename = `${safeFileType}_${String(fileCounter).padStart(3, '0')}.${extension}`;
+
+        fileJobs.push({
+          attachment: att,
+          filename,
+          message: msg
+        });
+
+        fileCounter++;
+      }
+    }
+
+    // Step 2: 並列ダウンロード（メッセージリスト用）
+    const concurrencyLimit = Math.min(fileJobs.length, 10);
+    const results = await this.downloadFilesForMessagesWithLimit(fileJobs, messages, concurrencyLimit);
+
+    // Step 3: 成功したファイルのみ抽出
+    const attachments = results
+      .filter((r): r is FileDownloadResult => r !== null)
+      .map(r => ({ filename: r.filename, content: r.content }));
+
+    // Step 4: Markdownに反映
+    results.forEach(result => {
+      if (result) {
+        result.attachment.localPath = `./attachments/${result.filename}`;
+      }
+    });
+
+    // Format markdown with local paths
+    const markdown = this.formatAsMarkdownWithLocalPathsForMessages(exported);
+
+    return { markdown, attachments };
+  }
+
+  /**
+   * メッセージ配列用のエクスポートデータ準備
+   */
+  private async prepareMessagesExport(
+    messages: Message[],
+    searchQuery: string,
+    options: ExportOptions
+  ): Promise<ExportedMessagesData> {
+    // 既存の convertMessage() を再利用
+    const exportedMessages: ExportedMessage[] = await Promise.all(
+      messages.map((msg, index) => this.convertMessage(msg, index + 1, options))
+    );
+
+    // チャンネル情報を集計
+    const channelSet = new Set(messages.map(m => m.channelName || m.channel));
+    const channels = Array.from(channelSet);
+
+    return {
+      searchQuery,
+      channels,
+      totalMessages: messages.length,
+      messages: exportedMessages,
+      exportedAt: new Date().toISOString()
+    };
+  }
+
+  /**
+   * メッセージ一覧用Markdownフォーマット生成
+   */
+  private formatAsMarkdownForMessages(data: ExportedMessagesData): string {
+    const lines: string[] = [];
+
+    // ヘッダー
+    lines.push(`# Message List Export`);
+    lines.push('');
+    lines.push(`**Exported:** ${new Date(data.exportedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`);
+    lines.push(`**Search Query:** ${data.searchQuery || '(All messages)'}` );
+    lines.push(`**Total Messages:** ${data.totalMessages}`);
+    lines.push(`**Channels:** ${data.channels.join(', ')}`);
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+
+    // 各メッセージ
+    data.messages.forEach(msg => {
+      lines.push(`## Message ${msg.index}/${data.totalMessages} - ${msg.userName} (@${msg.userName})`);
+      lines.push('');
+      lines.push(`**Posted:** ${new Date(parseFloat(msg.timestamp) * 1000).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`);
+
+      // チャンネル情報（複数チャンネルの場合のみ表示）
+      if (data.channels.length > 1 && msg.channelName) {
+        lines.push(`**Channel:** #${msg.channelName}`);
+      }
+
+      lines.push(`**User ID:** ${msg.userId}`);
+      lines.push('');
+
+      // メッセージ本文
+      lines.push(msg.decodedText);
+      lines.push('');
+
+      // 添付ファイル（既存のロジックを再利用）
+      if (msg.attachments.length > 0) {
+        lines.push(`**Attachments (${msg.attachments.length}):**`);
+        msg.attachments.forEach(att => {
+          const emoji = this.getFileEmoji(att.fileType);
+          const url = att.dataUrl || att.authenticatedUrl || att.permalink;
+          lines.push(`- ${emoji} [${att.name}](${url}) (${att.formattedSize}) | [View in Slack](${att.slackMessageLink})`);
+        });
+        lines.push('');
+      }
+
+      // リアクション
+      if (msg.reactions && msg.reactions.length > 0) {
+        lines.push('**Reactions:**');
+        msg.reactions.forEach(reaction => {
+          const userList = reaction.users.map(u => `@${u}`).join(', ');
+          lines.push(`- ${reaction.emoji} (${reaction.count}): ${userList}`);
+        });
+        lines.push('');
+      }
+
+      // Slackリンク
+      lines.push(`**Slack Link:** ${msg.slackLink}`);
+      lines.push('');
+      lines.push('---');
+      lines.push('');
+    });
+
+    return lines.join('\n');
+  }
+
+  /**
+   * TSVフォーマット生成（メッセージ一覧用）
+   */
+  private formatAsTSVForMessages(data: ExportedMessagesData): string {
+    const headers = [
+      'Index',
+      'Timestamp',
+      'ISO DateTime',
+      'Channel',
+      'User ID',
+      'User Name',
+      'Message',
+      'Attachment Count',
+      'Attachment Names',
+      'Attachment URLs',
+      'Attachment Sizes',
+      'Reaction Summary',
+      'Slack Link'
+    ];
+
+    const rows = data.messages.map(msg => {
+      const attachmentNames = msg.attachments.map(a => a.name).join(',');
+      const attachmentUrls = msg.attachments
+        .map(a => a.dataUrl || a.authenticatedUrl || a.permalink)
+        .join(',');
+      const attachmentSizes = msg.attachments.map(a => a.size.toString()).join(',');
+
+      const reactionSummary = msg.reactions
+        ? msg.reactions.map(r => `${r.emoji}(${r.count})`).join(',')
+        : '';
+
+      const escapeTsv = (text: string) =>
+        text.replace(/\t/g, '  ').replace(/\n/g, '\\n').replace(/\r/g, '');
+
+      // チャンネル名を取得（複数チャンネル対応）
+      const channelName = msg.channelName || 'unknown';
+
+      return [
+        msg.index.toString(),
+        msg.timestamp,
+        msg.isoDateTime,
+        channelName,
+        msg.userId,
+        msg.userName,
+        escapeTsv(msg.decodedText),
+        msg.attachments.length.toString(),
+        attachmentNames,
+        attachmentUrls,
+        attachmentSizes,
+        reactionSummary,
+        msg.slackLink
+      ].join('\t');
+    });
+
+    return [headers.join('\t'), ...rows].join('\n');
+  }
+
+  /**
+   * メッセージ一覧用Markdownフォーマット生成（ローカルパス対応）
+   */
+  private formatAsMarkdownWithLocalPathsForMessages(data: ExportedMessagesData): string {
+    const lines: string[] = [];
+
+    // ヘッダー
+    lines.push(`# Message List Export`);
+    lines.push('');
+    lines.push(`**Exported:** ${new Date(data.exportedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`);
+    lines.push(`**Search Query:** ${data.searchQuery || '(All messages)'}`);
+    lines.push(`**Total Messages:** ${data.totalMessages}`);
+    lines.push(`**Channels:** ${data.channels.join(', ')}`);
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+
+    // 各メッセージ
+    data.messages.forEach(msg => {
+      lines.push(`## Message ${msg.index}/${data.totalMessages} - ${msg.userName} (@${msg.userName})`);
+      lines.push('');
+      lines.push(`**Posted:** ${new Date(parseFloat(msg.timestamp) * 1000).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`);
+
+      // チャンネル情報（複数チャンネルの場合のみ表示）
+      if (data.channels.length > 1 && msg.channelName) {
+        lines.push(`**Channel:** #${msg.channelName}`);
+      }
+
+      lines.push(`**User ID:** ${msg.userId}`);
+      lines.push('');
+
+      // メッセージ本文
+      lines.push(msg.decodedText);
+      lines.push('');
+
+      // 添付ファイル（ローカルパス優先）
+      if (msg.attachments.length > 0) {
+        lines.push(`**Attachments (${msg.attachments.length}):**`);
+        msg.attachments.forEach(att => {
+          const emoji = this.getFileEmoji(att.fileType);
+          // localPath があれば優先、なければフォールバック
+          const url = att.localPath || att.dataUrl || att.authenticatedUrl || att.permalink;
+
+          // 画像ファイルは ![alt](url) 構文で埋め込み（VS Codeでプレビュー可能）
+          const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'];
+          const extension = att.name.split('.').pop()?.toLowerCase() || '';
+          const isImage = imageExtensions.includes(extension);
+
+          if (isImage && att.localPath) {
+            // 画像：Markdown画像構文で埋め込み
+            lines.push(`- ${emoji} **${att.name}** (${att.formattedSize})`);
+            lines.push(`  ![${att.name}](${url})`);
+            lines.push(`  [View in Slack](${att.slackMessageLink})`);
+          } else {
+            // 非画像：リンク形式
+            lines.push(`- ${emoji} [${att.name}](${url}) (${att.formattedSize}) | [View in Slack](${att.slackMessageLink})`);
+          }
+        });
+        lines.push('');
+      }
+
+      // リアクション
+      if (msg.reactions && msg.reactions.length > 0) {
+        lines.push('**Reactions:**');
+        msg.reactions.forEach(reaction => {
+          const userList = reaction.users.map(u => `@${u}`).join(', ');
+          lines.push(`- ${reaction.emoji} (${reaction.count}): ${userList}`);
+        });
+        lines.push('');
+      }
+
+      // Slackリンク
+      lines.push(`**Slack Link:** ${msg.slackLink}`);
+      lines.push('');
+      lines.push('---');
+      lines.push('');
+    });
+
+    return lines.join('\n');
   }
 }

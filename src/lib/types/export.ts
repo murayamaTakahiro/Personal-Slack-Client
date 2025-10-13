@@ -18,6 +18,7 @@ export interface ExportedMessage {
   index: number;
   timestamp: string;
   isoDateTime: string;
+  channelName?: string;  // For message list exports with multiple channels
   userId: string;
   userName: string;
   userRealName?: string;
@@ -68,4 +69,12 @@ export interface FileDownloadResult {
   filename: string;
   content: string; // base64
   attachment: ExportedAttachment;
+}
+
+export interface ExportedMessagesData {
+  searchQuery: string;
+  channels: string[];
+  totalMessages: number;
+  messages: ExportedMessage[];
+  exportedAt: string;
 }

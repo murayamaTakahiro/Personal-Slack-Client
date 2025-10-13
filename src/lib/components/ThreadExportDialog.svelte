@@ -4,9 +4,11 @@
   import type { ExportOptions } from '../types/export';
 
   export let visible = false;
+  export let title = 'Export Thread';
+  export let subtitle = 'Choose export options for this thread';
 
   let format: ExportOptions['format'] = 'markdown';
-  let attachmentHandling: ExportOptions['attachmentHandling'] = 'data-url';
+  let attachmentHandling: ExportOptions['attachmentHandling'] = 'permalink-only';
   let includeReactions = true;
   let includeUserInfo = true;
 
@@ -140,8 +142,8 @@
       tabindex="-1"
     >
       <div class="dialog-header">
-        <h2 id="export-dialog-title">Export Thread</h2>
-        <p class="dialog-subtitle">Choose export options for this thread</p>
+        <h2 id="export-dialog-title">{title}</h2>
+        <p class="dialog-subtitle">{subtitle}</p>
       </div>
 
       <div class="dialog-body">

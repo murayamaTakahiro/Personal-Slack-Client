@@ -10,7 +10,7 @@
   import { urlService } from '../services/urlService';
   import { openUrlsSmart } from '../api/urls';
   import { getThreadFromUrl, markMessageAsRead } from '../api/slack';
-  import { showInfo, showError } from '../stores/toast';
+  import { showInfo, showError, showSuccess } from '../stores/toast';
   import { decodeSlackText } from '../utils/htmlEntities';
   import { performanceSettings } from '../stores/performance';
   import LoadingSpinner from './LoadingSpinner.svelte';
@@ -23,6 +23,10 @@
   import { settings } from '../stores/settings';
   import { searchHistoryTracker } from '../services/searchHistoryTracker';
   import { bookmarkStore } from '../stores/bookmarks';
+  import { ThreadExportService } from '../services/threadExportService';
+  import ThreadExportDialog from './ThreadExportDialog.svelte';
+  import type { ExportOptions } from '../types/export';
+  import { invoke } from '@tauri-apps/api/core';
 
   export let messages: Message[] = [];
   export let loading = false;
@@ -45,6 +49,10 @@
   let postMode: 'channel' | 'thread' = 'channel';
   let continuousMode = false;
   let postInitialText = ''; // For pre-filled text (e.g., quoted messages)
+
+  // Export dialog state
+  let showExportDialog = false;
+  let exportService = new ThreadExportService();
   
   // Progressive loading state
   const INITIAL_LOAD = 50;
@@ -584,19 +592,155 @@
       }
     });
   }
-  
+
+  /**
+   * メッセージ一覧エクスポート開始
+   */
+  function handleExportMessages() {
+    if (messages.length === 0) {
+      showError('No messages', 'No messages to export');
+      return;
+    }
+
+    showExportDialog = true;
+  }
+
+  /**
+   * エクスポート実行（ダイアログからの呼び出し）
+   */
+  async function executeExport(event: CustomEvent<ExportOptions>) {
+    const options = event.detail;
+
+    if (messages.length === 0) {
+      showError('Export failed', 'No messages available');
+      showExportDialog = false;
+      return;
+    }
+
+    try {
+      showInfo('Exporting...', 'Preparing message list export');
+
+      // 検索クエリ情報を取得
+      const searchQuery = $searchParams?.query || '';
+
+      if (options.format === 'markdown-folder') {
+        // Markdown + attachments folder export
+        const folderResult = await exportService.exportMessagesToMarkdownFolder(messages, searchQuery, options);
+
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const folderName = `messages_${timestamp}`;
+
+        const result = await invoke<{ success: boolean; path?: string; error?: string }>(
+          'save_thread_export_folder',
+          {
+            markdownContent: folderResult.markdown,
+            attachments: folderResult.attachments,
+            folderName
+          }
+        );
+
+        if (result.success && result.path) {
+          const fileCount = folderResult.attachments.length;
+          showSuccess(
+            'Export complete',
+            `${messages.length} messages + ${fileCount} attachment${fileCount !== 1 ? 's' : ''} exported to ${result.path}`
+          );
+        } else if (result.error) {
+          if (result.error === 'User cancelled') {
+            showInfo('Export cancelled', 'Folder save was cancelled');
+          } else {
+            showError('Export failed', result.error);
+          }
+        }
+      } else {
+        // Single file export (TSV or Markdown)
+        let content: string;
+        let extension: string;
+
+        if (options.format === 'tsv') {
+          content = await exportService.exportMessagesToTSV(messages, searchQuery, options);
+          extension = 'tsv';
+        } else {
+          content = await exportService.exportMessagesToMarkdown(messages, searchQuery, options);
+          extension = 'md';
+        }
+
+        // Tauriバックエンドでファイル保存（既存のコマンドを再利用）
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const defaultName = `messages_${timestamp}.${extension}`;
+
+        const result = await invoke<{ success: boolean; path?: string; error?: string }>(
+          'save_thread_export',
+          {
+            content,
+            defaultName,
+            extension
+          }
+        );
+
+        if (result.success && result.path) {
+          showSuccess('Export complete', `${messages.length} messages exported to ${result.path}`);
+        } else if (result.error) {
+          if (result.error === 'User cancelled') {
+            showInfo('Export cancelled', 'File save was cancelled');
+          } else {
+            showError('Export failed', result.error);
+          }
+        }
+      }
+    } catch (error) {
+      showError('Export failed', error instanceof Error ? error.message : String(error));
+    } finally {
+      showExportDialog = false;
+
+      // リストコンテナにフォーカスを戻す
+      requestAnimationFrame(() => {
+        if (listContainer) {
+          listContainer.focus();
+        }
+      });
+    }
+  }
+
+  /**
+   * エクスポートキャンセル
+   */
+  function handleExportCancel() {
+    showExportDialog = false;
+
+    // リストコンテナにフォーカスを戻す
+    requestAnimationFrame(() => {
+      if (listContainer) {
+        listContainer.focus();
+      }
+    });
+  }
+
   function handleKeyDown(event: KeyboardEvent) {
     // Check if thread view has focus - if so, don't handle navigation here
     const threadViewElement = document.querySelector('.thread-view');
     if (threadViewElement && threadViewElement.contains(document.activeElement)) {
       return; // Let thread view handle its own navigation
     }
-    
+
     // Don't handle shortcuts if post dialog is open
     if (showPostDialog) {
       return;
     }
-    
+
+    // Handle Ctrl+E for export
+    if (event.key.toLowerCase() === 'e' && event.ctrlKey && !event.altKey && !event.metaKey) {
+      // フォーカスチェック（他のキーハンドラと同様）
+      if (!listContainer || (!listContainer.contains(document.activeElement) && document.activeElement !== listContainer)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      handleExportMessages();
+      return;
+    }
+
     // Handle Enter key
     if (event.key === 'Enter') {
       event.preventDefault();
@@ -1242,6 +1386,16 @@
       initialText={postInitialText}
       on:success={handlePostSuccess}
       on:cancel={handlePostCancel}
+    />
+  {/if}
+
+  {#if showExportDialog}
+    <ThreadExportDialog
+      visible={showExportDialog}
+      title="Export Messages"
+      subtitle="Choose export options for message list"
+      on:export={executeExport}
+      on:cancel={handleExportCancel}
     />
   {/if}
 </div>
