@@ -90,10 +90,6 @@
   let showEmojiSearch = false;
   let realtimeInterval: NodeJS.Timeout | null = null;
 
-  // DM Search state
-  let dmSearchMode = false;
-  let selectedDMId: string | null = null;
-  let selectedDMName: string | null = null;
   let previousMessageIds = new Set<string>();
   let unsubscribeRealtime: (() => void) | null = null;
   let unsubscribeSearchResults: (() => void) | null = null;
@@ -1355,36 +1351,6 @@
       searchLoading.set(false);
     }
   }
-  
-  // DM Search handlers - temporarily disabled as DMs are now in regular channel list
-  function handleDMSelect(event: CustomEvent) {
-    // const { dmId, dmInfo } = event.detail;
-    // selectedDMId = dmId;
-    // selectedDMName = dmInfo?.name || null;
-    // console.log('[App] Selected DM:', dmId, dmInfo);
-    // if (dmSearchMode) {
-    //   searchResults.set(null);
-    //   searchError.set(null);
-    // }
-  }
-
-  function handleDMSearchResults(event: CustomEvent) {
-    // const { results, dmId, query } = event.detail;
-    // console.log(`[App] DM search results for ${dmId}:`, results.length, 'messages');
-    // if (results && results.length > 0) {
-    //   searchResults.set({
-    //     messages: results,
-    //     total: results.length,
-    //     query: query || '',
-    //     channel_breakdown: {},
-    //     is_dm_search: true,
-    //     dm_id: dmId
-    //   });
-    // } else {
-    //   searchResults.set(null);
-    //   searchError.set(`No messages found in DM ${dmId} matching: ${query}`);
-    // }
-  }
 
   function handleFocusMessage(event: CustomEvent<{ messageTs: string }>) {
     const { messageTs } = event.detail;
@@ -1610,7 +1576,7 @@
       }
 
       // Step 2: Load fresh data in parallel (background refresh if cached)
-      const includeDMs = $settings.experimentalFeatures?.dmChannelsEnabled || false;
+      const includeDMs = true; // Always include DMs in channel list
       const startTime = performance.now();
       console.log('[Performance] Starting parallel load of channels and users...');
 
@@ -2039,9 +2005,6 @@
       <SearchBar
         bind:this={searchBarElement}
         {channels}
-        bind:dmSearchMode={dmSearchMode}
-        bind:selectedDMId={selectedDMId}
-        bind:selectedDMName={selectedDMName}
         on:search={handleSearch}
         on:focusMessage={handleFocusMessage}
       />

@@ -16,7 +16,6 @@
   import { urlHistoryStore } from '../stores/urlHistory';
   import SearchKeywordHistory from './SearchKeywordHistory.svelte';
   import { searchKeywordHistoryStore } from '../stores/searchKeywordHistory';
-  import { isDMChannelsEnabled } from '../stores/settings';
   import BookmarkManager from './BookmarkManager.svelte';
   import { bookmarkStore } from '../stores/bookmarks';
 
@@ -51,11 +50,6 @@
   let bookmarkButton: HTMLButtonElement;
   let catchUpLoading = false;
 
-  // DM search state
-  export let dmSearchMode = false;
-  export let selectedDMId: string | null = null;
-  export let selectedDMName: string | null = null;
-  
   // Keep local filter values in sync with searchParams store
   // This ensures filters persist when dialogs are opened/closed or focus changes
   $: if ($searchParams && !$searchLoading) {
@@ -85,15 +79,8 @@
       searchQuery.set('');
     }
 
-    // For DM search mode, set the channel to the selected DM
-    let effectiveChannel = channel;
-    if (dmSearchMode && selectedDMId) {
-      effectiveChannel = selectedDMId;
-      console.log('[SearchBar] DM Search mode active - searching in DM:', selectedDMId);
-    }
-
     // Check if we have either a query or at least one filter
-    const hasFilters = effectiveChannel || userId || fromDate || toDate;
+    const hasFilters = channel || userId || fromDate || toDate;
     const hasQuery = $searchQuery.trim();
 
     if (hasQuery || hasFilters) {
@@ -128,15 +115,15 @@
         // User typed something manually, try to resolve it
         resolvedUserId = await userService.resolveUserToId(user) || '';
       }
-      
+
       // Clean up channel - remove # symbol if present
-      let cleanChannel = effectiveChannel.trim();
+      let cleanChannel = channel.trim();
       if (cleanChannel.startsWith('#')) {
         cleanChannel = cleanChannel.substring(1);
       }
 
-      // Record channel usage for recent channels tracking (but not for DM channels)
-      if (cleanChannel && !dmSearchMode) {
+      // Record channel usage for recent channels tracking
+      if (cleanChannel) {
         // For multi-channel mode, channel might be comma-separated
         const channelList = cleanChannel.split(',').map(ch => ch.trim());
         channelList.forEach(ch => {
@@ -159,7 +146,6 @@
         limit,
         hasFiles: hasFiles === true ? true : undefined,  // Only send true when explicitly checked
         isRealtimeUpdate, // Pass this flag through
-        isDMSearch: dmSearchMode && selectedDMId ? true : undefined, // Add flag for DM search
         lastSearchTimestamp: isRealtimeUpdate ? realtimeStore.getLastSearchTimestamp() : undefined // For incremental updates
       };
       searchParams.set(params);
@@ -622,7 +608,7 @@
   }
   
   // Check if search is possible
-  $: canSearch = $searchQuery.trim() || channel || userId || user || fromDate || toDate || (dmSearchMode && selectedDMId);
+  $: canSearch = $searchQuery.trim() || channel || userId || user || fromDate || toDate;
   
   function toggleAdvanced() {
     showAdvanced = !showAdvanced;
@@ -856,32 +842,6 @@
       {/if}
     </button>
 
-    {#if isDMChannelsEnabled()}
-      <button
-        on:click={() => {
-          dmSearchMode = !dmSearchMode;
-          // Clear DM selection when toggling off DM mode
-          if (!dmSearchMode) {
-            selectedDMId = null;
-            selectedDMName = null;
-          }
-          console.log('[SearchBar] DM mode toggled:', dmSearchMode);
-        }}
-        class="btn-toggle dm-toggle {dmSearchMode ? 'active' : ''}"
-        title="{dmSearchMode ? 'Exit DM search mode' : 'Enter DM search mode - Select a DM from the left panel to search within it'}"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-          <circle cx="8" cy="10" r="1.5"/>
-          <circle cx="12" cy="10" r="1.5"/>
-          <circle cx="16" cy="10" r="1.5"/>
-        </svg>
-        {#if dmSearchMode}
-          <span class="dm-mode-text">DM Mode</span>
-        {/if}
-      </button>
-    {/if}
-
     <button
       on:click={handleTodaysCatchUp}
       class="btn-toggle catch-up-toggle"
@@ -966,29 +926,6 @@
       <div class="progress-text">
         チャンネル検索中: {$searchProgress.channel || 'Loading...'} ({$searchProgress.current}/{$searchProgress.total})
       </div>
-    </div>
-  {/if}
-  
-  {#if dmSearchMode}
-    <div class="dm-search-notice">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-      </svg>
-      <span>
-        {#if selectedDMId}
-          Searching in DM: <strong>{selectedDMName || selectedDMId}</strong>
-        {:else}
-          <strong>DM Search Mode Active</strong> - Select a DM from the left panel
-        {/if}
-      </span>
-      {#if selectedDMId}
-        <button class="btn-clear-dm" on:click={() => { selectedDMId = null; selectedDMName = null; }}>
-          Change DM
-        </button>
-      {/if}
-      <button class="btn-clear-dm" on:click={() => { selectedDMId = null; selectedDMName = null; dmSearchMode = false; }}>
-        Exit DM Mode
-      </button>
     </div>
   {/if}
 
@@ -1546,71 +1483,6 @@
     text-align: center;
   }
 
-  .dm-mode-indicator {
-    position: absolute;
-    top: -4px;
-    right: -4px;
-    background: var(--primary);
-    color: white;
-    font-size: 0.625rem;
-    font-weight: bold;
-    padding: 0.125rem 0.25rem;
-    border-radius: 4px;
-  }
-
-  .dm-toggle {
-    position: relative;
-  }
-
-  .dm-toggle.active {
-    background: var(--primary);
-    color: white;
-    border-color: var(--primary);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  .dm-toggle .dm-mode-text {
-    margin-left: 4px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .dm-search-notice {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem;
-    margin-top: 0.5rem;
-    background: var(--primary-bg);
-    border: 1px solid var(--primary);
-    border-radius: 4px;
-    color: var(--primary);
-    font-size: 0.875rem;
-  }
-
-  .dm-search-notice strong {
-    font-family: monospace;
-  }
-
-  .btn-clear-dm {
-    margin-left: auto;
-    padding: 0.25rem 0.5rem;
-    background: white;
-    border: 1px solid var(--primary);
-    border-radius: 4px;
-    color: var(--primary);
-    font-size: 0.75rem;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .btn-clear-dm:hover {
-    background: var(--primary);
-    color: white;
-  }
-  
   @keyframes pulse {
     0% {
       box-shadow: 0 0 0 0 rgba(74, 144, 226, 0.4);

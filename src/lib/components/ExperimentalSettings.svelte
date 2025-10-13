@@ -1,20 +1,8 @@
 <script lang="ts">
-  import { settings, toggleDMChannels, toggleHighlightNewSearchResults } from '../stores/settings';
-  import { createEventDispatcher } from 'svelte';
-
-  const dispatch = createEventDispatcher();
-
-  // Get current state of DM channels feature
-  $: dmChannelsEnabled = $settings.experimentalFeatures?.dmChannelsEnabled || false;
+  import { settings, toggleHighlightNewSearchResults } from '../stores/settings';
 
   // Get current state of highlight new search results feature
   $: highlightNewSearchResultsEnabled = $settings.experimentalFeatures?.highlightNewSearchResults || false;
-
-  async function handleDMChannelsToggle() {
-    toggleDMChannels(!dmChannelsEnabled);
-    // Dispatch event to reload channels
-    dispatch('channelsNeedReload');
-  }
 
   function handleHighlightNewSearchResultsToggle() {
     toggleHighlightNewSearchResults(!highlightNewSearchResultsEnabled);
@@ -32,31 +20,6 @@
   </div>
 
   <div class="feature-list">
-    <div class="feature-item">
-      <div class="feature-header">
-        <label class="feature-toggle">
-          <input
-            type="checkbox"
-            checked={dmChannelsEnabled}
-            on:change={handleDMChannelsToggle}
-          />
-          <span class="toggle-label">Enable DM Channels</span>
-        </label>
-      </div>
-      <div class="feature-description">
-        <p>Include Direct Message channels in the channel selector alongside regular channels.</p>
-        <p class="requirements">Requirements:</p>
-        <ul>
-          <li>Slack token must have <code>im:read</code> permission</li>
-          <li>DMs appear with "@username" format in the channel list</li>
-          <li>Search works the same as regular channels</li>
-        </ul>
-        <p class="phase-info">
-          <strong>Note:</strong> You may need to reload the app after toggling this feature
-        </p>
-      </div>
-    </div>
-
     <div class="feature-item">
       <div class="feature-header">
         <label class="feature-toggle">
