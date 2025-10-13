@@ -1,12 +1,5 @@
 <script lang="ts">
-  import { settings, toggleHighlightNewSearchResults } from '../stores/settings';
-
-  // Get current state of highlight new search results feature
-  $: highlightNewSearchResultsEnabled = $settings.experimentalFeatures?.highlightNewSearchResults || false;
-
-  function handleHighlightNewSearchResultsToggle() {
-    toggleHighlightNewSearchResults(!highlightNewSearchResultsEnabled);
-  }
+  import { settings } from '../stores/settings';
 </script>
 
 <div class="experimental-settings">
@@ -20,31 +13,7 @@
   </div>
 
   <div class="feature-list">
-    <div class="feature-item">
-      <div class="feature-header">
-        <label class="feature-toggle">
-          <input
-            type="checkbox"
-            checked={highlightNewSearchResultsEnabled}
-            on:change={handleHighlightNewSearchResultsToggle}
-          />
-          <span class="toggle-label">Highlight New Search Results</span>
-        </label>
-      </div>
-      <div class="feature-description">
-        <p>Visually highlight messages that are new since the last time you performed the same search.</p>
-        <p class="requirements">How it works:</p>
-        <ul>
-          <li>Performs the same search query again</li>
-          <li>New messages appear with a green border and "NEW" badge</li>
-          <li>Search history is stored locally for 7 days</li>
-          <li>Helps you quickly identify messages you haven't seen yet</li>
-        </ul>
-        <p class="phase-info">
-          <strong>Note:</strong> This feature is independent from the search cache and uses local storage to track previously seen messages.
-        </p>
-      </div>
-    </div>
+    <!-- No experimental features at this time -->
   </div>
 </div>
 

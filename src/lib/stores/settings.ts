@@ -95,7 +95,7 @@ const defaultSettings: AppSettings = {
   debugMode: false,  // Performance monitor is hidden by default
   downloadFolder: null,  // null means use default Downloads folder
   experimentalFeatures: {
-    highlightNewSearchResults: false  // New message highlighting is disabled by default
+    highlightNewSearchResults: true  // New message highlighting is enabled by default
   }
 };
 
@@ -155,9 +155,9 @@ export async function initializeSettings() {
     userFavoriteOrder: loadedSettings.userFavoriteOrder || [],  // Preserve user favorite order
     debugMode: loadedSettings.debugMode ?? false,  // Default to false if not set
     // Properly merge experimental features
+    // For promoted features (highlightNewSearchResults), always use the new default
     experimentalFeatures: {
-      ...defaultSettings.experimentalFeatures,
-      ...(loadedSettings.experimentalFeatures || {})
+      highlightNewSearchResults: true  // Always enabled as a standard feature
     }
   };
   
@@ -273,14 +273,4 @@ export function isHighlightNewSearchResultsEnabled(): boolean {
     enabled = s.experimentalFeatures?.highlightNewSearchResults || false;
   })();
   return enabled;
-}
-
-export function toggleHighlightNewSearchResults(enabled: boolean) {
-  settings.update(s => ({
-    ...s,
-    experimentalFeatures: {
-      ...s.experimentalFeatures,
-      highlightNewSearchResults: enabled
-    }
-  }));
 }
