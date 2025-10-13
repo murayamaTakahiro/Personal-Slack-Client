@@ -816,6 +816,16 @@
       allowInInput: true
     });
 
+    // Today's Catch Up
+    keyboardService.registerHandler('todaysCatchUp', {
+      action: () => {
+        if (!catchUpLoading) {
+          handleTodaysCatchUp();
+        }
+      },
+      allowInInput: false
+    });
+
     // Note: toggleSavedSearches and saveCurrentSearch handlers are now registered in App.svelte
     // to ensure proper timing and avoid conflicts
   });
@@ -825,6 +835,7 @@
     if (keyboardService) {
       keyboardService.unregisterHandler('executeSearch');
       keyboardService.unregisterHandler('clearSearch');
+      keyboardService.unregisterHandler('todaysCatchUp');
       // Note: toggleSavedSearches and saveCurrentSearch are handled by App.svelte
     }
   });
@@ -876,7 +887,7 @@
       class="btn-toggle catch-up-toggle"
       class:loading={catchUpLoading}
       class:disabled={catchUpLoading}
-      title="Catch up on today's messages from unmuted channels (favorites + recent)"
+      title="Catch up on today's messages from unmuted channels (favorites + recent) (Ctrl+T)"
       disabled={catchUpLoading}
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

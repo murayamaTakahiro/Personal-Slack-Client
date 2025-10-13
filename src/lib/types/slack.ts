@@ -189,6 +189,25 @@ export interface KeyboardShortcuts {
    * Note: Single key 'r' is NOT recommended to avoid accidental triggers
    */
   markMessageAsRead?: string | string[];
+  /**
+   * Trigger Today's Catch Up - fetch and mark today's messages from unmuted channels
+   *
+   * Default: 'ctrl+t'
+   *
+   * This shortcut triggers the Today's Catch Up feature, which:
+   * 1. Fetches all unmuted member channels
+   * 2. Prioritizes favorites and recent channels (max 20)
+   * 3. Searches for today's messages
+   * 4. Marks the latest message in each channel as read
+   *
+   * Recommended key combinations:
+   * - 'ctrl+t' (default) - Easy to press, T for "Today"
+   * - 'alt+t' - Alternative if ctrl+t conflicts
+   * - 'ctrl+shift+t' - Extra safety with two modifiers
+   *
+   * Note: Single key 't' is NOT recommended to avoid conflicts with other shortcuts
+   */
+  todaysCatchUp?: string | string[];
 }
 
 export interface MentionHistory {

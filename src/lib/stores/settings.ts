@@ -81,7 +81,9 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   toggleBookmark: 'b',  // Toggle bookmark on a message
   toggleBookmarkManager: 'Ctrl+B',  // Toggle bookmark dropdown list
   // Mark message as read
-  markMessageAsRead: 'shift+r'  // Mark the currently focused message as read on Slack
+  markMessageAsRead: 'shift+r',  // Mark the currently focused message as read on Slack
+  // Today's Catch Up
+  todaysCatchUp: 'ctrl+t'  // Fetch and mark today's messages from unmuted channels
 };
 
 // Default settings
