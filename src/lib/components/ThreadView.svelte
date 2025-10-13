@@ -21,6 +21,7 @@
   import type { ExportOptions } from '../types/export';
   import { invoke } from '@tauri-apps/api/core';
   import { bookmarkStore } from '../stores/bookmarks';
+  import { settings } from '../stores/settings';
 
   export let message: Message | null = null;
 
@@ -297,6 +298,9 @@
       const channelName = message.channelName || message.channel;
       const channelId = message.channel;
 
+      // Get default download folder from settings
+      const downloadFolder = $settings.downloadFolder;
+
       if (options.format === 'markdown-folder') {
         // Folder export with attachments
         const { markdown, attachments } = await exportService.exportToMarkdownFolder(
@@ -311,7 +315,8 @@
           {
             folderName: `thread_${thread.parent.ts}`,
             markdownContent: markdown,
-            attachments: attachments
+            attachments: attachments,
+            defaultDir: downloadFolder
           }
         );
 
@@ -342,7 +347,8 @@
           {
             content,
             defaultName: `thread_${thread.parent.ts}.${extension}`,
-            extension
+            extension,
+            defaultDir: downloadFolder
           }
         );
 

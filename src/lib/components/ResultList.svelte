@@ -623,6 +623,9 @@
       // 検索クエリ情報を取得
       const searchQuery = $searchParams?.query || '';
 
+      // デフォルトダウンロードフォルダを取得
+      const downloadFolder = $settings.downloadFolder;
+
       if (options.format === 'markdown-folder') {
         // Markdown + attachments folder export
         const folderResult = await exportService.exportMessagesToMarkdownFolder(messages, searchQuery, options);
@@ -635,7 +638,8 @@
           {
             markdownContent: folderResult.markdown,
             attachments: folderResult.attachments,
-            folderName
+            folderName,
+            defaultDir: downloadFolder
           }
         );
 
@@ -674,7 +678,8 @@
           {
             content,
             defaultName,
-            extension
+            extension,
+            defaultDir: downloadFolder
           }
         );
 
