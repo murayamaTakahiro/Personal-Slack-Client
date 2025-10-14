@@ -96,8 +96,48 @@
           },
           {
             key: 'refreshSearch',
-            description: '検索を更新（新規メッセージを取得）',
+            description: 'Refresh Search (Get New Messages)',
             shortcut: shortcuts.refreshSearch || 'Ctrl+Shift+R'
+          },
+          {
+            key: 'toggleKeywordHistory',
+            description: 'Toggle Search Keyword History',
+            shortcut: shortcuts.toggleKeywordHistory || 'Ctrl+H'
+          },
+          {
+            key: 'toggleUrlHistory',
+            description: 'Toggle URL History',
+            shortcut: shortcuts.toggleUrlHistory || 'Ctrl+T'
+          },
+          {
+            key: 'focusUserSelector',
+            description: 'Focus User Selector',
+            shortcut: shortcuts.focusUserSelector || 'Ctrl+Shift+U'
+          },
+          {
+            key: 'focusFromDate',
+            description: 'Focus From Date Filter',
+            shortcut: shortcuts.focusFromDate || 'Ctrl+Shift+D'
+          }
+        ]
+      },
+      {
+        name: 'Saved Searches',
+        shortcuts: [
+          {
+            key: 'toggleSavedSearches',
+            description: 'Toggle Saved Searches List',
+            shortcut: shortcuts.toggleSavedSearches || 'Ctrl+/'
+          },
+          {
+            key: 'saveCurrentSearch',
+            description: 'Save Current Search',
+            shortcut: shortcuts.saveCurrentSearch || 'Ctrl+Shift+S'
+          },
+          {
+            key: 'quickSaveSearch',
+            description: 'Quick Save Search',
+            shortcut: shortcuts.quickSaveSearch || 'Alt+S'
           }
         ]
       },
@@ -124,18 +164,18 @@
             description: 'Reply in Thread (Continuous)',
             shortcut: shortcuts.replyInThreadContinuous || 'Shift+T'
           },
-          { 
-            key: 'openReactionPicker', 
+          {
+            key: 'quoteMessage',
+            description: 'Quote Selected Message',
+            shortcut: shortcuts.quoteMessage || 'q'
+          },
+          {
+            key: 'openReactionPicker',
             description: 'Open Reaction Picker',
             shortcut: shortcuts.openReactionPicker || 'r'
           },
           {
-            key: 'toggleEmojiSearch',
-            description: 'Open Emoji Search',
-            shortcut: shortcuts.toggleEmojiSearch || 'Ctrl+E'
-          },
-          { 
-            key: 'openUrls', 
+            key: 'openUrls',
             description: 'Open URLs in Message',
             shortcut: shortcuts.openUrls || 'Alt+Enter'
           }
@@ -242,56 +282,6 @@
         ]
       },
       {
-        name: 'User Selection',
-        shortcuts: [
-          { 
-            key: 'selectFavoriteUser1', 
-            description: 'Select Favorite User 1',
-            shortcut: 'Ctrl+Alt+1'
-          },
-          { 
-            key: 'selectFavoriteUser2', 
-            description: 'Select Favorite User 2',
-            shortcut: 'Ctrl+Alt+2'
-          },
-          { 
-            key: 'selectFavoriteUser3', 
-            description: 'Select Favorite User 3',
-            shortcut: 'Ctrl+Alt+3'
-          },
-          { 
-            key: 'selectFavoriteUser4', 
-            description: 'Select Favorite User 4',
-            shortcut: 'Ctrl+Alt+4'
-          },
-          { 
-            key: 'selectFavoriteUser5', 
-            description: 'Select Favorite User 5',
-            shortcut: 'Ctrl+Alt+5'
-          },
-          { 
-            key: 'selectFavoriteUser6', 
-            description: 'Select Favorite User 6',
-            shortcut: 'Ctrl+Alt+6'
-          },
-          { 
-            key: 'selectFavoriteUser7', 
-            description: 'Select Favorite User 7',
-            shortcut: 'Ctrl+Alt+7'
-          },
-          { 
-            key: 'selectFavoriteUser8', 
-            description: 'Select Favorite User 8',
-            shortcut: 'Ctrl+Alt+8'
-          },
-          { 
-            key: 'selectFavoriteUser9', 
-            description: 'Select Favorite User 9',
-            shortcut: 'Ctrl+Alt+9'
-          }
-        ]
-      },
-      {
         name: 'Channel Selection',
         shortcuts: [
           {
@@ -372,12 +362,87 @@
         ]
       },
       {
+        name: 'Lightbox Navigation',
+        shortcuts: [
+          {
+            key: 'lightboxNext',
+            description: 'Next Image/File',
+            shortcut: shortcuts.lightboxNext || ['ArrowRight', 'l', 'Tab']
+          },
+          {
+            key: 'lightboxPrevious',
+            description: 'Previous Image/File',
+            shortcut: shortcuts.lightboxPrevious || ['ArrowLeft', 'h', 'Shift+Tab']
+          },
+          {
+            key: 'lightboxScrollUp',
+            description: 'Scroll Up in Lightbox',
+            shortcut: shortcuts.lightboxScrollUp || ['ArrowUp', 'k']
+          },
+          {
+            key: 'lightboxScrollDown',
+            description: 'Scroll Down in Lightbox',
+            shortcut: shortcuts.lightboxScrollDown || ['ArrowDown', 'j']
+          },
+          {
+            key: 'lightboxZoomIn',
+            description: 'Zoom In Image',
+            shortcut: shortcuts.lightboxZoomIn || ['+', '=']
+          },
+          {
+            key: 'lightboxZoomOut',
+            description: 'Zoom Out Image',
+            shortcut: shortcuts.lightboxZoomOut || '-'
+          },
+          {
+            key: 'lightboxZoomReset',
+            description: 'Reset Image Zoom',
+            shortcut: shortcuts.lightboxZoomReset || '0'
+          },
+          {
+            key: 'lightboxClose',
+            description: 'Close Lightbox',
+            shortcut: shortcuts.lightboxClose || 'Escape'
+          }
+        ]
+      },
+      {
         name: 'Bookmarks',
         shortcuts: [
           {
             key: 'toggleBookmark',
             description: 'Toggle Bookmark for Selected Message',
             shortcut: shortcuts.toggleBookmark || 'b'
+          },
+          {
+            key: 'toggleBookmarkManager',
+            description: 'Toggle Bookmark Manager',
+            shortcut: shortcuts.toggleBookmarkManager || 'Ctrl+B'
+          }
+        ]
+      },
+      {
+        name: 'Mark as Read',
+        shortcuts: [
+          {
+            key: 'markMessageAsRead',
+            description: 'Mark Message as Read',
+            shortcut: shortcuts.markMessageAsRead || 'Shift+R'
+          },
+          {
+            key: 'todaysCatchUp',
+            description: 'Today\'s Catch Up',
+            shortcut: shortcuts.todaysCatchUp || 'Ctrl+Shift+T'
+          }
+        ]
+      },
+      {
+        name: 'Export',
+        shortcuts: [
+          {
+            key: 'exportThread',
+            description: 'Export Thread',
+            shortcut: shortcuts.exportThread || 'Ctrl+E'
           }
         ]
       },

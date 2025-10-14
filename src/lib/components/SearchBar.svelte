@@ -668,6 +668,20 @@
     }
   }
 
+  export function focusUserSelector() {
+    if (userSelectorComponent) {
+      // Open dropdown to make the input visible and focus it
+      userSelectorComponent.toggleDropdown();
+    }
+  }
+
+  export function focusFromDate() {
+    const fromDateInput = document.getElementById('fromDate') as HTMLInputElement;
+    if (fromDateInput) {
+      fromDateInput.focus();
+    }
+  }
+
   export function clearAllFilters() {
     // Clear all search filters
     channel = '';
@@ -831,6 +845,22 @@
       allowInInput: false
     });
 
+    // Focus User Selector
+    keyboardService.registerHandler('focusUserSelector', {
+      action: () => {
+        focusUserSelector();
+      },
+      allowInInput: false
+    });
+
+    // Focus From Date
+    keyboardService.registerHandler('focusFromDate', {
+      action: () => {
+        focusFromDate();
+      },
+      allowInInput: false
+    });
+
     // Note: toggleSavedSearches and saveCurrentSearch handlers are now registered in App.svelte
     // to ensure proper timing and avoid conflicts
   });
@@ -843,6 +873,8 @@
       keyboardService.unregisterHandler('todaysCatchUp');
       keyboardService.unregisterHandler('toggleKeywordHistory');
       keyboardService.unregisterHandler('toggleUrlHistory');
+      keyboardService.unregisterHandler('focusUserSelector');
+      keyboardService.unregisterHandler('focusFromDate');
       // Note: toggleSavedSearches and saveCurrentSearch are handled by App.svelte
     }
   });

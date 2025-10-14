@@ -218,7 +218,7 @@ export interface KeyboardShortcuts {
   /**
    * Trigger Today's Catch Up - fetch and mark today's messages from unmuted channels
    *
-   * Default: 'ctrl+t'
+   * Default: 'ctrl+shift+t'
    *
    * This shortcut triggers the Today's Catch Up feature, which:
    * 1. Fetches all unmuted member channels
@@ -227,13 +227,34 @@ export interface KeyboardShortcuts {
    * 4. Marks the latest message in each channel as read
    *
    * Recommended key combinations:
-   * - 'ctrl+t' (default) - Easy to press, T for "Today"
-   * - 'alt+t' - Alternative if ctrl+t conflicts
-   * - 'ctrl+shift+t' - Extra safety with two modifiers
+   * - 'ctrl+shift+t' (default) - T for "Today"
+   * - 'alt+t' - Alternative if ctrl+shift+t conflicts
    *
    * Note: Single key 't' is NOT recommended to avoid conflicts with other shortcuts
    */
   todaysCatchUp?: string | string[];
+  // Search History shortcuts
+  toggleKeywordHistory?: string | string[];  // Toggle search keyword history dropdown
+  toggleUrlHistory?: string | string[];  // Toggle URL history dropdown
+  // User and Date Filter shortcuts
+  /**
+   * Focus the user selector input field
+   *
+   * Default: 'ctrl+shift+u'
+   *
+   * This shortcut focuses the user selector field in the advanced search panel,
+   * allowing quick access to filter messages by specific users.
+   */
+  focusUserSelector?: string | string[];
+  /**
+   * Focus the "from date" input field
+   *
+   * Default: 'ctrl+shift+d'
+   *
+   * This shortcut focuses the "from date" field in the advanced search panel,
+   * allowing quick access to set the start date for filtering messages.
+   */
+  focusFromDate?: string | string[];
 }
 
 export interface MentionHistory {

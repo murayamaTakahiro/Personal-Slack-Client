@@ -12,7 +12,7 @@
   const shortcutCategories: ShortcutCategory[] = [
     {
       name: 'Search & Navigation',
-      shortcuts: ['executeSearch', 'toggleAdvancedSearch', 'focusSearchBar', 'newSearch', 'clearSearch', 'refreshSearch']
+      shortcuts: ['executeSearch', 'toggleAdvancedSearch', 'focusSearchBar', 'newSearch', 'clearSearch', 'refreshSearch', 'toggleKeywordHistory', 'toggleUrlHistory', 'focusUserSelector', 'focusFromDate']
     },
     {
       name: 'Focus Controls',
@@ -24,7 +24,7 @@
     },
     {
       name: 'Message Actions',
-      shortcuts: ['postMessage', 'postMessageContinuous', 'replyInThread', 'replyInThreadContinuous', 'openReactionPicker', 'openUrls']
+      shortcuts: ['postMessage', 'postMessageContinuous', 'replyInThread', 'replyInThreadContinuous', 'quoteMessage', 'openReactionPicker', 'openUrls']
     },
     {
       name: 'Quick Reactions',
@@ -35,8 +35,32 @@
       shortcuts: ['otherReaction1', 'otherReaction2', 'otherReaction3', 'otherReaction4', 'otherReaction5', 'otherReaction6', 'otherReaction7', 'otherReaction8', 'otherReaction9']
     },
     {
+      name: 'Saved Searches',
+      shortcuts: ['toggleSavedSearches', 'saveCurrentSearch', 'quickSaveSearch']
+    },
+    {
+      name: 'Lightbox Navigation',
+      shortcuts: ['openLightbox', 'lightboxNext', 'lightboxPrevious', 'lightboxScrollUp', 'lightboxScrollDown', 'lightboxZoomIn', 'lightboxZoomOut', 'lightboxZoomReset', 'lightboxClose']
+    },
+    {
+      name: 'Bookmarks',
+      shortcuts: ['toggleBookmark', 'toggleBookmarkManager']
+    },
+    {
+      name: 'Mark as Read',
+      shortcuts: ['markMessageAsRead', 'todaysCatchUp']
+    },
+    {
+      name: 'Export',
+      shortcuts: ['exportThread']
+    },
+    {
+      name: 'Files',
+      shortcuts: ['downloadAllAttachments', 'uploadFiles']
+    },
+    {
       name: 'UI Controls',
-      shortcuts: ['toggleSettings', 'toggleKeyboardHelp', 'toggleEmojiSearch', 'zoomIn', 'zoomOut', 'zoomReset']
+      shortcuts: ['toggleSettings', 'toggleKeyboardHelp', 'togglePerformanceMonitor', 'zoomIn', 'zoomOut', 'zoomReset']
     }
   ];
   
@@ -61,6 +85,7 @@
     toggleLiveMode: 'Ctrl+L',
     jumpToFirst: 'h',
     jumpToLast: 'e',
+    quoteMessage: 'q',
     postMessage: 'p',
     postMessageContinuous: 'Shift+P',
     replyInThread: 't',
@@ -86,12 +111,35 @@
     otherReaction9: 'Shift+9',
     openUrls: 'Alt+Enter',
     toggleKeyboardHelp: '?',
-    toggleEmojiSearch: 'Ctrl+e',
+    toggleSavedSearches: 'Ctrl+/',
+    saveCurrentSearch: 'Ctrl+Shift+S',
+    quickSaveSearch: 'Alt+S',
+    refreshSearch: 'Ctrl+Shift+R',
+    openLightbox: 'i',
+    lightboxNext: ['ArrowRight', 'l', 'Tab'],
+    lightboxPrevious: ['ArrowLeft', 'h', 'Shift+Tab'],
+    lightboxScrollUp: ['ArrowUp', 'k'],
+    lightboxScrollDown: ['ArrowDown', 'j'],
+    lightboxZoomIn: ['+', '='],
+    lightboxZoomOut: '-',
+    lightboxZoomReset: '0',
+    lightboxClose: 'Escape',
+    downloadAllAttachments: 'd',
+    uploadFiles: 'Ctrl+U',
+    toggleBookmark: 'b',
+    toggleBookmarkManager: 'Ctrl+B',
+    markMessageAsRead: 'Shift+R',
+    todaysCatchUp: 'Ctrl+Shift+T',
+    toggleKeywordHistory: 'Ctrl+H',
+    toggleUrlHistory: 'Ctrl+T',
+    focusUserSelector: 'Ctrl+Shift+U',
+    focusFromDate: 'Ctrl+Shift+D',
+    exportThread: 'Ctrl+E',
     zoomIn: 'Ctrl+=',
     zoomOut: 'Ctrl+-',
     zoomReset: 'Ctrl+0',
     toggleChannelFavorite: 'f',
-    refreshSearch: 'Ctrl+Shift+R'
+    togglePerformanceMonitor: 'Ctrl+Shift+P'
   };
   
   let editingShortcut: keyof KeyboardShortcuts | null = null;
@@ -119,6 +167,7 @@
     applySelectedChannels: 'Apply Selected Channels',
     jumpToFirst: 'Jump to First Message',
     jumpToLast: 'Jump to Last Message',
+    quoteMessage: 'Quote Selected Message',
     postMessage: 'Post Message to Channel',
     postMessageContinuous: 'Post Message (Continuous Mode)',
     replyInThread: 'Reply in Thread',
@@ -144,12 +193,35 @@
     otherReaction9: 'Add Reaction from Others (9th)',
     openUrls: 'Open URLs from Message',
     toggleKeyboardHelp: 'Toggle Keyboard Help',
-    toggleEmojiSearch: 'Open Emoji Search',
+    togglePerformanceMonitor: 'Toggle Performance Monitor',
+    toggleSavedSearches: 'Toggle Saved Searches List',
+    saveCurrentSearch: 'Save Current Search',
+    quickSaveSearch: 'Quick Save Search',
+    refreshSearch: 'Refresh Search (Get New Messages)',
+    openLightbox: 'Open File Preview/Lightbox',
+    lightboxNext: 'Next Image/File',
+    lightboxPrevious: 'Previous Image/File',
+    lightboxScrollUp: 'Scroll Up in Lightbox',
+    lightboxScrollDown: 'Scroll Down in Lightbox',
+    lightboxZoomIn: 'Zoom In Image',
+    lightboxZoomOut: 'Zoom Out Image',
+    lightboxZoomReset: 'Reset Image Zoom',
+    lightboxClose: 'Close Lightbox',
+    downloadAllAttachments: 'Download All Attachments',
+    uploadFiles: 'Upload Files',
+    toggleBookmark: 'Toggle Bookmark on Message',
+    toggleBookmarkManager: 'Toggle Bookmark Manager',
+    markMessageAsRead: 'Mark Message as Read',
+    todaysCatchUp: 'Today\'s Catch Up',
+    toggleKeywordHistory: 'Toggle Search Keyword History',
+    toggleUrlHistory: 'Toggle URL History',
+    focusUserSelector: 'Focus User Selector',
+    focusFromDate: 'Focus From Date Filter',
+    exportThread: 'Export Thread',
     zoomIn: 'Zoom In',
     zoomOut: 'Zoom Out',
     zoomReset: 'Reset Zoom',
-    toggleChannelFavorite: 'Toggle Channel Favorite',
-    refreshSearch: 'Refresh Search (Get New Messages)'
+    toggleChannelFavorite: 'Toggle Channel Favorite'
   };
   
   const shortcutContexts: Record<string, string> = {
@@ -172,6 +244,7 @@
     applySelectedChannels: 'When channels are selected',
     jumpToFirst: 'When viewing messages or results',
     jumpToLast: 'When viewing messages or results',
+    quoteMessage: 'When a message is selected',
     postMessage: 'When a message is selected',
     postMessageContinuous: 'When a message is selected',
     replyInThread: 'When a message is selected',
@@ -186,14 +259,47 @@
     reaction7: 'When a message is selected',
     reaction8: 'When a message is selected',
     reaction9: 'When a message is selected',
+    otherReaction1: 'When a message is selected',
+    otherReaction2: 'When a message is selected',
+    otherReaction3: 'When a message is selected',
+    otherReaction4: 'When a message is selected',
+    otherReaction5: 'When a message is selected',
+    otherReaction6: 'When a message is selected',
+    otherReaction7: 'When a message is selected',
+    otherReaction8: 'When a message is selected',
+    otherReaction9: 'When a message is selected',
     openUrls: 'When a message with URLs is selected',
     toggleKeyboardHelp: 'Available anywhere in the app',
-    toggleEmojiSearch: 'Available anywhere in the app',
+    togglePerformanceMonitor: 'Available anywhere in the app',
+    toggleSavedSearches: 'Available anywhere in the app',
+    saveCurrentSearch: 'When viewing search results',
+    quickSaveSearch: 'When viewing search results',
+    refreshSearch: 'When search results are displayed (not in live mode)',
+    openLightbox: 'When a message with attachments is selected',
+    lightboxNext: 'When lightbox is open',
+    lightboxPrevious: 'When lightbox is open',
+    lightboxScrollUp: 'When lightbox is open',
+    lightboxScrollDown: 'When lightbox is open',
+    lightboxZoomIn: 'When lightbox is open with an image',
+    lightboxZoomOut: 'When lightbox is open with an image',
+    lightboxZoomReset: 'When lightbox is open with an image',
+    lightboxClose: 'When lightbox is open',
+    downloadAllAttachments: 'When a message with attachments is selected',
+    uploadFiles: 'When message composer is open',
+    toggleBookmark: 'When a message is selected',
+    toggleBookmarkManager: 'Available anywhere in the app',
+    markMessageAsRead: 'When a message is selected',
+    todaysCatchUp: 'Available anywhere in the app',
+    toggleKeywordHistory: 'Available anywhere in the app',
+    toggleUrlHistory: 'Available anywhere in the app',
+    focusUserSelector: 'Available anywhere in the app',
+    focusFromDate: 'Available anywhere in the app',
+    exportThread: 'When viewing a thread',
     zoomIn: 'Available anywhere in the app',
     zoomOut: 'Available anywhere in the app',
     zoomReset: 'Available anywhere in the app',
     toggleChannelFavorite: 'When a channel is selected',
-    refreshSearch: 'When search results are displayed (not in live mode)'
+    toggleLiveMode: 'Available anywhere in the app'
   };
   
   onMount(() => {

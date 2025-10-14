@@ -85,7 +85,10 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   todaysCatchUp: 'Ctrl+Shift+T',  // Fetch and mark today's messages from unmuted channels
   // Search History shortcuts
   toggleKeywordHistory: 'Ctrl+H',  // Toggle search keyword history dropdown
-  toggleUrlHistory: 'Ctrl+T'  // Toggle URL history dropdown
+  toggleUrlHistory: 'Ctrl+T',  // Toggle URL history dropdown
+  // User and Date Filter shortcuts
+  focusUserSelector: 'Ctrl+Shift+U',  // Focus the user selector input field
+  focusFromDate: 'Ctrl+Shift+D'  // Focus the "from date" input field
 };
 
 // Default settings

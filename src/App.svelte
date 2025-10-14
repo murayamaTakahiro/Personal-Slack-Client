@@ -680,8 +680,9 @@
     }
 
     try {
-      // Handle Ctrl+U - only allow when PostDialog is open
-      if (event.ctrlKey && event.key.toLowerCase() === 'u') {
+      // Handle Ctrl+U (without Shift) - only allow when PostDialog is open
+      // IMPORTANT: Must check !shiftKey to allow Ctrl+Shift+U for focusUserSelector
+      if (event.ctrlKey && !event.shiftKey && event.key.toLowerCase() === 'u') {
         console.log('[App] Ctrl+U pressed, PostDialog open:', postDialogOpen);
         if (!postDialogOpen) {
           // PostDialog is NOT open, block Ctrl+U
