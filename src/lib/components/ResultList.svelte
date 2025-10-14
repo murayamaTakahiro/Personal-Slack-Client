@@ -131,18 +131,22 @@
 
       // Experimental feature: Track search history for new message highlighting
       if ($settings.experimentalFeatures?.highlightNewSearchResults && $searchParams) {
-        // Load previous search results
-        previousSearchMessageIds = searchHistoryTracker.getPreviousMessageIds($searchParams);
+        // Load previous search results FIRST, before updating
+        const previousIds = searchHistoryTracker.getPreviousMessageIds($searchParams);
+        previousSearchMessageIds = previousIds;
 
-        // Save current search results for next time
         const currentMessageIds = messages.map(m => m.ts);
-        searchHistoryTracker.saveSearchHistory($searchParams, currentMessageIds);
+        const newCount = currentMessageIds.filter(id => !previousIds.has(id)).length;
 
         console.log('[ResultList] Search history tracking:', {
-          previousCount: previousSearchMessageIds.size,
+          previousCount: previousIds.size,
           currentCount: currentMessageIds.length,
-          newCount: currentMessageIds.filter(id => !previousSearchMessageIds.has(id)).length
+          newCount: newCount
         });
+
+        // Save current search results for next time
+        // Do this immediately so the history is updated for the next search
+        searchHistoryTracker.saveSearchHistory($searchParams, currentMessageIds);
       }
     }
 

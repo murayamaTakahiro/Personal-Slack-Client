@@ -20,6 +20,30 @@ const HISTORY_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export class SearchHistoryTracker {
   /**
+   * Unicode-safe base64 encoding for storage keys
+   * Handles Japanese and other multi-byte characters correctly
+   */
+  private encodeBase64(str: string): string {
+    try {
+      // Convert string to UTF-8 bytes, then to base64
+      const encoder = new TextEncoder();
+      const bytes = encoder.encode(str);
+      const binString = Array.from(bytes, (byte) => String.fromCodePoint(byte)).join('');
+      return btoa(binString);
+    } catch (error) {
+      // Fallback: use a simple hash if encoding fails
+      console.warn('[SearchHistoryTracker] Base64 encoding failed, using hash fallback:', error);
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+      }
+      return Math.abs(hash).toString(36);
+    }
+  }
+
+  /**
    * Generate a unique key for search parameters
    */
   private generateKey(params: SearchParams): string {
@@ -45,7 +69,7 @@ export class SearchHistoryTracker {
         query: params.query || ''
       };
 
-      const storageKey = `${STORAGE_PREFIX}${btoa(key).substring(0, 50)}`;
+      const storageKey = `${STORAGE_PREFIX}${this.encodeBase64(key).substring(0, 50)}`;
       localStorage.setItem(storageKey, JSON.stringify(entry));
 
       // Clean up old entries
@@ -61,7 +85,7 @@ export class SearchHistoryTracker {
   getPreviousMessageIds(params: SearchParams): Set<string> {
     try {
       const key = this.generateKey(params);
-      const storageKey = `${STORAGE_PREFIX}${btoa(key).substring(0, 50)}`;
+      const storageKey = `${STORAGE_PREFIX}${this.encodeBase64(key).substring(0, 50)}`;
       const stored = localStorage.getItem(storageKey);
 
       if (!stored) {
