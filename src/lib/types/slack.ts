@@ -93,6 +93,33 @@ export interface KeyboardShortcut {
   description?: string;
 }
 
+  /**
+   * Toggle Search History (keyword history) dropdown
+   *
+   * Default: 'ctrl+h'
+   *
+   * This shortcut toggles the search keyword history dropdown,
+   * allowing users to quickly access their previous search queries.
+   *
+   * Recommended key combinations:
+   * - 'ctrl+h' (default) - H for "History"
+   * - 'alt+h' - Alternative if ctrl+h conflicts
+   */
+  toggleKeywordHistory?: string | string[];
+  /**
+   * Toggle URL History dropdown
+   *
+   * Default: 'ctrl+t'
+   *
+   * This shortcut toggles the URL history dropdown,
+   * allowing users to quickly access previously viewed thread URLs.
+   *
+   * Recommended key combinations:
+   * - 'ctrl+t' (default) - T for "Thread"
+   * - 'alt+t' - Alternative if ctrl+t conflicts
+   */
+  toggleUrlHistory?: string | string[];
+
 export interface KeyboardShortcuts {
   executeSearch: string | string[];
   toggleAdvancedSearch: string | string[];
@@ -142,7 +169,6 @@ export interface KeyboardShortcuts {
   otherReaction8?: string | string[];
   otherReaction9?: string | string[];
   toggleKeyboardHelp?: string | string[];
-  toggleEmojiSearch?: string | string[];
   exportThread?: string | string[];
   zoomIn?: string | string[];
   zoomOut?: string | string[];

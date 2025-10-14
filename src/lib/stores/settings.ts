@@ -17,7 +17,7 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   prevResult: ['k', 'ArrowUp'],
   openResult: 'Enter',
   clearSearch: 'Escape',
-  toggleChannelSelector: 'Ctrl+H',
+  toggleChannelSelector: 'Ctrl+Shift+C',
   toggleMultiSelectMode: 'Ctrl+M',
   selectRecentChannels: 'Ctrl+R',
   selectAllFavorites: 'Ctrl+F',
@@ -52,7 +52,6 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   otherReaction8: 'Shift+8',
   otherReaction9: 'Shift+9',
   toggleKeyboardHelp: '?',
-  toggleEmojiSearch: 'Ctrl+e',
   exportThread: 'Ctrl+E',
   zoomIn: 'Ctrl+=',
   zoomOut: 'Ctrl+-',
@@ -81,9 +80,12 @@ const defaultKeyboardShortcuts: KeyboardShortcuts = {
   toggleBookmark: 'b',  // Toggle bookmark on a message
   toggleBookmarkManager: 'Ctrl+B',  // Toggle bookmark dropdown list
   // Mark message as read
-  markMessageAsRead: 'shift+r',  // Mark the currently focused message as read on Slack
+  markMessageAsRead: 'Shift+R',  // Mark the currently focused message as read on Slack
   // Today's Catch Up
-  todaysCatchUp: 'ctrl+t'  // Fetch and mark today's messages from unmuted channels
+  todaysCatchUp: 'Ctrl+Shift+T',  // Fetch and mark today's messages from unmuted channels
+  // Search History shortcuts
+  toggleKeywordHistory: 'Ctrl+H',  // Toggle search keyword history dropdown
+  toggleUrlHistory: 'Ctrl+T'  // Toggle URL history dropdown
 };
 
 // Default settings
@@ -127,10 +129,10 @@ function migrateShortcuts(shortcuts: any): KeyboardShortcuts {
         } else {
           migrated.prevResult = value;
         }
-      } else if (key === 'toggleChannelSelector' && value === 'Ctrl+L') {
-        // Force migrate Ctrl+L from toggleChannelSelector to Ctrl+H
-        migrated.toggleChannelSelector = 'Ctrl+H';
-        // Note: toggleLiveMode will use Ctrl+L by default
+      } else if (key === 'toggleChannelSelector' && (value === 'Ctrl+L' || value === 'Ctrl+H')) {
+        // Force migrate old shortcuts to new Ctrl+Shift+C
+        migrated.toggleChannelSelector = 'Ctrl+Shift+C';
+        // Note: Ctrl+H is now used for toggleKeywordHistory, Ctrl+L for toggleLiveMode
       } else if (key in migrated) {
         (migrated as any)[key] = value;
       }

@@ -815,6 +815,22 @@
       allowInInput: false
     });
 
+    // Toggle Keyword History
+    keyboardService.registerHandler('toggleKeywordHistory', {
+      action: () => {
+        toggleKeywordHistory();
+      },
+      allowInInput: false
+    });
+
+    // Toggle URL History
+    keyboardService.registerHandler('toggleUrlHistory', {
+      action: () => {
+        toggleUrlHistory();
+      },
+      allowInInput: false
+    });
+
     // Note: toggleSavedSearches and saveCurrentSearch handlers are now registered in App.svelte
     // to ensure proper timing and avoid conflicts
   });
@@ -825,6 +841,8 @@
       keyboardService.unregisterHandler('executeSearch');
       keyboardService.unregisterHandler('clearSearch');
       keyboardService.unregisterHandler('todaysCatchUp');
+      keyboardService.unregisterHandler('toggleKeywordHistory');
+      keyboardService.unregisterHandler('toggleUrlHistory');
       // Note: toggleSavedSearches and saveCurrentSearch are handled by App.svelte
     }
   });
@@ -850,7 +868,7 @@
       class="btn-toggle catch-up-toggle"
       class:loading={catchUpLoading}
       class:disabled={catchUpLoading}
-      title="Catch up on today's messages from unmuted channels (favorites + recent) (Ctrl+T)"
+      title="Catch up on today's messages from unmuted channels (favorites + recent) (Ctrl+Shift+T)"
       disabled={catchUpLoading}
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -955,7 +973,7 @@
                   bind:this={keywordHistoryButton}
                   on:click={toggleKeywordHistory}
                   class="btn-keyword-history {showKeywordHistory ? 'active' : ''}"
-                  title="Search History"
+                  title="Search History (Ctrl+H)"
                   type="button"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -997,7 +1015,7 @@
                   bind:this={urlHistoryButton}
                   on:click={toggleUrlHistory}
                   class="btn-url-history {showUrlHistory ? 'active' : ''}"
-                  title="URL History"
+                  title="URL History (Ctrl+T)"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <circle cx="12" cy="12" r="10"/>
