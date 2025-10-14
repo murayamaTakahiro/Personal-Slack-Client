@@ -887,7 +887,7 @@
         bind:this={bookmarkButton}
         on:click={toggleBookmarks}
         class="btn-toggle {showBookmarks ? 'active' : ''}"
-        title="Bookmarked messages (B key)"
+        title="Bookmarked messages (Ctrl+B)"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
@@ -955,7 +955,7 @@
                   bind:this={keywordHistoryButton}
                   on:click={toggleKeywordHistory}
                   class="btn-keyword-history {showKeywordHistory ? 'active' : ''}"
-                  title="Search History (Ctrl+H)"
+                  title="Search History"
                   type="button"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
