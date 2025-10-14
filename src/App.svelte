@@ -632,24 +632,40 @@
       });
     }
 
-    // Handle Enter and Ctrl+Enter keys when PostDialog is open
-    if (event.key === 'Enter' && postDialogOpen) {
+    // Handle Enter and Ctrl+Enter keys
+    if (event.key === 'Enter') {
       const target = event.target as HTMLElement;
 
-      // For Ctrl+Enter, don't interfere - let PostDialog handle it
-      if (event.ctrlKey) {
-        console.log('[App] Ctrl+Enter detected with PostDialog open - not interfering');
-        // Don't stop propagation or prevent default
-        // Let the event bubble to PostDialog's handlers
+      // For INPUT fields with focus, don't interfere - let them handle Enter
+      // This allows SearchBar URL input, keyword input, date inputs to work
+      // CRITICAL: Check this BEFORE PostDialog check to ensure INPUT always works
+      if (target && target.tagName === 'INPUT') {
+        console.log('[App] INPUT field has focus, not interfering with Enter key');
         return;
       }
 
-      // For regular Enter in textarea, stop propagation to SearchBar
-      if (target && target.tagName === 'TEXTAREA') {
-        // Don't prevent default (we want the line break), but stop propagation
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-        return;
+      // Handle PostDialog Enter/Ctrl+Enter behavior
+      if (postDialogOpen) {
+        // For Ctrl+Enter, don't interfere - let PostDialog handle it
+        if (event.ctrlKey) {
+          console.log('[App] Ctrl+Enter detected with PostDialog open - not interfering');
+          // Don't stop propagation or prevent default
+          // Let the event bubble to PostDialog's handlers
+          return;
+        }
+
+        // IMPORTANT: Only handle TEXTAREA within PostDialog
+        // Allow other input fields (like SearchBar URL input) to work normally
+        if (target && target.tagName === 'TEXTAREA') {
+          // Check if this TEXTAREA is actually within PostDialog
+          const postDialog = target.closest('.post-dialog');
+          if (postDialog) {
+            // Don't prevent default (we want the line break), but stop propagation
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            return;
+          }
+        }
       }
     }
 
@@ -1003,15 +1019,7 @@
       },
       allowInInput: false  // Don't trigger when typing in inputs
     });
-    
-    // Toggle Emoji Search Dialog - DISABLED (conflicts with exportThread)
-    // keyboardService.registerHandler('toggleEmojiSearch', {
-    //   action: () => {
-    //     showEmojiSearch = !showEmojiSearch;
-    //   },
-    //   allowInInput: true  // Allow from anywhere for quick emoji access
-    // });
-    
+
     // Toggle Channel Favorite
     keyboardService.registerHandler('toggleChannelFavorite', {
       action: () => {

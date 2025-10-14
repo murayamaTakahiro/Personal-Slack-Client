@@ -222,8 +222,8 @@
       return;
     }
 
-    // Handle Enter and Ctrl+Enter for search when this input has focus
-    // Focus-based isolation: if this input has focus, we handle the event
+    // Handle Enter for search when this input has focus
+    // Focus-based isolation: this input handles Enter independently
     if (e.key === 'Enter' && !$searchLoading) {
       // Stop propagation to prevent interference with other components
       e.stopPropagation();
@@ -596,13 +596,14 @@
       return;
     }
 
-    // Handle Enter and Ctrl+Enter for URL paste when this input has focus
-    // Focus-based isolation: if this input has focus, PostDialog doesn't,
-    // so there's no conflict even if PostDialog is open
+    // Handle Enter for URL paste when this input has focus
+    // Focus-based isolation: this input handles Enter independently
     if (e.key === 'Enter' && !urlLoading && urlInput.trim()) {
+      // CRITICAL: Stop event propagation IMMEDIATELY to prevent executeSearch handler
       // The URL input has focus, so we handle the event regardless of modifiers
       e.preventDefault();
-      e.stopPropagation(); // Prevent event from bubbling to other components
+      e.stopPropagation();
+      e.stopImmediatePropagation(); // Stop ALL other handlers from executing
       handleUrlPaste();
     }
   }
@@ -782,13 +783,15 @@
     if (!keyboardService) return;
 
     // Execute Search (Enter key is already handled in input)
+    // NOTE: allowInInput is set to false to prevent interference with INPUT elements
+    // Individual input fields handle Enter key themselves (e.g., URL input, keyword search, date inputs)
     keyboardService.registerHandler('executeSearch', {
       action: () => {
         if (canSearch && !$searchLoading) {
           handleSearch();
         }
       },
-      allowInInput: true
+      allowInInput: false // CRITICAL: Don't interfere with INPUT elements
     });
 
     // Clear Search
