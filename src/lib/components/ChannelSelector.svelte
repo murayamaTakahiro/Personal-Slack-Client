@@ -385,7 +385,7 @@
             ? `Search to add more (${selectedChannels.length} selected)`
             : 'Search channels (multi-select)') 
           : 'Search or select a channel'}
-        title="Use arrow keys to navigate, Enter to select, 'f' to toggle favorite"
+        title="Use arrow keys to navigate, Enter to select, 'f' to toggle favorite (Ctrl+Shift+C to focus)"
         class="channel-input"
         class:has-selection={selectedChannels.length > 0 || value}
       />

@@ -440,7 +440,7 @@
             ? `Search to add more (${selectedUsers.length} selected)`
             : 'Search users (multi-select)')
           : (displayValue || "Search users or select from favorites")}
-        title="Use arrow keys to navigate, Enter to select, 'f' to toggle favorite"
+        title="Use arrow keys to navigate, Enter to select, 'f' to toggle favorite (Ctrl+Shift+U to focus)"
         class="user-input"
         class:has-selection={selectedUsers.length > 0 || value}
       />

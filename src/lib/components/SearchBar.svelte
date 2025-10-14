@@ -49,6 +49,7 @@
   let showBookmarks = false;
   let bookmarkButton: HTMLButtonElement;
   let catchUpLoading = false;
+  let showFromDateTooltip = false;
 
   // Keep local filter values in sync with searchParams store
   // This ensures filters persist when dialogs are opened/closed or focus changes
@@ -606,6 +607,15 @@
       e.stopImmediatePropagation(); // Stop ALL other handlers from executing
       handleUrlPaste();
     }
+  }
+
+  // Custom tooltip handlers for fromDate input
+  function handleFromDateFocus() {
+    showFromDateTooltip = true;
+  }
+
+  function handleFromDateBlur() {
+    showFromDateTooltip = false;
   }
   
   // Check if search is possible
@@ -1178,7 +1188,7 @@
       </div>
       
       <div class="filter-row">
-        <label>
+        <label class="from-date-container">
           From:
           <input
             type="date"
@@ -1188,9 +1198,16 @@
             on:keydown={handleDateKeydown}
             on:input={handleDateInput}
             on:change={handleDateChange}
+            on:focus={handleFromDateFocus}
+            on:blur={handleFromDateBlur}
           />
+          {#if showFromDateTooltip}
+            <div class="from-date-tooltip">
+              Press Ctrl+Shift+D to focus this field
+            </div>
+          {/if}
         </label>
-        
+
         <label>
           To:
           <input
@@ -1805,4 +1822,62 @@
       opacity: 0.5;
     }
   }
+
+  /* Custom tooltip for from-date input */
+  .from-date-container {
+    position: relative;
+  }
+
+  .from-date-tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    animation: tooltipFadeIn 0.2s ease-out;
+  }
+
+  .from-date-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 16px;
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid var(--border);
+  }
+
+  .from-date-tooltip::before {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 17px;
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid var(--bg-primary);
+    z-index: 1;
+  }
+
+  @keyframes tooltipFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
 </style>
