@@ -226,7 +226,8 @@
     // Handle Enter for search when this input has focus
     // Focus-based isolation: this input handles Enter independently
     if (e.key === 'Enter' && !$searchLoading) {
-      // Stop propagation to prevent interference with other components
+      // Prevent default form submission behavior and stop event propagation
+      e.preventDefault();
       e.stopPropagation();
       handleSearch();
     }
@@ -538,6 +539,7 @@
     } else if (e.key === 'Enter' && !$searchLoading) {
       // Handle Enter for search when this input has focus
       // Focus-based isolation: if this input has focus, we handle the event
+      e.preventDefault();
       e.stopPropagation();
       handleSearch();
     }
@@ -597,14 +599,12 @@
       return;
     }
 
-    // Handle Enter for URL paste when this input has focus
+    // Handle Enter (plain, no modifiers) for URL paste when this input has focus
     // Focus-based isolation: this input handles Enter independently
     if (e.key === 'Enter' && !urlLoading && urlInput.trim()) {
-      // CRITICAL: Stop event propagation IMMEDIATELY to prevent executeSearch handler
-      // The URL input has focus, so we handle the event regardless of modifiers
+      // Prevent default form submission behavior and stop event propagation
       e.preventDefault();
       e.stopPropagation();
-      e.stopImmediatePropagation(); // Stop ALL other handlers from executing
       handleUrlPaste();
     }
   }
