@@ -133,6 +133,10 @@ function migrateShortcuts(shortcuts: any): KeyboardShortcuts {
         // Force migrate old shortcuts to new Ctrl+Shift+C
         migrated.toggleChannelSelector = 'Ctrl+Shift+C';
         // Note: Ctrl+H is now used for toggleKeywordHistory, Ctrl+L for toggleLiveMode
+      } else if (key === 'todaysCatchUp' && value === 'Ctrl+T') {
+        // Force migrate old Ctrl+T to new Ctrl+Shift+T
+        migrated.todaysCatchUp = 'Ctrl+Shift+T';
+        // Note: Ctrl+T is now used for toggleUrlHistory
       } else if (key in migrated) {
         (migrated as any)[key] = value;
       }
