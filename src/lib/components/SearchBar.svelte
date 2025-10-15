@@ -1503,6 +1503,19 @@
     color: var(--text-primary);
     font-size: 0.875rem;
   }
+
+  /* Improve visibility of date input calendar icons */
+  /* Webkit-specific calendar icon styling for Chromium browsers (Chrome, Edge, etc.) */
+  .filter-row input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) brightness(2);
+    cursor: pointer;
+    opacity: 0.9;
+  }
+
+  .filter-row input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+    filter: invert(1) brightness(2.5);
+  }
   
   .filter-actions {
     display: flex;
