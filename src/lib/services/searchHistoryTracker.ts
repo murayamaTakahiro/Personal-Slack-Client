@@ -45,11 +45,41 @@ export class SearchHistoryTracker {
 
   /**
    * Generate a unique key for search parameters
+   * Normalizes channel list to ensure consistent keys regardless of order
+   *
+   * For Today's Catchup searches, uses a date-based key to ignore channel variations
    */
   private generateKey(params: SearchParams): string {
+    // Special handling for Today's Catchup - use date-based key
+    // This ignores channel list variations (favorites/recent changes)
+    if (params.isTodaysCatchup) {
+      const dateStr = params.fromDate ? 
+        (params.fromDate instanceof Date ? params.fromDate.toISOString().split('T')[0] : params.fromDate.split('T')[0]) 
+        : new Date().toISOString().split('T')[0];
+      
+      const key = {
+        type: 'todaysCatchup',
+        date: dateStr,
+        user: params.user || '',
+        query: params.query || ''
+      };
+      return JSON.stringify(key);
+    }
+
+    // Normal search - normalize channel list by sorting
+    let normalizedChannel = params.channel || '';
+    if (normalizedChannel && normalizedChannel.includes(',')) {
+      normalizedChannel = normalizedChannel
+        .split(',')
+        .map(ch => ch.trim())
+        .filter(ch => ch.length > 0)
+        .sort()
+        .join(',');
+    }
+
     const key = {
       query: params.query || '',
-      channel: params.channel || '',
+      channel: normalizedChannel,
       user: params.user || '',
       fromDate: params.fromDate ? (params.fromDate instanceof Date ? params.fromDate.toISOString() : params.fromDate) : '',
       toDate: params.toDate ? (params.toDate instanceof Date ? params.toDate.toISOString() : params.toDate) : '',

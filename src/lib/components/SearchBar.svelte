@@ -50,6 +50,7 @@
   let bookmarkButton: HTMLButtonElement;
   let catchUpLoading = false;
   let showFromDateTooltip = false;
+  let isTodaysCatchupSearch = false; // Flag to prevent recent channel updates during Today's Catchup
 
   // Keep local filter values in sync with searchParams store
   // This ensures filters persist when dialogs are opened/closed or focus changes
@@ -60,6 +61,11 @@
     }
     if ($searchParams.user !== undefined && userId !== $searchParams.user) {
       userId = $searchParams.user || '';
+    }
+    // CRITICAL: Sync isTodaysCatchup flag from searchParams
+    // This ensures refresh (Ctrl+Shift+R) preserves the flag
+    if ($searchParams.isTodaysCatchup !== undefined) {
+      isTodaysCatchupSearch = $searchParams.isTodaysCatchup;
     }
   }
   
@@ -124,7 +130,8 @@
       }
 
       // Record channel usage for recent channels tracking
-      if (cleanChannel) {
+      // Skip this for Today's Catchup to ensure consistent search history keys
+      if (cleanChannel && !isTodaysCatchupSearch) {
         // For multi-channel mode, channel might be comma-separated
         const channelList = cleanChannel.split(',').map(ch => ch.trim());
         channelList.forEach(ch => {
@@ -147,7 +154,8 @@
         limit,
         hasFiles: hasFiles === true ? true : undefined,  // Only send true when explicitly checked
         isRealtimeUpdate, // Pass this flag through
-        lastSearchTimestamp: isRealtimeUpdate ? realtimeStore.getLastSearchTimestamp() : undefined // For incremental updates
+        lastSearchTimestamp: isRealtimeUpdate ? realtimeStore.getLastSearchTimestamp() : undefined, // For incremental updates
+        isTodaysCatchup: isTodaysCatchupSearch  // Flag for Today's Catchup searches
       };
       searchParams.set(params);
       dispatch('search', params);
@@ -347,17 +355,17 @@
 
       console.log(`[CatchUp] Found ${unmutedChannels.length} unmuted channels`);
 
-      // Step 2: Prioritize favorites + recent (max 20 channels)
+      // Step 2: Prioritize favorites + recent (max 30 channels)
       const favoriteIds = $favoriteChannels.map(ch => ch.id);
       const recentIds = $recentChannelsList.map(ch => ch.id);
 
       const priorityChannels = unmutedChannels
         .filter(([id]) => favoriteIds.includes(id) || recentIds.includes(id))
-        .slice(0, 20);
+        .slice(0, 30);
 
       const targetChannels = priorityChannels.length > 0
         ? priorityChannels
-        : unmutedChannels.slice(0, 20);
+        : unmutedChannels.slice(0, 30);
 
       console.log(`[CatchUp] Targeting ${targetChannels.length} channels (${priorityChannels.length} priority)`);
 
@@ -372,7 +380,10 @@
       console.log(`[CatchUp] Searching messages from ${dateStr} in ${targetChannels.length} channels`);
       showToast(`Searching ${targetChannels.length} channels...`, 'info');
 
-      // Step 4: Execute search using existing functionality
+      // Step 4: Set flag to prevent recent channel updates (ensures consistent search history keys)
+      isTodaysCatchupSearch = true;
+
+      // Step 5: Execute search using existing functionality
       await handleSearch();
 
       // Step 5: Mark latest message in each channel as read
@@ -409,6 +420,7 @@
       showToast('Failed to catch up. Please try again.', 'error');
     } finally {
       catchUpLoading = false;
+      isTodaysCatchupSearch = false; // Reset flag
     }
   }
 
@@ -633,6 +645,8 @@
     toDate = '';
     limit = 1000;
     hasFiles = false;
+    // Reset Today's Catchup flag when filters are cleared
+    isTodaysCatchupSearch = false;
     // Also clear the ChannelSelector component
     if (channelSelectorComponent) {
       channelSelectorComponent.clearSelection();
@@ -699,17 +713,19 @@
     userId = '';
     fromDate = '';
     toDate = '';
-    
+    // Reset Today's Catchup flag when filters are cleared
+    isTodaysCatchupSearch = false;
+
     // Clear the channel selector if it exists
     if (channelSelectorComponent && channelSelectorComponent.clearSelection) {
       channelSelectorComponent.clearSelection();
     }
-    
+
     // Clear the user selector if it exists
     if (userSelectorComponent && userSelectorComponent.clearSelection) {
       userSelectorComponent.clearSelection();
     }
-    
+
     // Also reset searchParams to ensure UI consistency
     searchParams.set({
       query: $searchQuery || '',

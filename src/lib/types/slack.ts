@@ -11,16 +11,17 @@ export interface ReactionMapping {
 }
 
 export interface SearchParams {
-  query: string;
+  query?: string;
   channel?: string;
   user?: string;  // User ID
   userName?: string;  // User display name
-  fromDate?: Date;
-  toDate?: Date;
+  fromDate?: Date | string;
+  toDate?: Date | string;
   limit?: number;
   isRealtimeUpdate?: boolean;
   lastSearchTimestamp?: string | null; // For incremental updates in live mode
   hasFiles?: boolean;  // Filter messages with attachments
+  isTodaysCatchup?: boolean;  // Flag for Today's Catchup searches
 }
 
 export interface Message {
