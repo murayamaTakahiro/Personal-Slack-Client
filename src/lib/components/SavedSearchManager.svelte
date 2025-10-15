@@ -170,7 +170,7 @@
     event.stopPropagation();
     event.stopImmediatePropagation();
 
-    if (event.ctrlKey && event.key === 'Enter') {
+    if (event.key === 'Enter') {
       event.preventDefault();
       saveEdit();
     } else if (event.key === 'Escape') {
@@ -591,7 +591,7 @@
     </div>
 
     <div class="dropdown-help">
-      <span class="help-text">↑↓/j/k Navigate • Enter/Space Select • e Edit Name (Ctrl+Enter to save) • f Toggle Favorite • Ctrl+Tab/Ctrl+Shift+Tab Switch Tabs</span>
+      <span class="help-text">↑↓/j/k Navigate • Enter/Space Select • e Edit Name (Enter to save) • f Toggle Favorite • Ctrl+Tab/Ctrl+Shift+Tab Switch Tabs</span>
     </div>
 
     <div class="dropdown-actions">
@@ -678,7 +678,7 @@
                   on:blur={saveEdit}
                   on:click|stopPropagation
                   class="edit-input"
-                  placeholder="Enter name... (Ctrl+Enter to save)"
+                  placeholder="Enter name... (Enter to save)"
                   autofocus
                 />
               {:else}

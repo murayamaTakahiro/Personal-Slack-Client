@@ -300,7 +300,7 @@
     event.stopPropagation();
     event.stopImmediatePropagation();
 
-    if (event.ctrlKey && event.key === 'Enter') {
+    if (event.key === 'Enter') {
       event.preventDefault();
       saveAlias();
     } else if (event.key === 'Escape') {
@@ -355,7 +355,7 @@
          on:keydown|stopPropagation={handleInputKeydown}>
       {#if flatBookmarkList.length > 0}
         <div class="dropdown-help">
-          <span class="help-text">↑↓ Navigate • Enter/Space Select • e Edit Alias (Ctrl+Enter to save) • f Toggle Favorite</span>
+          <span class="help-text">↑↓ Navigate • Enter/Space Select • e Edit Alias (Enter to save) • f Toggle Favorite</span>
         </div>
       {/if}
 
@@ -377,7 +377,7 @@
                     on:blur={saveAlias}
                     on:click|stopPropagation
                     class="alias-input"
-                    placeholder="Enter alias... (Ctrl+Enter to save)"
+                    placeholder="Enter alias... (Enter to save)"
                     autofocus
                   />
                 {:else}
@@ -436,7 +436,7 @@
                     on:blur={saveAlias}
                     on:click|stopPropagation
                     class="alias-input"
-                    placeholder="Enter alias... (Ctrl+Enter to save)"
+                    placeholder="Enter alias... (Enter to save)"
                     autofocus
                   />
                 {:else}
@@ -495,7 +495,7 @@
                     on:blur={saveAlias}
                     on:click|stopPropagation
                     class="alias-input"
-                    placeholder="Enter alias... (Ctrl+Enter to save)"
+                    placeholder="Enter alias... (Enter to save)"
                     autofocus
                   />
                 {:else}
