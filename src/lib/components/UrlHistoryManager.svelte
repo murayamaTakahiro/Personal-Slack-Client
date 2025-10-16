@@ -470,25 +470,34 @@
                   e.preventDefault();
                   startEditingAlias(url.id, url.alias || '');
                 }}
-                class="edit-btn"
+                class="btn-icon"
                 title="Edit alias (e)"
-                style="opacity: 0.3;"
+                tabindex="0"
               >
-                ✏️
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
               </button>
               <button
                 on:click={(e) => toggleFavorite(url.id, e)}
-                class="favorite-btn active"
+                class="btn-icon active"
                 title="Remove from favorites"
+                tabindex="0"
               >
-                ⭐
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
               </button>
               <button
                 on:click={(e) => deleteUrl(url.id, e)}
-                class="delete-btn"
+                class="btn-icon delete"
                 title="Delete from history"
+                tabindex="0"
               >
-                🗑️
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14zM10 11v6M14 11v6"/>
+                </svg>
               </button>
             </div>
           {/each}
@@ -528,25 +537,34 @@
                   e.preventDefault();
                   startEditingAlias(url.id, url.alias || '');
                 }}
-                class="edit-btn"
+                class="btn-icon"
                 title="Edit alias (e)"
-                style="opacity: 0.3;"
+                tabindex="0"
               >
-                ✏️
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
               </button>
               <button
                 on:click={(e) => toggleFavorite(url.id, e)}
-                class="favorite-btn"
+                class="btn-icon"
                 title="Add to favorites"
+                tabindex="0"
               >
-                ☆
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
               </button>
               <button
                 on:click={(e) => deleteUrl(url.id, e)}
-                class="delete-btn"
+                class="btn-icon delete"
                 title="Delete from history"
+                tabindex="0"
               >
-                🗑️
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14zM10 11v6M14 11v6"/>
+                </svg>
               </button>
             </div>
           {/each}
@@ -586,25 +604,34 @@
                   e.preventDefault();
                   startEditingAlias(url.id, url.alias || '');
                 }}
-                class="edit-btn"
+                class="btn-icon"
                 title="Edit alias (e)"
-                style="opacity: 0.3;"
+                tabindex="0"
               >
-                ✏️
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
               </button>
               <button
                 on:click={(e) => toggleFavorite(url.id, e)}
-                class="favorite-btn"
+                class="btn-icon"
                 title="Add to favorites"
+                tabindex="0"
               >
-                ☆
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
               </button>
               <button
                 on:click={(e) => deleteUrl(url.id, e)}
-                class="delete-btn"
+                class="btn-icon delete"
                 title="Delete from history"
+                tabindex="0"
               >
-                🗑️
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14zM10 11v6M14 11v6"/>
+                </svg>
               </button>
             </div>
           {/each}
@@ -752,12 +779,6 @@
     background: var(--bg-hover);
   }
 
-  .url-item:hover .favorite-btn,
-  .url-item:hover .edit-btn,
-  .url-item:hover .delete-btn {
-    opacity: 0.8;
-  }
-
   .url-item.highlighted {
     background: var(--primary-bg);
   }
@@ -791,39 +812,31 @@
     color: var(--text-secondary);
   }
 
-  .favorite-btn,
-  .edit-btn,
-  .delete-btn {
-    padding: 0.25rem;
-    background: transparent;
+  .btn-icon {
+    background: none;
     border: none;
+    color: var(--text-secondary);
     cursor: pointer;
-    font-size: 1rem;
-    transition: all 0.2s;
-    opacity: 0.7;
-    border-radius: 4px;
-    min-width: 28px;
-    min-height: 28px;
+    padding: 0.375rem;
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
   }
 
-  .favorite-btn:hover,
-  .edit-btn:hover,
-  .delete-btn:hover {
-    opacity: 1;
-    background: var(--bg-hover, #f5f5f5);
+  .btn-icon:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
   }
 
-  .delete-btn:hover {
-    color: var(--danger, #e74c3c);
-    background: rgba(231, 76, 60, 0.1);
+  .btn-icon.active {
+    color: var(--warning);
   }
 
-  .favorite-btn.active {
-    opacity: 1;
-    color: gold;
+  .btn-icon.delete:hover {
+    background: var(--danger-bg);
+    color: var(--danger);
   }
 
   .alias-input {

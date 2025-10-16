@@ -595,20 +595,24 @@
                   e.preventDefault();
                   startEditingAlias(favorite.id, favorite.alias || '');
                 }}
-                class="edit-btn"
+                class="btn-icon"
                 title="Edit alias (e)"
-                tabindex="-1"
-                style="opacity: 0.3;"
+                tabindex="0"
               >
-                ✏️
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
               </button>
               <button
                 on:click={(e) => toggleFavorite(favorite, e)}
-                class="favorite-btn active"
+                class="btn-icon active"
                 title="Remove from favorites (press 'f' when highlighted)"
-                tabindex="-1"
+                tabindex="0"
               >
-                ⭐
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
               </button>
             </div>
           {/each}
@@ -638,11 +642,13 @@
               </span>
               <button
                 on:click={(e) => toggleFavorite(user, e)}
-                class="favorite-btn"
+                class="btn-icon"
                 title="Add to favorites (press 'f' when highlighted)"
-                tabindex="-1"
+                tabindex="0"
               >
-                ☆
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
               </button>
             </div>
           {/each}
@@ -676,11 +682,13 @@
                 </span>
                 <button
                   on:click={(e) => toggleFavorite(user, e)}
-                  class="favorite-btn"
+                  class="btn-icon"
                   title="Add to favorites (press 'f' when highlighted)"
-                  tabindex="-1"
+                  tabindex="0"
                 >
-                  ☆
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
                 </button>
               </div>
             {/each}
@@ -986,36 +994,27 @@
     margin-left: 0.5rem;
   }
 
-  .edit-btn,
-  .favorite-btn {
-    padding: 0.25rem;
-    background: transparent;
+  .btn-icon {
+    background: none;
     border: none;
+    color: var(--text-secondary);
     cursor: pointer;
-    font-size: 1rem;
-    transition: color 0.2s;
+    padding: 0.375rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
     margin-left: 0.25rem;
   }
 
-  .edit-btn {
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-  }
-
-  .edit-btn:hover {
+  .btn-icon:hover {
+    background: var(--bg-hover);
     color: var(--text-primary);
   }
 
-  .favorite-btn {
-    color: var(--text-secondary);
-  }
-
-  .favorite-btn:hover {
-    color: gold;
-  }
-
-  .favorite-btn.active {
-    color: gold;
+  .btn-icon.active {
+    color: var(--warning);
   }
 
   .no-results {
