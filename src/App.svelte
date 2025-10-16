@@ -1489,10 +1489,17 @@
 
         // Use requestAnimationFrame for smooth UI update
         requestAnimationFrame(() => {
+          // CRITICAL: Create new array reference to trigger Svelte reactivity
+          // Svelte only detects changes when array references change, not content
+          result.messages = [...result.messages];
           searchResults.set(result);
         });
       } else {
         // Normal search - immediate update
+
+        // CRITICAL: Create new array reference to trigger Svelte reactivity
+        // Svelte only detects changes when array references change, not content
+        result.messages = [...result.messages];
 
         // DEBUG: Check if result has files
         searchResults.set(result);

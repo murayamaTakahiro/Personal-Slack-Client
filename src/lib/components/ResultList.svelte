@@ -128,25 +128,59 @@
       if (previousMessageLength === 0 || messages.length === 0) {
         focusedIndex = -1;
       }
+    }
 
-      // Experimental feature: Track search history for new message highlighting
-      if ($settings.experimentalFeatures?.highlightNewSearchResults && $searchParams) {
-        // Load previous search results FIRST, before updating
-        const previousIds = searchHistoryTracker.getPreviousMessageIds($searchParams);
-        previousSearchMessageIds = previousIds;
+    // Experimental feature: Track search history for new message highlighting
+    // IMPORTANT: Execute this REGARDLESS of realtime mode to fix Ctrl+Shift+R issue
+    if ($settings.experimentalFeatures?.highlightNewSearchResults && $searchParams) {
+      // Check if we have previous search results
+      const previousIds = searchHistoryTracker.getPreviousMessageIds($searchParams);
 
-        const currentMessageIds = messages.map(m => m.ts);
-        const newCount = currentMessageIds.filter(id => !previousIds.has(id)).length;
+      // Get current message IDs
+      const currentMessageIds = messages.map(m => m.ts);
 
-        console.log('[ResultList] Search history tracking:', {
-          previousCount: previousIds.size,
-          currentCount: currentMessageIds.length,
-          newCount: newCount
-        });
+      // Only process if we have previous results (not first search)
+      if (previousIds.size > 0) {
+        // Check if this is a refresh (same results as before)
+        const isSameResults = (
+          previousIds.size === currentMessageIds.length &&
+          currentMessageIds.every(id => previousIds.has(id))
+        );
+
+        if (isSameResults) {
+          // Refresh detected: Don't show NEW badges
+          previousSearchMessageIds = new Set(currentMessageIds);
+
+          console.log('[ResultList] Refresh detected - no NEW badges shown:', {
+            previousCount: previousIds.size,
+            currentCount: currentMessageIds.length,
+            isRealtimeMode
+          });
+        } else {
+          // Normal subsequent search: Show NEW badges for new messages
+          previousSearchMessageIds = previousIds;
+
+          const newCount = currentMessageIds.filter(id => !previousIds.has(id)).length;
+
+          console.log('[ResultList] Search history tracking:', {
+            previousCount: previousIds.size,
+            currentCount: currentMessageIds.length,
+            newCount: newCount,
+            isRealtimeMode
+          });
+        }
 
         // Save current search results for next time
-        // Do this immediately so the history is updated for the next search
         searchHistoryTracker.saveSearchHistory($searchParams, currentMessageIds);
+      } else {
+        // First search - just save for next time, don't highlight anything
+        searchHistoryTracker.saveSearchHistory($searchParams, currentMessageIds);
+        previousSearchMessageIds = new Set(); // Ensure no badges are shown
+
+        console.log('[ResultList] First search - saved history without highlighting:', {
+          currentCount: currentMessageIds.length,
+          isRealtimeMode
+        });
       }
     }
 
