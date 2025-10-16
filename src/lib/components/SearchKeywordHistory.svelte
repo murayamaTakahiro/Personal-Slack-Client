@@ -18,7 +18,6 @@
 
   let activeTab: 'all' | 'recent' | 'favorites' | 'frequent' = 'recent';
   let searchFilter = '';
-  let hoveredId: string | null = null;
   let selectedIndex = -1;
   let dropdownElement: HTMLDivElement;
   let searchFilterInput: HTMLInputElement;
@@ -387,8 +386,7 @@
             <li
               class="keyword-item {selectedIndex === index ? 'selected' : ''}"
               on:click={() => selectKeyword(keyword)}
-              on:mouseenter={() => { hoveredId = keyword.id; selectedIndex = index; }}
-              on:mouseleave={() => hoveredId = null}
+              on:mouseenter={() => { selectedIndex = index; }}
               animate:flip={{ duration: 200 }}
             >
               <div class="keyword-content">
@@ -405,27 +403,31 @@
 
               <div class="keyword-actions">
                 <button
-                  class="btn-icon favorite {keyword.isFavorite ? 'active' : ''}"
+                  class="btn-icon {keyword.isFavorite ? 'active' : ''}"
                   on:click={(e) => toggleFavorite(e, keyword.id)}
                   title="{keyword.isFavorite ? 'Remove from' : 'Add to'} favorites"
+                  tabindex="0"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+                  {#if keyword.isFavorite}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                  {:else}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                  {/if}
+                </button>
+                <button
+                  class="btn-icon delete"
+                  on:click={(e) => deleteKeyword(e, keyword.id, keyword.keyword)}
+                  title="Delete from history"
+                  tabindex="0"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14zM10 11v6M14 11v6"/>
                   </svg>
                 </button>
-
-                {#if hoveredId === keyword.id}
-                  <button
-                    class="btn-icon delete"
-                    on:click={(e) => deleteKeyword(e, keyword.id, keyword.keyword)}
-                    title="Delete from history"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <line x1="18" y1="6" x2="6" y2="18"/>
-                      <line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                  </button>
-                {/if}
               </div>
             </li>
           {/each}
@@ -618,36 +620,30 @@
   }
 
   .btn-icon {
-    padding: 0.25rem;
-    background: transparent;
+    background: none;
     border: none;
-    border-radius: 4px;
-    cursor: pointer;
     color: var(--text-secondary);
-    transition: all 0.2s;
+    cursor: pointer;
+    padding: 0.375rem;
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
   }
 
   .btn-icon:hover {
-    background: var(--bg-primary);
+    background: var(--bg-hover);
+    color: var(--text-primary);
   }
 
-  .btn-icon.favorite {
-    color: var(--text-tertiary);
-  }
-
-  .btn-icon.favorite.active {
-    color: #fbbf24;
-  }
-
-  .btn-icon.delete {
-    color: var(--error);
+  .btn-icon.active {
+    color: var(--warning);
   }
 
   .btn-icon.delete:hover {
-    background: var(--error-bg);
+    background: var(--danger-bg);
+    color: var(--danger);
   }
 
   .history-footer {
