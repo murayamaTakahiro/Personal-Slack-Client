@@ -290,6 +290,7 @@ export interface AppSettings {
   mentionHistory?: MentionHistory[];
   debugMode?: boolean;
   downloadFolder?: string | null;  // Custom download folder path, null means use default
+  enableAccessKeyHints?: boolean;  // Enable Excel-style Alt key access hints
   // Feature flags for experimental features
   experimentalFeatures?: {
     highlightNewSearchResults?: boolean;  // Highlight messages that are new since last search

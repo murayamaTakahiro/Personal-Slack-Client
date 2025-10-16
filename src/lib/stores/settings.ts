@@ -99,6 +99,7 @@ const defaultSettings: AppSettings = {
   reactionMappings: DEFAULT_REACTION_MAPPINGS,
   debugMode: false,  // Performance monitor is hidden by default
   downloadFolder: null,  // null means use default Downloads folder
+  enableAccessKeyHints: true,  // Excel-style Alt key access hints enabled by default
   experimentalFeatures: {
     highlightNewSearchResults: true  // New message highlighting is enabled by default
   }
@@ -164,6 +165,7 @@ export async function initializeSettings() {
     userFavorites: loadedSettings.userFavorites || [],  // Preserve user favorites
     userFavoriteOrder: loadedSettings.userFavoriteOrder || [],  // Preserve user favorite order
     debugMode: loadedSettings.debugMode ?? false,  // Default to false if not set
+    enableAccessKeyHints: loadedSettings.enableAccessKeyHints ?? true,  // Preserve user preference, default to true
     // Properly merge experimental features
     // For promoted features (highlightNewSearchResults), always use the new default
     experimentalFeatures: {

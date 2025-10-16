@@ -639,7 +639,12 @@
     // Handle Access Key Mode (Alt key hints)
     // NOTE: This runs independently from existing keyboard handling
     // Excel-style behavior: Alt key toggles the mode ON, stays ON until action or Esc
-    if (event.key === 'Alt') {
+
+    // Check if Access Key Hints feature is enabled
+    if (!$settings.enableAccessKeyHints) {
+      // Feature disabled, skip all access key handling
+      // Fall through to existing keyboard handling
+    } else if (event.key === 'Alt') {
       console.log('[AccessKey] Alt key event:', {
         type: event.type,
         altKeyPressed,
@@ -663,8 +668,8 @@
       return; // Don't process Alt key further
     }
 
-    // Escape key deactivates Access Key mode
-    if (event.key === 'Escape' && altKeyPressed) {
+    // Escape key deactivates Access Key mode (only if feature is enabled)
+    if ($settings.enableAccessKeyHints && event.key === 'Escape' && altKeyPressed) {
       altKeyPressed = false;
       accessKeyMode.deactivate();
       event.preventDefault();
@@ -672,8 +677,8 @@
       return;
     }
 
-    // Access key mode character keys (A-Z, 0-9)
-    if (altKeyPressed && /^[A-Z0-9]$/i.test(event.key)) {
+    // Access key mode character keys (A-Z, 0-9) - only if feature is enabled
+    if ($settings.enableAccessKeyHints && altKeyPressed && /^[A-Z0-9]$/i.test(event.key)) {
       // Skip key repeat events - only process the first keydown
       if (event.repeat) {
         console.log('[AccessKey] Skipping repeat event for key:', event.key);
@@ -2027,7 +2032,27 @@
           </button>
         </div>
       {/if}
-      
+
+        <div class="setting-group">
+          <h3>Keyboard Features</h3>
+          <label>
+            <input
+              type="checkbox"
+              checked={$settings.enableAccessKeyHints ?? true}
+              on:change={(e) => {
+                settings.update(s => ({
+                  ...s,
+                  enableAccessKeyHints: e.target.checked
+                }));
+              }}
+            />
+            Enable Access Key Hints (Alt key)
+          </label>
+          <p class="help-text">
+            Press and hold Alt to show keyboard shortcut hints on buttons and interactive elements (Excel-style).
+          </p>
+        </div>
+
         <KeyboardSettings />
         
         <EmojiSettings />
