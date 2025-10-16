@@ -18,9 +18,13 @@
   import { searchKeywordHistoryStore } from '../stores/searchKeywordHistory';
   import BookmarkManager from './BookmarkManager.svelte';
   import { bookmarkStore } from '../stores/bookmarks';
+  import { accessKeyService } from '../services/accessKeyService';
 
   export let channels: [string, string][] = [];
   export let showAdvanced = true;
+
+  // Access key registration IDs for cleanup
+  let accessKeyRegistrations: string[] = [];
   
   const dispatch = createEventDispatcher();
   
@@ -815,10 +819,64 @@
     showToast(`Saved search: ${name}`, 'success');
   }
   
+  // Setup access keys
+  function setupAccessKeys() {
+    // Register access keys for SearchBar buttons
+    const registrations: string[] = [];
+
+    // F: Filter toggle button
+    const filterToggleBtn = document.querySelector('.btn-toggle') as HTMLElement;
+    if (filterToggleBtn) {
+      const id = accessKeyService.register('F', filterToggleBtn, toggleAdvanced, 10);
+      if (id) registrations.push(id);
+    }
+
+    // C: Today's Catchup button
+    const catchUpBtn = document.querySelector('.catch-up-toggle') as HTMLElement;
+    if (catchUpBtn) {
+      const id = accessKeyService.register('C', catchUpBtn, () => {
+        if (!catchUpLoading) {
+          handleTodaysCatchUp();
+        }
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
+    // V: Saved Searches button
+    if (savedSearchButton) {
+      const id = accessKeyService.register('V', savedSearchButton, toggleSavedSearches, 10);
+      if (id) registrations.push(id);
+    }
+
+    // B: Bookmarks button
+    if (bookmarkButton) {
+      const id = accessKeyService.register('B', bookmarkButton, toggleBookmarks, 10);
+      if (id) registrations.push(id);
+    }
+
+    accessKeyRegistrations = registrations;
+    console.log(`[SearchBar] Registered ${registrations.length} access keys`);
+  }
+
+  // Cleanup access keys
+  function cleanupAccessKeys() {
+    accessKeyRegistrations.forEach(id => {
+      accessKeyService.unregister(id);
+    });
+    accessKeyRegistrations = [];
+    console.log('[SearchBar] Cleaned up access keys');
+  }
+
   // Setup keyboard handlers
   onMount(() => {
     const keyboardService = getKeyboardService();
     if (!keyboardService) return;
+
+    // Setup access keys after component mount
+    // Use tick to ensure DOM elements are ready
+    tick().then(() => {
+      setupAccessKeys();
+    });
 
     // Execute Search (Enter key is already handled in input)
     // NOTE: allowInInput is set to false to prevent interference with INPUT elements
@@ -901,6 +959,9 @@
       keyboardService.unregisterHandler('focusFromDate');
       // Note: toggleSavedSearches and saveCurrentSearch are handled by App.svelte
     }
+
+    // Cleanup access keys
+    cleanupAccessKeys();
   });
 </script>
 

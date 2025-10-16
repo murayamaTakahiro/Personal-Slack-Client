@@ -75,6 +75,9 @@
   import PerformanceMonitor from './lib/components/PerformanceMonitor.svelte';
   import ConfirmationDialog from './lib/components/ConfirmationDialog.svelte';
   import ExperimentalSettings from './lib/components/ExperimentalSettings.svelte';
+  import AccessKeyOverlay from './lib/components/AccessKeyOverlay.svelte';
+  import { accessKeyMode } from './lib/stores/accessKeyMode';
+  import { accessKeyService } from './lib/services/accessKeyService';
 
   let channels: [string, string][] = [];
   let showSettings = false;
@@ -89,6 +92,7 @@
   let showKeyboardHelp = false;
   let showEmojiSearch = false;
   let realtimeInterval: NodeJS.Timeout | null = null;
+  let altKeyPressed = false;
 
   let previousMessageIds = new Set<string>();
   let unsubscribeRealtime: (() => void) | null = null;
@@ -454,9 +458,19 @@
       // Use capture phase (true) to intercept Ctrl+U before other handlers
       try {
         document.addEventListener('keydown', handleGlobalKeydown, true);
+        document.addEventListener('keyup', handleGlobalKeyup, true);
         console.log('[App] Global keydown listener added successfully (capture phase)', {
           timestamp: Date.now(),
           listenerFunction: 'handleGlobalKeydown'
+        });
+        console.log('[App] Global keyup listener added for Access Key mode');
+
+        // Deactivate Access Key mode when window loses focus (e.g., Alt+Tab)
+        window.addEventListener('blur', () => {
+          if (altKeyPressed) {
+            altKeyPressed = false;
+            accessKeyMode.deactivate();
+          }
         });
       } catch (error) {
         console.error('[App] Failed to add global keydown listener:', error);
@@ -595,7 +609,10 @@
     // Clean up event listeners (make sure to use same capture flag as addEventListener)
     if (typeof document !== 'undefined') {
       document.removeEventListener('keydown', handleGlobalKeydown, true);
+      document.removeEventListener('keyup', handleGlobalKeyup, true);
     }
+    // Clean up access key service
+    accessKeyService.clearAll();
     if (typeof window !== 'undefined') {
       window.removeEventListener('workspace-switched', handleWorkspaceSwitched);
     }
@@ -617,6 +634,79 @@
     // Don't handle keys if export dialog is open
     if (document.querySelector('.export-dialog')) {
       return;
+    }
+
+    // Handle Access Key Mode (Alt key hints)
+    // NOTE: This runs independently from existing keyboard handling
+    // Excel-style behavior: Alt key toggles the mode ON, stays ON until action or Esc
+    if (event.key === 'Alt') {
+      console.log('[AccessKey] Alt key event:', {
+        type: event.type,
+        altKeyPressed,
+        timestamp: Date.now()
+      });
+
+      if (event.type === 'keydown' && !altKeyPressed) {
+        // Skip if modal/dialog is open
+        if (showSettings || showKeyboardHelp || showEmojiSearch) {
+          return;
+        }
+
+        // Toggle ON: Alt key activates the mode
+        altKeyPressed = true;
+        accessKeyMode.activate();
+
+        // CRITICAL: Prevent default to block browser's native Alt behavior (menu bar activation)
+        event.preventDefault();
+        console.log('[AccessKey] Alt mode activated');
+      }
+      return; // Don't process Alt key further
+    }
+
+    // Escape key deactivates Access Key mode
+    if (event.key === 'Escape' && altKeyPressed) {
+      altKeyPressed = false;
+      accessKeyMode.deactivate();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    // Access key mode character keys (A-Z, 0-9)
+    if (altKeyPressed && /^[A-Z0-9]$/i.test(event.key)) {
+      // Skip key repeat events - only process the first keydown
+      if (event.repeat) {
+        console.log('[AccessKey] Skipping repeat event for key:', event.key);
+        return;
+      }
+
+      console.log('[AccessKey] Character key pressed:', {
+        key: event.key,
+        altKeyPressed,
+        timestamp: Date.now(),
+        eventType: event.type,
+        repeat: event.repeat
+      });
+
+      // Prevent default immediately to avoid any browser default behavior
+      // Use stopImmediatePropagation to prevent other listeners from processing this event
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      const handled = accessKeyService.executeKey(event.key);
+
+      console.log('[AccessKey] Execute result:', {
+        key: event.key,
+        handled,
+        timestamp: Date.now()
+      });
+
+      if (handled) {
+        altKeyPressed = false;
+        // Note: accessKeyMode.deactivate() is called inside accessKeyService.executeKey()
+        return;
+      }
     }
 
     // Debug logging for "i" key
@@ -754,7 +844,17 @@
       // Don't let keyboard errors crash the app
     }
   }
-  
+
+  function handleGlobalKeyup(event: KeyboardEvent) {
+    // Excel-style behavior: Alt key release does NOT deactivate the mode
+    // Mode stays active until user presses an access key or Esc
+    // However, we need to prevent default to avoid browser's native Alt behavior
+    if (event.key === 'Alt' && altKeyPressed) {
+      event.preventDefault();
+      console.log('[AccessKey] Alt key released - mode stays active');
+    }
+  }
+
   function setupKeyboardHandlers() {
     try {
       console.log('🔍 DEBUG: Setting up keyboard handlers', {
@@ -2097,6 +2197,9 @@
 
     <!-- Global Confirmation Dialog -->
     <ConfirmationDialog />
+
+    <!-- Access Key Overlay (Excel-style Alt key hints) -->
+    <AccessKeyOverlay />
   {/if} <!-- End main app initialized check -->
 </div>
 
