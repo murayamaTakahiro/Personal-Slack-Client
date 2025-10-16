@@ -465,7 +465,7 @@
               class="group-btn"
               title={`グループ "${group.name}" を読み込み`}
             >
-              {group.icon || '📁'} {group.name}
+              {group.name}
             </button>
           {/each}
         </div>
@@ -566,7 +566,7 @@
       
       {#if groupedChannels.recent.length > 0}
         <div class="channel-group">
-          <div class="group-header">🕐 Recent</div>
+          <div class="group-header">RECENT</div>
           {#each groupedChannels.recent as channel, index}
             {@const actualIndex = groupedChannels.favorites.length + index}
             <div

@@ -428,7 +428,7 @@
 
       {#if groupedBookmarks.recent.length > 0}
         <div class="bookmark-group">
-          <div class="group-header">🕐 RECENT</div>
+          <div class="group-header">RECENT</div>
           {#each groupedBookmarks.recent as bookmark, index}
             {@const actualIndex = groupedBookmarks.favorites.length + index}
             <div
@@ -496,7 +496,7 @@
 
       {#if groupedBookmarks.all.length > 0}
         <div class="bookmark-group">
-          <div class="group-header">📁 ALL BOOKMARKS</div>
+          <div class="group-header">ALL BOOKMARKS</div>
           {#each groupedBookmarks.all as bookmark, index}
             {@const actualIndex = groupedBookmarks.favorites.length + groupedBookmarks.recent.length + index}
             <div
