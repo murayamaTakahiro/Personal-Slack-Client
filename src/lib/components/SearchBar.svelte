@@ -254,10 +254,8 @@
   function handleKeywordSelect(event: CustomEvent<{ keyword: string }>) {
     searchQuery.set(event.detail.keyword);
     showKeywordHistory = false;
-    // Focus back on search input
-    if (searchInput) {
-      searchInput.focus();
-    }
+    // Execute search immediately instead of just setting the value
+    handleSearch();
   }
 
   function closeKeywordHistory() {

@@ -100,97 +100,178 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    const items = filteredKeywords;
-
     // Check if the dropdown contains the event target
     if (dropdownElement && !dropdownElement.contains(e.target as Node)) {
       return;
     }
 
+    const currentElement = document.activeElement as HTMLElement;
+    const isInFilterInput = currentElement === searchFilterInput;
+    const isInKeywordList = currentElement?.classList.contains('keyword-item');
+
+    // Handle Escape key globally
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      close();
+      return;
+    }
+
+    // Handle Ctrl+Tab for tab switching
+    if (e.key === 'Tab' && e.ctrlKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      const tabs = ['recent', 'favorites', 'frequent', 'all'];
+      const currentIndex = tabs.indexOf(activeTab);
+      if (e.shiftKey) {
+        activeTab = tabs[(currentIndex - 1 + tabs.length) % tabs.length] as typeof activeTab;
+      } else {
+        activeTab = tabs[(currentIndex + 1) % tabs.length] as typeof activeTab;
+      }
+      selectedIndex = 0;
+      return;
+    }
+
+    // Route to appropriate handler based on focus context
+    if (isInFilterInput) {
+      handleFilterInputKeys(e);
+    } else if (isInKeywordList) {
+      handleListNavigationKeys(e);
+    } else {
+      // Fallback for other elements (tabs, buttons)
+      handleOtherElementKeys(e);
+    }
+  }
+
+  function handleFilterInputKeys(e: KeyboardEvent) {
+    const items = filteredKeywords;
+
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
         e.stopPropagation();
+        if (items.length > 0) {
+          focusKeywordItem(0);
+        }
+        break;
+
+      case 'Enter':
+        e.preventDefault();
+        e.stopPropagation();
+        if (items.length > 0) {
+          selectKeyword(items[0]);
+        } else if (searchFilter) {
+          dispatch('select', { keyword: searchFilter });
+          close();
+        }
+        break;
+
+      case 'Tab':
+        if (!e.shiftKey && items.length > 0) {
+          e.preventDefault();
+          focusKeywordItem(0);
+        }
+        break;
+    }
+  }
+
+  function handleListNavigationKeys(e: KeyboardEvent) {
+    const items = filteredKeywords;
+
+    // Convert vim-style keys to arrow keys
+    let key = e.key;
+    if (!e.ctrlKey && !e.altKey && !e.metaKey) {
+      switch (key.toLowerCase()) {
+        case 'j': key = 'ArrowDown'; break;
+        case 'k': key = 'ArrowUp'; break;
+      }
+    }
+
+    switch (key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        e.stopPropagation();
         selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
-        scrollToSelected();
+        focusKeywordItem(selectedIndex);
         break;
 
       case 'ArrowUp':
         e.preventDefault();
         e.stopPropagation();
         selectedIndex = Math.max(selectedIndex - 1, 0);
-        scrollToSelected();
+        focusKeywordItem(selectedIndex);
+        break;
+
+      case 'f':
+      case 'F':
+        e.preventDefault();
+        e.stopPropagation();
+        if (selectedIndex >= 0 && selectedIndex < items.length) {
+          const item = items[selectedIndex];
+          toggleFavorite(new MouseEvent('click'), item.id);
+        }
         break;
 
       case 'Enter':
-        // Check if the active element is a button - if so, let it handle the event
-        const activeEl = document.activeElement;
-        if (activeEl && (activeEl.classList.contains('btn-icon') || activeEl.tagName === 'BUTTON')) {
-          return;
-        }
         e.preventDefault();
         e.stopPropagation();
         if (selectedIndex >= 0 && selectedIndex < items.length) {
           selectKeyword(items[selectedIndex]);
-        } else if (searchFilter) {
-          // If there's a filter text and no selection, use it as new search
-          dispatch('select', { keyword: searchFilter });
-          close();
         }
         break;
 
-      // Escape is handled by global handler now
-
       case 'Delete':
+        e.preventDefault();
+        e.stopPropagation();
         if (selectedIndex >= 0 && selectedIndex < items.length) {
-          e.preventDefault();
-          e.stopPropagation();
           const item = items[selectedIndex];
-          deleteKeyword(e, item.id, item.keyword);
+          deleteKeyword(e as any, item.id, item.keyword);
         }
         break;
 
       case 'Tab':
-        // Handle Ctrl+Tab and Ctrl+Shift+Tab for tab switching
-        if (e.ctrlKey) {
+        // Tab from keyword list back to filter input
+        if (e.shiftKey) {
           e.preventDefault();
-          e.stopPropagation();
-          // Cycle through tabs
-          const tabs = ['recent', 'favorites', 'frequent', 'all'];
-          const currentIndex = tabs.indexOf(activeTab);
-          if (e.shiftKey) {
-            // Ctrl+Shift+Tab - go to previous tab
-            activeTab = tabs[(currentIndex - 1 + tabs.length) % tabs.length] as typeof activeTab;
-          } else {
-            // Ctrl+Tab - go to next tab
-            activeTab = tabs[(currentIndex + 1) % tabs.length] as typeof activeTab;
-          }
-          selectedIndex = 0;
-        } else {
-          // Normal Tab behavior - let it navigate through focusable elements
-          // Check if we're at the boundaries of the dropdown
-          const activeElement = document.activeElement;
-          const focusableElements = dropdownElement?.querySelectorAll(
-            'button:not([tabindex="-1"]), input:not([tabindex="-1"]), [tabindex="0"]'
-          );
-
-          if (focusableElements && focusableElements.length > 0) {
-            const firstElement = focusableElements[0] as HTMLElement;
-            const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
-
-            if (e.shiftKey && activeElement === firstElement) {
-              // Shift+Tab from first element - wrap to last
-              e.preventDefault();
-              lastElement.focus();
-            } else if (!e.shiftKey && activeElement === lastElement) {
-              // Tab from last element - wrap to first
-              e.preventDefault();
-              firstElement.focus();
-            }
-            // Otherwise, let normal tab behavior work within the dropdown
-          }
+          searchFilterInput?.focus();
         }
         break;
+    }
+  }
+
+  function handleOtherElementKeys(e: KeyboardEvent) {
+    // Handle Tab navigation for other focusable elements (tabs, buttons)
+    if (e.key === 'Tab') {
+      const activeElement = document.activeElement;
+      const focusableElements = dropdownElement?.querySelectorAll(
+        'button:not([tabindex="-1"]), input:not([tabindex="-1"]), [tabindex="0"]'
+      );
+
+      if (focusableElements && focusableElements.length > 0) {
+        const firstElement = focusableElements[0] as HTMLElement;
+        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+        if (e.shiftKey && activeElement === firstElement) {
+          e.preventDefault();
+          lastElement.focus();
+        } else if (!e.shiftKey && activeElement === lastElement) {
+          e.preventDefault();
+          firstElement.focus();
+        }
+      }
+    }
+  }
+
+  function focusKeywordItem(index: number) {
+    if (!dropdownElement || index < 0 || index >= filteredKeywords.length) return;
+
+    selectedIndex = index;
+    const items = dropdownElement.querySelectorAll('.keyword-item');
+    const item = items[index] as HTMLElement;
+
+    if (item) {
+      item.focus();
+      item.scrollIntoView({ block: 'nearest' });
     }
   }
 
@@ -385,8 +466,15 @@
           {#each filteredKeywords as keyword, index (keyword.id)}
             <li
               class="keyword-item {selectedIndex === index ? 'selected' : ''}"
+              tabindex="0"
               on:click={() => selectKeyword(keyword)}
-              on:mouseenter={() => { selectedIndex = index; }}
+              on:mouseenter={() => {
+                selectedIndex = index;
+              }}
+              on:focus={() => {
+                selectedIndex = index;
+              }}
+              on:keydown={handleKeydown}
               animate:flip={{ duration: 200 }}
             >
               <div class="keyword-content">
@@ -405,8 +493,8 @@
                 <button
                   class="btn-icon {keyword.isFavorite ? 'active' : ''}"
                   on:click={(e) => toggleFavorite(e, keyword.id)}
-                  title="{keyword.isFavorite ? 'Remove from' : 'Add to'} favorites"
-                  tabindex="0"
+                  title="{keyword.isFavorite ? 'Remove from' : 'Add to'} favorites (or press F)"
+                  tabindex="-1"
                 >
                   {#if keyword.isFavorite}
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor">
@@ -421,8 +509,8 @@
                 <button
                   class="btn-icon delete"
                   on:click={(e) => deleteKeyword(e, keyword.id, keyword.keyword)}
-                  title="Delete from history"
-                  tabindex="0"
+                  title="Delete from history (or press Delete)"
+                  tabindex="-1"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14zM10 11v6M14 11v6"/>
@@ -438,7 +526,7 @@
     <div class="history-footer">
       <div class="footer-info">
         {#if filteredKeywords.length > 0}
-          <span class="shortcut">↑↓ Navigate • Enter Select • Delete Remove • Ctrl+Tab Switch tabs</span>
+          <span class="shortcut">↑↓/J/K Navigate • F Favorite • Enter Select • Delete Remove • Tab/Shift+Tab Move • Ctrl+Tab Switch tabs</span>
         {:else if $searchKeywordHistoryStore.length === 0}
           <span class="shortcut">Esc Close</span>
         {:else}
@@ -578,8 +666,14 @@
   }
 
   .keyword-item:hover,
-  .keyword-item.selected {
+  .keyword-item.selected,
+  .keyword-item:focus {
     background: var(--bg-hover);
+    outline: none;
+  }
+
+  .keyword-item:focus {
+    box-shadow: 0 0 0 2px var(--primary) inset;
   }
 
   .keyword-content {

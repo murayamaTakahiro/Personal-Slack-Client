@@ -276,6 +276,21 @@ export class KeyboardService {
       }
     }
 
+    // Check if search keyword history dropdown is open - if so, let it handle navigation keys
+    const keywordHistoryDropdown = document.querySelector('.search-keyword-history');
+    if (keywordHistoryDropdown) {
+      // These keys are handled by the SearchKeywordHistory component
+      const dropdownHandledKeys = ['ArrowUp', 'ArrowDown', 'Enter', 'Escape', 'Tab', 'Delete'];
+      // Also allow 'f' and 'F' for toggling favorites, and 'j'/'k' for vim navigation
+      if (dropdownHandledKeys.includes(event.key) ||
+          event.key.toLowerCase() === 'f' ||
+          event.key.toLowerCase() === 'j' ||
+          event.key.toLowerCase() === 'k') {
+        console.log('🔍 DEBUG: Search keyword history dropdown is open, letting it handle key:', event.key);
+        return false;
+      }
+    }
+
     // Check if thread view itself has focus (not just containing an element) - if so, let it handle its own navigation
     const threadViewElement = document.querySelector('.thread-view') as HTMLElement;
     if (threadViewElement && threadViewElement === document.activeElement) {
