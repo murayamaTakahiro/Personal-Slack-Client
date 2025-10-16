@@ -85,13 +85,11 @@
 
   async function deleteKeyword(e: MouseEvent, keywordId: string, keywordText: string) {
     e.stopPropagation();
-    if (confirm(`Delete "${keywordText}" from history?`)) {
-      await searchKeywordHistoryStore.deleteKeyword(keywordId);
-      showToast(`Deleted "${keywordText}" from history`, 'success');
+    await searchKeywordHistoryStore.deleteKeyword(keywordId);
+    showToast(`Deleted "${keywordText}" from history`, 'success');
 
-      // Reset selected index
-      selectedIndex = -1;
-    }
+    // Reset selected index
+    selectedIndex = -1;
   }
 
   function close() {
@@ -220,6 +218,8 @@
         }
         break;
 
+      case 'd':
+      case 'D':
       case 'Delete':
         e.preventDefault();
         e.stopPropagation();
@@ -509,7 +509,7 @@
                 <button
                   class="btn-icon delete"
                   on:click={(e) => deleteKeyword(e, keyword.id, keyword.keyword)}
-                  title="Delete from history (or press Delete)"
+                  title="Delete from history (or press D)"
                   tabindex="-1"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -526,7 +526,7 @@
     <div class="history-footer">
       <div class="footer-info">
         {#if filteredKeywords.length > 0}
-          <span class="shortcut">↑↓/J/K Navigate • F Favorite • Enter Select • Delete Remove • Tab/Shift+Tab Move • Ctrl+Tab Switch tabs</span>
+          <span class="shortcut">↑↓/J/K Navigate • F Favorite • Enter Select • D Remove • Tab/Shift+Tab Move • Ctrl+Tab Switch tabs</span>
         {:else if $searchKeywordHistoryStore.length === 0}
           <span class="shortcut">Esc Close</span>
         {:else}

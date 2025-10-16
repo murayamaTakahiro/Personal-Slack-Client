@@ -176,6 +176,19 @@
         }
         break;
 
+      case 'd':
+      case 'D':
+        // Delete highlighted URL
+        if (highlightedIndex >= 0 && highlightedIndex < totalItems) {
+          event.preventDefault();
+          event.stopPropagation();
+          const url = flatUrlList[highlightedIndex];
+          if (url) {
+            deleteUrl(url.id, event as any);
+          }
+        }
+        break;
+
       case 'Escape':
         event.preventDefault();
         event.stopPropagation();
@@ -434,7 +447,7 @@
          on:keydown|stopPropagation={handleInputKeydown}>
       {#if flatUrlList.length > 0}
         <div class="dropdown-help">
-          <span class="help-text">↑↓ Navigate • Enter/Space Select • e Edit Alias (Enter to save) • f Toggle Favorite</span>
+          <span class="help-text">↑↓ Navigate • Enter/Space Select • e Edit Alias (Enter to save) • f Toggle Favorite • d Delete</span>
         </div>
       {/if}
 
@@ -492,7 +505,7 @@
               <button
                 on:click={(e) => deleteUrl(url.id, e)}
                 class="btn-icon delete"
-                title="Delete from history"
+                title="Delete from history (d)"
                 tabindex="0"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -506,7 +519,7 @@
 
       {#if groupedUrls.recent.length > 0}
         <div class="url-group">
-          <div class="group-header">🕐 RECENT</div>
+          <div class="group-header">RECENT</div>
           {#each groupedUrls.recent as url, index}
             {@const actualIndex = groupedUrls.favorites.length + index}
             <div
@@ -559,7 +572,7 @@
               <button
                 on:click={(e) => deleteUrl(url.id, e)}
                 class="btn-icon delete"
-                title="Delete from history"
+                title="Delete from history (d)"
                 tabindex="0"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -626,7 +639,7 @@
               <button
                 on:click={(e) => deleteUrl(url.id, e)}
                 class="btn-icon delete"
-                title="Delete from history"
+                title="Delete from history (d)"
                 tabindex="0"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">

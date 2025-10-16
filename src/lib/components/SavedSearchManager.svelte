@@ -188,41 +188,31 @@
     event.stopPropagation();
     event.preventDefault();
 
-    const confirmed = await confirm({
-      title: 'Delete Saved Search',
-      message: 'Are you sure you want to delete this saved search?',
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
-      dangerous: true
-    });
-
-    if (confirmed) {
-      try {
-        // Reset hover state to prevent UI issues
-        if (hoveredId === id) {
-          hoveredId = null;
-        }
-
-        // Reset selection if the deleted item was selected
-        const currentIndex = filteredSearches.findIndex(s => s.id === id);
-        if (selectedIndex === currentIndex) {
-          selectedIndex = -1;
-        }
-
-        // Perform the deletion
-        await savedSearchesStore.deleteSearch(id);
-
-        // Show success message after successful deletion
-        showToast('Search deleted', 'success');
-
-        // Adjust selected index if necessary
-        if (selectedIndex > currentIndex && selectedIndex > 0) {
-          selectedIndex--;
-        }
-      } catch (error) {
-        console.error('[SavedSearchManager] Failed to delete search:', error);
-        showToast('Failed to delete search', 'error');
+    try {
+      // Reset hover state to prevent UI issues
+      if (hoveredId === id) {
+        hoveredId = null;
       }
+
+      // Reset selection if the deleted item was selected
+      const currentIndex = filteredSearches.findIndex(s => s.id === id);
+      if (selectedIndex === currentIndex) {
+        selectedIndex = -1;
+      }
+
+      // Perform the deletion
+      await savedSearchesStore.deleteSearch(id);
+
+      // Show success message after successful deletion
+      showToast('Search deleted', 'success');
+
+      // Adjust selected index if necessary
+      if (selectedIndex > currentIndex && selectedIndex > 0) {
+        selectedIndex--;
+      }
+    } catch (error) {
+      console.error('[SavedSearchManager] Failed to delete search:', error);
+      showToast('Failed to delete search', 'error');
     }
   }
 
@@ -366,6 +356,18 @@
           const search = filteredSearches[selectedIndex];
           if (search) {
             toggleFavorite(search.id, event);
+          }
+        }
+        break;
+      case 'd':
+      case 'D':
+        // Delete highlighted search
+        if (selectedIndex >= 0 && selectedIndex < filteredSearches.length) {
+          event.preventDefault();
+          event.stopPropagation();
+          const search = filteredSearches[selectedIndex];
+          if (search) {
+            deleteSearch(search.id, event);
           }
         }
         break;
@@ -591,7 +593,7 @@
     </div>
 
     <div class="dropdown-help">
-      <span class="help-text">↑↓/j/k Navigate • Enter/Space Select • e Edit Name (Enter to save) • f Toggle Favorite • Ctrl+Tab/Ctrl+Shift+Tab Switch Tabs</span>
+      <span class="help-text">↑↓/j/k Navigate • Enter/Space Select • e Edit Name (Enter to save) • f Toggle Favorite • d Delete • Ctrl+Tab/Ctrl+Shift+Tab Switch Tabs</span>
     </div>
 
     <div class="dropdown-actions">
@@ -748,7 +750,7 @@
                     deleteSearch(search.id, e);
                   }
                 }}
-                title="Delete"
+                title="Delete (d)"
                 tabindex="0"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
