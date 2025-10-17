@@ -1,15 +1,19 @@
 <script lang="ts">
-  import { onMount, createEventDispatcher } from 'svelte';
+  import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte';
   import { userService } from '../services/userService';
   import { settings } from '../stores/settings';
   import { showToast } from '../stores/toast';
   import { userSelectionStore, selectedUserIds, isMultiSelectMode, selectedUserDisplayNames } from '../stores/userSelection';
   import type { UserFavorite, SlackUser } from '../types/slack';
-  
+  import { accessKeyService } from '../services/accessKeyService';
+
   export let value = '';
   export let onEnterKey: (() => void) | undefined = undefined;
 
   const dispatch = createEventDispatcher();
+
+  // Access key registration IDs for cleanup
+  let accessKeyRegistrations: string[] = [];
 
   // Subscribe to multi-select mode and selected users
   $: mode = $isMultiSelectMode ? 'multi' : 'single';
@@ -28,35 +32,128 @@
   let editingAlias = '';
   let unsubscribeSettings: (() => void) | null = null;
   let highlightedIndex = -1;
-  
-  // Load favorites on mount and listen for workspace switches
-  onMount(() => {
-    // Initial load
-    userFavorites = userService.getUserFavorites();
-    recentUsers = userService.getRecentUsers();
 
-    // Set initial highlight if dropdown is open
-    if (showDropdown && getAllVisibleUsers().length > 0) {
-      highlightedIndex = 0;
+  // Button references for access keys
+  let modeToggleButton: HTMLButtonElement;
+  let favoritesButton: HTMLButtonElement;
+  let recentButton: HTMLButtonElement;
+  
+  // Reactively re-register access keys when user favorites change
+  $: if (userFavorites) {
+    // Clean up existing registrations
+    cleanupAccessKeys();
+    // Re-register after a short delay to ensure DOM is updated
+    tick().then(() => {
+      setupAccessKeys();
+    });
+  }
+
+  // Load favorites on mount and listen for workspace switches
+  function setupAccessKeys() {
+    const registrations: string[] = [];
+
+    console.log('[UserSelector] Setting up access keys, button refs:', {
+      modeToggleButton: !!modeToggleButton,
+      favoritesButton: !!favoritesButton,
+      recentButton: !!recentButton
+    });
+
+    // 4: モード切替ボタン (左端のボタン)
+    if (modeToggleButton) {
+      const id = accessKeyService.register('4', modeToggleButton, () => {
+        console.log('[UserSelector] Access key 4 pressed: toggleMode');
+        toggleMode();
+      }, 10);
+      if (id) registrations.push(id);
     }
+
+    // 5: お気に入りボタン (中央の⭐ボタン)
+    if (favoritesButton) {
+      const id = accessKeyService.register('5', favoritesButton, () => {
+        console.log('[UserSelector] Access key 5 pressed: selectAllFavorites');
+        selectAllFavorites();
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
+    // 6: 最近使用ボタン (右端の🕒ボタン)
+    if (recentButton) {
+      const id = accessKeyService.register('6', recentButton, () => {
+        console.log('[UserSelector] Access key 6 pressed: selectRecentUsers');
+        selectRecentUsers();
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
+    accessKeyRegistrations = registrations;
+    console.log(`[UserSelector] Registered ${registrations.length} access keys`);
+  }
+
+  function cleanupAccessKeys() {
+    accessKeyRegistrations.forEach(id => {
+      accessKeyService.unregister(id);
+    });
+    accessKeyRegistrations = [];
+    console.log('[UserSelector] Cleaned up access keys');
+  }
+
+  onMount(async () => {
+    // Function to load user data
+    const loadUserData = () => {
+      userFavorites = userService.getUserFavorites();
+      recentUsers = userService.getRecentUsers();
+
+      console.log('[UserSelector] Loaded users:', {
+        favorites: userFavorites.length,
+        favoriteIds: userFavorites.map(f => f.id),
+        recent: recentUsers.length,
+        recentUserData: recentUsers.map(u => ({ id: u.id, name: u.name || u.displayName })),
+        recentNonFavorites: recentUsers.filter(u => !userFavorites.some(f => f.id === u.id)).length
+      });
+
+      // Set initial highlight if dropdown is open
+      if (showDropdown && getAllVisibleUsers().length > 0) {
+        highlightedIndex = 0;
+      }
+    };
+
+    // Listen for UserService initialization completion
+    const handleUserServiceInit = () => {
+      console.log('[UserSelector] UserService initialized event received');
+      loadUserData();
+    };
 
     // Listen for workspace switch events
     const handleWorkspaceSwitch = () => {
-      userFavorites = userService.getUserFavorites();
-      recentUsers = userService.getRecentUsers();
-      // Clear any selected users when switching workspace
-      if (mode === 'multi') {
-        userSelectionStore.clearSelection();
-      }
-      value = '';
-      searchQuery = '';
-      searchResults = []; // Clear search results when switching workspace
+      // Add small delay to ensure workspace data is loaded
+      setTimeout(() => {
+        userFavorites = userService.getUserFavorites();
+        recentUsers = userService.getRecentUsers();
+        // Clear any selected users when switching workspace
+        if (mode === 'multi') {
+          userSelectionStore.clearSelection();
+        }
+        value = '';
+        searchQuery = '';
+        searchResults = []; // Clear search results when switching workspace
+      }, 100);
     };
 
+    window.addEventListener('userservice-initialized', handleUserServiceInit);
     window.addEventListener('workspace-switched', handleWorkspaceSwitch);
 
-    // Clean up event listener on component destroy
+    // Load initial data (in case UserService is already initialized)
+    await tick();
+    loadUserData();
+
+    // Setup access keys after DOM is ready
+    tick().then(() => {
+      setupAccessKeys();
+    });
+
+    // Clean up event listeners on component destroy
     return () => {
+      window.removeEventListener('userservice-initialized', handleUserServiceInit);
       window.removeEventListener('workspace-switched', handleWorkspaceSwitch);
     };
   });
@@ -112,6 +209,10 @@
   function selectUser(user: SlackUser | UserFavorite) {
     if (mode === 'multi') {
       userSelectionStore.toggleUserSelection(user.id, user);
+      // Add to recent users in multi-select mode as well
+      userService.addToRecentUsers(user.id);
+      // Update local recentUsers list
+      recentUsers = userService.getRecentUsers();
       // Keep dropdown open in multi-select mode
       // Don't update searchQuery to keep it clear for further searching
     } else {
@@ -231,6 +332,18 @@
     const userString = userSelectionStore.getFormattedUserString();
     const displayNames = userSelectionStore.getSelectedUserDisplayNames();
     value = userString;
+
+    // Add selected users to recent history with force=true
+    // This ensures favorites are also tracked in usage history
+    selectedUsers.forEach(userId => {
+      userService.addToRecentUsers(userId, true).catch(err => {
+        console.warn('Failed to add user to recent:', err);
+      });
+    });
+
+    // Update local recentUsers list
+    recentUsers = userService.getRecentUsers();
+
     // Clear search input to allow further searching
     searchQuery = '';
     showDropdown = false;
@@ -423,6 +536,10 @@
       document.removeEventListener('click', handleClickOutside);
     };
   });
+
+  onDestroy(() => {
+    cleanupAccessKeys();
+  });
 </script>
 
 <div class="user-selector">
@@ -461,6 +578,7 @@
 
     <div class="selector-controls">
       <button
+        bind:this={modeToggleButton}
         on:click={toggleMode}
         class="mode-toggle"
         class:active={mode === 'multi'}
@@ -490,6 +608,7 @@
 
       {#if userFavorites.length > 0}
         <button
+          bind:this={favoritesButton}
           on:click={selectAllFavorites}
           class="select-favorites"
           title="Select all favorite users"
@@ -501,6 +620,7 @@
       {/if}
 
       <button
+        bind:this={recentButton}
         on:click={selectRecentUsers}
         class="select-recent"
         title="Select recent 5 users"
