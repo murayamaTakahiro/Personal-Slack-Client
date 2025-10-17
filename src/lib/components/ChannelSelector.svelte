@@ -30,6 +30,8 @@
   let modeToggleButton: HTMLButtonElement;
   let favoritesButton: HTMLButtonElement;
   let recentButton: HTMLButtonElement;
+  let applyButtonInline: HTMLButtonElement;  // Apply button in selected-channels section
+  let applyButtonDropdown: HTMLButtonElement;  // Apply button in dropdown footer
   
   $: mode = $channelStore.selectionMode;
   $: selectedChannels = $channelStore.selectedChannels;
@@ -68,8 +70,8 @@
     ...groupedChannels.all
   ];
   
-  // Reactively re-register access keys when favorite channels change
-  $: if ($favoriteChannels) {
+  // Reactively re-register access keys when favorite channels or selection changes
+  $: if ($favoriteChannels || selectedChannels || mode) {
     // Clean up existing registrations
     cleanupAccessKeys();
     // Re-register after a short delay to ensure DOM is updated
@@ -145,6 +147,14 @@
   function setupAccessKeys() {
     const registrations: string[] = [];
 
+    console.log('[ChannelSelector] Setting up access keys, button refs:', {
+      modeToggleButton: !!modeToggleButton,
+      favoritesButton: !!favoritesButton,
+      recentButton: !!recentButton,
+      applyButtonInline: !!applyButtonInline,
+      applyButtonDropdown: !!applyButtonDropdown
+    });
+
     // 1: モード切替ボタン (左端のボタン)
     if (modeToggleButton) {
       const id = accessKeyService.register('1', modeToggleButton, () => {
@@ -165,6 +175,16 @@
     if (recentButton) {
       const id = accessKeyService.register('3', recentButton, () => {
         selectRecentChannels();
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
+    // 7: Apply button (マルチセレクトモードのみ) - inline or dropdown version
+    const applyButton = applyButtonInline || applyButtonDropdown;
+    if (applyButton && mode === 'multi' && selectedChannels.length > 0) {
+      const id = accessKeyService.register('7', applyButton, () => {
+        console.log('[ChannelSelector] Access key 7 pressed: applyMultiSelect');
+        applyMultiSelect();
       }, 10);
       if (id) registrations.push(id);
     }
@@ -254,6 +274,9 @@
           if (channel) {
             selectChannel(channel.id, channel.name);
           }
+        } else if (mode === 'multi' && selectedChannels.length > 0) {
+          // If nothing is highlighted but channels are selected, apply the selection
+          applyMultiSelect();
         }
         break;
         
@@ -593,7 +616,15 @@
         </span>
       {/each}
       <button
+        bind:this={applyButtonInline}
         on:click={applyMultiSelect}
+        on:keydown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            applyMultiSelect();
+          }
+        }}
         class="apply-btn-inline"
         title="Apply selected channels to search (Ctrl+Shift+A)"
       >
@@ -714,7 +745,15 @@
       {#if mode === 'multi' && selectedChannels.length > 0}
         <div class="dropdown-footer">
           <button
+            bind:this={applyButtonDropdown}
             on:click={applyMultiSelect}
+            on:keydown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                applyMultiSelect();
+              }
+            }}
             class="apply-btn"
           >
             Apply Selection ({selectedChannels.length} channel{selectedChannels.length !== 1 ? 's' : ''}) (Ctrl+Shift+A)

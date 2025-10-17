@@ -37,9 +37,11 @@
   let modeToggleButton: HTMLButtonElement;
   let favoritesButton: HTMLButtonElement;
   let recentButton: HTMLButtonElement;
+  let applyButtonInline: HTMLButtonElement;  // Apply button in selected-users section
+  let applyButtonDropdown: HTMLButtonElement;  // Apply button in dropdown footer
   
-  // Reactively re-register access keys when user favorites change
-  $: if (userFavorites) {
+  // Reactively re-register access keys when user favorites or selection changes
+  $: if (userFavorites || selectedUsers || mode) {
     // Clean up existing registrations
     cleanupAccessKeys();
     // Re-register after a short delay to ensure DOM is updated
@@ -55,7 +57,9 @@
     console.log('[UserSelector] Setting up access keys, button refs:', {
       modeToggleButton: !!modeToggleButton,
       favoritesButton: !!favoritesButton,
-      recentButton: !!recentButton
+      recentButton: !!recentButton,
+      applyButtonInline: !!applyButtonInline,
+      applyButtonDropdown: !!applyButtonDropdown
     });
 
     // 4: モード切替ボタン (左端のボタン)
@@ -81,6 +85,16 @@
       const id = accessKeyService.register('6', recentButton, () => {
         console.log('[UserSelector] Access key 6 pressed: selectRecentUsers');
         selectRecentUsers();
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
+    // 8: Apply button (マルチセレクトモードのみ) - inline or dropdown version
+    const applyButton = applyButtonInline || applyButtonDropdown;
+    if (applyButton && mode === 'multi' && selectedUsers.length > 0) {
+      const id = accessKeyService.register('8', applyButton, () => {
+        console.log('[UserSelector] Access key 8 pressed: applyMultiSelect');
+        applyMultiSelect();
       }, 10);
       if (id) registrations.push(id);
     }
@@ -435,6 +449,9 @@
           if (user) {
             selectUser(user);
           }
+        } else if (mode === 'multi' && selectedUsers.length > 0) {
+          // If nothing is highlighted but users are selected, apply the selection
+          applyMultiSelect();
         }
         break;
 
@@ -653,7 +670,15 @@
         </span>
       {/each}
       <button
+        bind:this={applyButtonInline}
         on:click={applyMultiSelect}
+        on:keydown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            applyMultiSelect();
+          }
+        }}
         class="apply-btn-inline"
         title="Apply selected users to search (Ctrl+Shift+U)"
       >
@@ -826,7 +851,15 @@
       {#if mode === 'multi' && selectedUsers.length > 0}
         <div class="dropdown-footer">
           <button
+            bind:this={applyButtonDropdown}
             on:click={applyMultiSelect}
+            on:keydown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                applyMultiSelect();
+              }
+            }}
             class="apply-btn"
           >
             Apply Selection ({selectedUsers.length} user{selectedUsers.length !== 1 ? 's' : ''}) (Ctrl+Shift+U)

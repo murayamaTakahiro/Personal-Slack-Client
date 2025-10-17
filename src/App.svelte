@@ -744,11 +744,11 @@
     if (event.key === 'Enter') {
       const target = event.target as HTMLElement;
 
-      // For INPUT fields with focus, don't interfere - let them handle Enter
-      // This allows SearchBar URL input, keyword input, date inputs to work
-      // CRITICAL: Check this BEFORE PostDialog check to ensure INPUT always works
-      if (target && target.tagName === 'INPUT') {
-        console.log('[App] INPUT field has focus, not interfering with Enter key');
+      // For INPUT and BUTTON fields with focus, don't interfere - let them handle Enter
+      // This allows SearchBar URL input, keyword input, date inputs, and Apply buttons to work
+      // CRITICAL: Check this BEFORE PostDialog check to ensure INPUT/BUTTON always works
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'BUTTON')) {
+        console.log('[App] INPUT/BUTTON field has focus, not interfering with Enter key');
         return;
       }
 
