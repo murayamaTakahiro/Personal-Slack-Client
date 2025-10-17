@@ -40,12 +40,14 @@ export class UserService {
   }
 
   // Load favorites from the current workspace
-  private loadWorkspaceFavorites(): void {
+  private async loadWorkspaceFavorites(): Promise<void> {
     const workspace = get(activeWorkspace);
     if (!workspace) {
       this.userFavorites = [];
       this.favoriteOrder = [];
       this.recentUserIds = [];
+      this.recentUsers = [];
+      console.log('[UserService] No active workspace, clearing data');
       return;
     }
 
@@ -55,65 +57,85 @@ export class UserService {
       this.userFavorites = workspaceData.userFavorites || [];
       this.favoriteOrder = workspaceData.userFavoriteOrder || this.userFavorites.map(f => f.id);
       this.recentUserIds = workspaceData.recentUsers || [];
-      console.log(`[UserService] Loaded ${this.userFavorites.length} favorites for workspace ${workspace.name}`);
-      this.updateRecentUsersFromIds();
+      console.log(`[UserService] Loaded workspace data for ${workspace.name}:`, {
+        favorites: this.userFavorites.length,
+        recentUserIds: this.recentUserIds.length,
+        recentUserIdsData: this.recentUserIds
+      });
+      await this.updateRecentUsersFromIds();
     } else {
       this.userFavorites = [];
       this.favoriteOrder = [];
       this.recentUserIds = [];
+      this.recentUsers = [];
+      console.log('[UserService] No workspace data found, clearing');
     }
   }
 
   // Subscribe to settings changes to keep favorites in sync
-  private subscribeToSettings(): void {
+  private async subscribeToSettings(): Promise<void> {
     if (this.unsubscribe) {
       this.unsubscribe();
     }
 
     // Instead of subscribing to settings, we now rely on workspace data
     // This method is kept for backward compatibility but now loads from workspace
-    this.loadWorkspaceFavorites();
+    await this.loadWorkspaceFavorites();
   }
 
   // Initialize the service after settings are ready
-  public initialize(): void {
+  public async initialize(): Promise<void> {
     console.log('[UserService] Initializing UserService...');
     try {
-      this.subscribeToSettings();
+      await this.subscribeToSettings();
       // Load initial favorites from settings
-      this.reloadFavorites();
+      await this.reloadFavorites();
       console.log('[UserService] UserService initialized successfully');
+
+      // Dispatch event to notify components that initialization is complete
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('userservice-initialized'));
+      }
     } catch (error) {
       console.error('[UserService] Error during initialization:', error);
       // Don't throw - allow app to continue with default state
       this.userFavorites = [];
       this.favoriteOrder = [];
+      this.recentUserIds = [];
+      this.recentUsers = [];
     }
   }
 
   // Method to explicitly reload favorites from workspace
-  public reloadFavorites(): void {
+  public async reloadFavorites(): Promise<void> {
     try {
-      this.loadWorkspaceFavorites();
+      await this.loadWorkspaceFavorites();
       console.log('[UserService] Favorites reloaded:', this.userFavorites.length, 'favorites');
     } catch (error) {
       console.error('[UserService] Error reloading favorites:', error);
       this.userFavorites = [];
       this.favoriteOrder = [];
       this.recentUserIds = [];
+      this.recentUsers = [];
     }
   }
 
   // Update recent users from IDs
   private async updateRecentUsersFromIds(): Promise<void> {
+    console.log('[UserService] updateRecentUsersFromIds called with:', this.recentUserIds);
     const users: SlackUser[] = [];
     for (const userId of this.recentUserIds) {
+      console.log('[UserService] Fetching user info for:', userId);
       const user = await this.getUserById(userId);
       if (user) {
+        console.log('[UserService] Got user:', user.name || user.displayName);
         users.push(user);
+      } else {
+        console.warn('[UserService] Failed to get user info for:', userId);
       }
     }
     this.recentUsers = users;
+    console.log('[UserService] updateRecentUsersFromIds completed, recentUsers.length:', this.recentUsers.length);
   }
 
   // Get all users from Slack (with caching)
@@ -237,13 +259,22 @@ export class UserService {
 
   // Get recent users
   getRecentUsers(): SlackUser[] {
+    console.log('[UserService] getRecentUsers called:', {
+      recentUserIdsCount: this.recentUserIds.length,
+      recentUserIds: this.recentUserIds,
+      recentUsersCount: this.recentUsers.length
+    });
     return this.recentUsers;
   }
 
   // Add user to recent users
-  async addToRecentUsers(userId: string): Promise<void> {
-    // Don't add if it's already a favorite
-    if (this.isUserFavorite(userId)) {
+  async addToRecentUsers(userId: string, force: boolean = false): Promise<void> {
+    console.log('[UserService] addToRecentUsers called:', { userId, force, isFavorite: this.isUserFavorite(userId) });
+
+    // Don't add if it's already a favorite (unless forced)
+    // Force flag is used when applying multi-select to track usage history
+    if (!force && this.isUserFavorite(userId)) {
+      console.log('[UserService] User is favorite and force=false, skipping');
       return;
     }
 
@@ -256,8 +287,12 @@ export class UserService {
     // Keep only last 10 recent users
     this.recentUserIds = this.recentUserIds.slice(0, 10);
 
+    console.log('[UserService] Updated recentUserIds:', this.recentUserIds);
+
     // Update the actual user objects
     await this.updateRecentUsersFromIds();
+
+    console.log('[UserService] Updated recentUsers:', this.recentUsers.length, 'users');
 
     // Save to settings
     this.saveRecentUsers();
