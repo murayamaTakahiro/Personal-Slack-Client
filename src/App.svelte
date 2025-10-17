@@ -93,6 +93,7 @@
   let showEmojiSearch = false;
   let realtimeInterval: NodeJS.Timeout | null = null;
   let altKeyPressed = false;
+  let accessKeyRegistrations: string[] = []; // Access key registration IDs for cleanup
 
   let previousMessageIds = new Set<string>();
   let unsubscribeRealtime: (() => void) | null = null;
@@ -152,10 +153,10 @@
       initializationStep = 'Initializing user service...';
       initializationProgress = 50;
       // Run UserService initialization in background
-      Promise.resolve().then(() => {
+      Promise.resolve().then(async () => {
         if (userService && typeof userService.initialize === 'function') {
           try {
-            userService.initialize();
+            await userService.initialize();
             console.log('[App] UserService initialized successfully');
           } catch (userError) {
             console.error('[App] UserService initialization failed:', userError);
@@ -442,7 +443,17 @@
             // showToast('Some keyboard shortcuts may not work properly', 'warning');
           }
         }, 100);
-        
+
+        // Setup access keys after a slight delay to ensure DOM is ready
+        setTimeout(() => {
+          try {
+            setupAccessKeys();
+            console.log('[App] Access keys setup successfully');
+          } catch (accessKeyError) {
+            console.error('[App] Failed to setup access keys:', accessKeyError);
+          }
+        }, 200);
+
       } catch (error) {
         console.error('[App] Failed to initialize keyboard service:', error);
         // Don't let keyboard initialization failure crash the app
@@ -611,6 +622,8 @@
       document.removeEventListener('keydown', handleGlobalKeydown, true);
       document.removeEventListener('keyup', handleGlobalKeyup, true);
     }
+    // Clean up access keys
+    cleanupAccessKeys();
     // Clean up access key service
     accessKeyService.clearAll();
     if (typeof window !== 'undefined') {
@@ -1279,7 +1292,47 @@
       // showToast('Keyboard shortcuts may not work properly', 'warning');
     }
   }
-  
+
+  /**
+   * Setup access keys for App.svelte header elements
+   */
+  function setupAccessKeys() {
+    const registrations: string[] = [];
+
+    // S: Settings button
+    const settingsBtn = document.querySelector('.btn-settings') as HTMLElement;
+    if (settingsBtn) {
+      const id = accessKeyService.register('S', settingsBtn, () => {
+        showSettings = !showSettings;
+      }, 15); // High priority for global app controls
+      if (id) registrations.push(id);
+    }
+
+    // ?: Keyboard Help (using '?' as the key)
+    // Try to find keyboard help button - it might not exist in all views
+    const helpBtn = document.querySelector('[aria-label*="keyboard"]') as HTMLElement;
+    if (helpBtn) {
+      const id = accessKeyService.register('?', helpBtn, () => {
+        showKeyboardHelp = !showKeyboardHelp;
+      }, 15); // High priority
+      if (id) registrations.push(id);
+    }
+
+    accessKeyRegistrations = registrations;
+    console.log(`[App] Registered ${registrations.length} access keys`);
+  }
+
+  /**
+   * Cleanup access keys
+   */
+  function cleanupAccessKeys() {
+    accessKeyRegistrations.forEach(id => {
+      accessKeyService.unregister(id);
+    });
+    accessKeyRegistrations = [];
+    console.log('[App] Cleaned up access keys');
+  }
+
   async function initializeMultiWorkspace() {
     // Load workspaces
     const currentWorkspace = $activeWorkspace;
@@ -1550,7 +1603,26 @@
 
       // Use batched search for multi-channel searches when enabled
       const result = await searchMessagesWithBatching(params);
-      
+
+      // Deduplicate messages by timestamp to prevent duplicate key errors in ResultList
+      // This can happen when using channel + user filters with conversations.history API
+      if (result.messages && result.messages.length > 0) {
+        const uniqueMessages = Array.from(
+          new Map(result.messages.map(msg => [msg.ts, msg])).values()
+        );
+
+        // Log if duplicates were found and removed
+        if (uniqueMessages.length < result.messages.length) {
+          console.log(
+            `[App] Removed ${result.messages.length - uniqueMessages.length} duplicate messages`,
+            `(${result.messages.length} → ${uniqueMessages.length})`
+          );
+        }
+
+        result.messages = uniqueMessages;
+        result.total = uniqueMessages.length;
+      }
+
       // Handle incremental updates with reconciliation
       if (params.isRealtimeUpdate && $realtimeStore.isEnabled && $searchResults?.messages) {
         const existingMessages = $searchResults.messages;
