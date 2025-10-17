@@ -48,6 +48,7 @@
   let savedSearchKey = 0; // Key to force component recreation
   let showUrlHistory = false;
   let urlHistoryButton: HTMLButtonElement;
+  let loadThreadButton: HTMLButtonElement;
   let showKeywordHistory = false;
   let keywordHistoryButton: HTMLButtonElement;
   let showBookmarks = false;
@@ -161,6 +162,18 @@
         lastSearchTimestamp: isRealtimeUpdate ? realtimeStore.getLastSearchTimestamp() : undefined, // For incremental updates
         isTodaysCatchup: isTodaysCatchupSearch  // Flag for Today's Catchup searches
       };
+
+      // DEBUG: Log search parameters for user filter debugging
+      console.log('[SearchBar] Search params being sent:', {
+        query: params.query,
+        channel: params.channel,
+        user: params.user,
+        userName: params.userName,
+        fromDate: params.fromDate,
+        toDate: params.toDate,
+        hasFiles: params.hasFiles
+      });
+
       searchParams.set(params);
       dispatch('search', params);
     }
@@ -854,6 +867,125 @@
       if (id) registrations.push(id);
     }
 
+    // A: Has Attachments checkbox
+    const attachmentCheckbox = document.querySelector('.checkbox-label input[type="checkbox"]') as HTMLElement;
+    if (attachmentCheckbox) {
+      const id = accessKeyService.register('A', attachmentCheckbox, () => {
+        hasFiles = !hasFiles;
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
+    // X: Clear Filters button
+    const clearBtn = Array.from(document.querySelectorAll('.btn-secondary')).find(
+      btn => btn.textContent?.includes('Clear filters')
+    ) as HTMLElement;
+    if (clearBtn) {
+      const id = accessKeyService.register('X', clearBtn, clearFilters, 10);
+      if (id) registrations.push(id);
+    }
+
+    // M: Max Results input
+    const maxResultsInput = document.querySelector('input[type="number"]') as HTMLElement;
+    if (maxResultsInput) {
+      const id = accessKeyService.register('M', maxResultsInput, () => {
+        maxResultsInput.focus();
+        (maxResultsInput as HTMLInputElement).select();
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
+    // D: From Date input
+    const fromDateInput = document.getElementById('fromDate') as HTMLElement;
+    if (fromDateInput) {
+      const id = accessKeyService.register('D', fromDateInput, () => {
+        fromDateInput.focus();
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
+    // T: To Date input
+    const toDateInput = document.getElementById('toDate') as HTMLElement;
+    if (toDateInput) {
+      const id = accessKeyService.register('T', toDateInput, () => {
+        toDateInput.focus();
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
+    // K: Keyword input
+    if (searchInput) {
+      const id = accessKeyService.register('K', searchInput, () => {
+        searchInput.focus();
+        searchInput.select();
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
+    // U: URL input
+    if (urlInputElement) {
+      const id = accessKeyService.register('U', urlInputElement, () => {
+        urlInputElement.focus();
+        urlInputElement.select();
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
+    // G: Search button (Go)
+    const searchButton = document.querySelector('.btn-primary') as HTMLElement;
+    if (searchButton) {
+      const id = accessKeyService.register('G', searchButton, () => {
+        if (canSearch && !$searchLoading) {
+          handleSearch();
+        }
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
+    // H: Channel selector (from "cHannel")
+    const channelSelectorLabel = document.querySelector('.channel-label') as HTMLElement;
+    if (channelSelectorLabel && channelSelectorComponent) {
+      const id = accessKeyService.register('H', channelSelectorLabel, () => {
+        toggleChannelSelector();
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
+    // E: User selector (from "usEr")
+    const userSelectorLabel = document.querySelector('label[for="user-selector"]') as HTMLElement;
+    if (userSelectorLabel && userSelectorComponent) {
+      const id = accessKeyService.register('E', userSelectorLabel, () => {
+        focusUserSelector();
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
+    // I: Search History button (keyword history)
+    if (keywordHistoryButton) {
+      const id = accessKeyService.register('I', keywordHistoryButton, () => {
+        toggleKeywordHistory();
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
+    // R: URL History button (fRom "uRl")
+    if (urlHistoryButton) {
+      const id = accessKeyService.register('R', urlHistoryButton, () => {
+        toggleUrlHistory();
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
+    // L: Load Thread button
+    if (loadThreadButton) {
+      const id = accessKeyService.register('L', loadThreadButton, () => {
+        if (urlInput.trim() && !urlLoading) {
+          handleUrlPaste();
+        }
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
     accessKeyRegistrations = registrations;
     console.log(`[SearchBar] Registered ${registrations.length} access keys`);
   }
@@ -1143,6 +1275,7 @@
                   {/if}
                 </button>
                 <button
+                  bind:this={loadThreadButton}
                   on:click={handleUrlPaste}
                   disabled={!urlInput.trim() || urlLoading}
                   class="btn-secondary"

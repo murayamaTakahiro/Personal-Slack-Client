@@ -1,16 +1,20 @@
 <script lang="ts">
-  import { onMount, createEventDispatcher } from 'svelte';
+  import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte';
   import { channelStore, favoriteChannels, recentChannelsList, sortedChannels, channelGroups } from '../stores/channels';
   import { realtimeStore } from '../stores/realtime';
   import { showToast } from '../stores/toast';
   import { channelSelectorOpen } from '../stores/ui';
-  
+  import { accessKeyService } from '../services/accessKeyService';
+
   export let value = '';  // Currently selected channel(s)
   export let channels: [string, string][] = [];
   export let onEnterKey: (() => void) | undefined = undefined;
-  
+
   const dispatch = createEventDispatcher();
-  
+
+  // Access key registration IDs for cleanup
+  let accessKeyRegistrations: string[] = [];
+
   let searchInput = '';
 
   // Helper function to check if a channel is a DM or Group DM
@@ -21,6 +25,11 @@
   let highlightedIndex = -1;
   let inputElement: HTMLInputElement;
   let dropdownElement: HTMLDivElement;
+
+  // Button references for access keys
+  let modeToggleButton: HTMLButtonElement;
+  let favoritesButton: HTMLButtonElement;
+  let recentButton: HTMLButtonElement;
   
   $: mode = $channelStore.selectionMode;
   $: selectedChannels = $channelStore.selectedChannels;
@@ -59,10 +68,20 @@
     ...groupedChannels.all
   ];
   
+  // Reactively re-register access keys when favorite channels change
+  $: if ($favoriteChannels) {
+    // Clean up existing registrations
+    cleanupAccessKeys();
+    // Re-register after a short delay to ensure DOM is updated
+    tick().then(() => {
+      setupAccessKeys();
+    });
+  }
+
   onMount(() => {
     // Initialize channel store with channels
     channelStore.initChannels(channels);
-    
+
     // Close dropdown on outside click
     function handleClickOutside(event: MouseEvent) {
       if (inputElement && !inputElement.contains(event.target as Node) &&
@@ -70,7 +89,7 @@
         showDropdown = false;
       }
     }
-    
+
     // Global keyboard shortcuts
     function handleGlobalKeydown(event: KeyboardEvent) {
       // Ctrl+M or Cmd+M to toggle multi-select mode
@@ -79,14 +98,14 @@
         toggleMode();
         return;
       }
-      
+
       // Ctrl+R or Cmd+R to select recent channels
       if ((event.ctrlKey || event.metaKey) && event.key === 'r' && !event.shiftKey) {
         event.preventDefault();
         selectRecentChannels();
         return;
       }
-      
+
       // Ctrl+F or Cmd+F to select all favorite channels
       if ((event.ctrlKey || event.metaKey) && event.key === 'f' && !event.shiftKey) {
         event.preventDefault();
@@ -105,13 +124,68 @@
         return;
       }
     }
-    
+
     document.addEventListener('click', handleClickOutside);
     document.addEventListener('keydown', handleGlobalKeydown);
+
+    // Initial setup of access keys
+    tick().then(() => {
+      setupAccessKeys();
+    });
+
     return () => {
       document.removeEventListener('click', handleClickOutside);
       document.removeEventListener('keydown', handleGlobalKeydown);
     };
+  });
+
+  /**
+   * Setup access keys for ChannelSelector buttons
+   */
+  function setupAccessKeys() {
+    const registrations: string[] = [];
+
+    // 1: モード切替ボタン (左端のボタン)
+    if (modeToggleButton) {
+      const id = accessKeyService.register('1', modeToggleButton, () => {
+        toggleMode();
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
+    // 2: お気に入りボタン (中央の⭐ボタン)
+    if (favoritesButton) {
+      const id = accessKeyService.register('2', favoritesButton, () => {
+        selectAllFavorites();
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
+    // 3: 最近使用ボタン (右端の🕒ボタン)
+    if (recentButton) {
+      const id = accessKeyService.register('3', recentButton, () => {
+        selectRecentChannels();
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
+    accessKeyRegistrations = registrations;
+    console.log(`[ChannelSelector] Registered ${registrations.length} access keys`);
+  }
+
+  /**
+   * Cleanup access keys
+   */
+  function cleanupAccessKeys() {
+    accessKeyRegistrations.forEach(id => {
+      accessKeyService.unregister(id);
+    });
+    accessKeyRegistrations = [];
+    console.log('[ChannelSelector] Cleaned up access keys');
+  }
+
+  onDestroy(() => {
+    cleanupAccessKeys();
   });
   
   function handleInputFocus() {
@@ -406,12 +480,13 @@
     
     <div class="selector-controls">
       <button
+        bind:this={modeToggleButton}
         on:click={toggleMode}
         class="mode-toggle"
         class:active={mode === 'multi'}
         class:pulse={mode === 'single' && channels.length > 1}
-        title={mode === 'multi' 
-          ? 'マルチ選択モード: 複数のチャンネルを選択して一括検索できます (Ctrl+M でシングル選択に切替)' 
+        title={mode === 'multi'
+          ? 'マルチ選択モード: 複数のチャンネルを選択して一括検索できます (Ctrl+M でシングル選択に切替)'
           : 'シングル選択モード: 1つのチャンネルのみ選択可能 (Ctrl+M でマルチ選択に切替)'}
         aria-label={mode === 'multi' ? 'Switch to single select' : 'Switch to multi-select'}
       >
@@ -436,6 +511,7 @@
       
       {#if $favoriteChannels.length > 0}
         <button
+          bind:this={favoritesButton}
           on:click={selectAllFavorites}
           class="select-favorites"
           title="お気に入りチャンネルを全選択 (Ctrl+F)"
@@ -445,8 +521,9 @@
           </svg>
         </button>
       {/if}
-      
+
       <button
+        bind:this={recentButton}
         on:click={() => channelStore.selectRecentChannels(5)}
         class="select-recent"
         title="最近使用した5チャンネルを選択 (Ctrl+R)"

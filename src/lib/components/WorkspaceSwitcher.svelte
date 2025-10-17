@@ -1,11 +1,15 @@
 <script lang="ts">
-  import { onDestroy, createEventDispatcher, tick } from 'svelte';
+  import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte';
   import { workspaceStore, activeWorkspace, sortedWorkspaces } from '../stores/workspaces';
   import type { Workspace } from '../types/workspace';
   import { maskTokenClient } from '../api/secure';
   import { logger } from '../services/logger';
-  
+  import { accessKeyService } from '../services/accessKeyService';
+
   const dispatch = createEventDispatcher();
+
+  // Access key registration IDs for cleanup
+  let accessKeyRegistrations: string[] = [];
   
   let showAddWorkspace = false;
   
@@ -452,12 +456,51 @@
     }
   }
 
+  /**
+   * Setup access keys for WorkspaceSwitcher
+   */
+  function setupAccessKeys() {
+    const registrations: string[] = [];
+
+    // W: Workspace Switcher button
+    const workspaceSwitcherBtn = workspaceButtonElement;
+    if (workspaceSwitcherBtn) {
+      const id = accessKeyService.register('W', workspaceSwitcherBtn, () => {
+        toggleDropdown();
+      }, 15); // High priority for workspace switching
+      if (id) registrations.push(id);
+    }
+
+    accessKeyRegistrations = registrations;
+    console.log(`[WorkspaceSwitcher] Registered ${registrations.length} access keys`);
+  }
+
+  /**
+   * Cleanup access keys
+   */
+  function cleanupAccessKeys() {
+    accessKeyRegistrations.forEach(id => {
+      accessKeyService.unregister(id);
+    });
+    accessKeyRegistrations = [];
+    console.log('[WorkspaceSwitcher] Cleaned up access keys');
+  }
+
+  onMount(() => {
+    // Setup access keys after component mount
+    tick().then(() => {
+      setupAccessKeys();
+    });
+  });
+
   onDestroy(() => {
     if (typeof document !== 'undefined') {
       document.removeEventListener('click', handleClickOutside);
       // Must match the capture flag used in addEventListener
       document.removeEventListener('keydown', handleGlobalKeydown, true);
     }
+    // Cleanup access keys
+    cleanupAccessKeys();
   });
 </script>
 
