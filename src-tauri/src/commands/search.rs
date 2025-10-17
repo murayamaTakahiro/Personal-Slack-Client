@@ -2049,36 +2049,39 @@ pub async fn search_messages_fast(
                     }
                 }
 
-                // Filter by user if specified
+                // Filter by user if specified (only for single user, multi-user is handled below)
                 if let Some(ref user_filter) = user {
-                    let user_id = if user_filter.starts_with("<@") && user_filter.ends_with(">") {
-                        &user_filter[2..user_filter.len()-1]
-                    } else {
-                        user_filter.trim_start_matches('@')
-                    };
+                    // Skip single-user filter if this is a multi-user query (contains comma)
+                    if !user_filter.contains(',') {
+                        let user_id = if user_filter.starts_with("<@") && user_filter.ends_with(">") {
+                            &user_filter[2..user_filter.len()-1]
+                        } else {
+                            user_filter.trim_start_matches('@')
+                        };
 
-                    info!("Filtering {} messages for user: {}", all_slack_messages.len(), user_id);
+                        info!("Filtering {} messages for single user: {}", all_slack_messages.len(), user_id);
 
-                    // Debug: Log first few messages to check user field
-                    for (i, msg) in all_slack_messages.iter().take(5).enumerate() {
-                        debug!("Message {}: user={:?}, text preview={:?}",
-                            i,
-                            msg.user,
-                            &msg.text.chars().take(50).collect::<String>()
-                        );
+                        // Debug: Log first few messages to check user field
+                        for (i, msg) in all_slack_messages.iter().take(5).enumerate() {
+                            debug!("Message {}: user={:?}, text preview={:?}",
+                                i,
+                                msg.user,
+                                &msg.text.chars().take(50).collect::<String>()
+                            );
+                        }
+
+                        all_slack_messages = all_slack_messages.into_iter()
+                            .filter(|msg| {
+                                let matches = msg.user.as_ref() == Some(&user_id.to_string());
+                                if matches {
+                                    debug!("Found matching message from user {}: {:?}", user_id, &msg.text.chars().take(50).collect::<String>());
+                                }
+                                matches
+                            })
+                            .collect();
+
+                        info!("After single user filter: {} messages", all_slack_messages.len());
                     }
-
-                    all_slack_messages = all_slack_messages.into_iter()
-                        .filter(|msg| {
-                            let matches = msg.user.as_ref() == Some(&user_id.to_string());
-                            if matches {
-                                debug!("Found matching message from user {}: {:?}", user_id, &msg.text.chars().take(50).collect::<String>());
-                            }
-                            matches
-                        })
-                        .collect();
-
-                    info!("After user filter: {} messages", all_slack_messages.len());
                 }
             } else {
                 // Use normal search.messages API
