@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte';
-  import * as pdfjsLib from 'pdfjs-dist';
+  import { getPdfJs } from '$lib/utils/lazyPdfJs';
   import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist';
   import { createFileDataUrl } from '$lib/api/files';
+
+  let pdfjsLib: typeof import('pdfjs-dist') | null = null;
   
   export let url: string;
   export let pageNumber: number = 1;
@@ -52,17 +54,21 @@
   
   onMount(async () => {
     isMounted = true;
-    
-    // Set PDF.js worker with proper configuration for v5
-    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-    console.log('[PdfRenderer] Component mounted, worker src set to:', pdfjsLib.GlobalWorkerOptions.workerSrc);
-    
-    // Verify PDF.js is loaded
-    console.log('[PdfRenderer] PDF.js version:', pdfjsLib.version);
-    
-    // Set current URL and load PDF
-    currentUrl = url;
-    await loadPdf();
+
+    try {
+      // Lazy load PDF.js library
+      console.log('[PdfRenderer] Component mounted, loading PDF.js...');
+      pdfjsLib = await getPdfJs();
+      console.log('[PdfRenderer] PDF.js loaded successfully');
+
+      // Set current URL and load PDF
+      currentUrl = url;
+      await loadPdf();
+    } catch (err) {
+      console.error('[PdfRenderer] Failed to load PDF.js:', err);
+      error = 'Failed to load PDF viewer. Please refresh the page.';
+      isLoading = false;
+    }
   });
   
   async function handleUrlChange() {
@@ -187,12 +193,19 @@
   }
   
   async function loadPdf() {
+    // Check if PDF.js is loaded
+    if (!pdfjsLib) {
+      console.error('[PdfRenderer] PDF.js not loaded yet');
+      error = 'PDF viewer not ready. Please wait...';
+      return;
+    }
+
     // Prevent multiple simultaneous loads
     if (isLoading && pdfDoc) {
       console.log('[PdfRenderer] Already loading PDF, skipping duplicate load');
       return;
     }
-    
+
     isLoading = true;
     error = null;
     

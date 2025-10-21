@@ -71,14 +71,15 @@ export default defineConfig(async ({ mode }) => ({
     
     // Target modern browsers for better optimization
     target: 'es2020',
-    
-    // Increase chunk size warning limit
-    chunkSizeWarningLimit: 500
+
+    // Increase chunk size warning limit (adjusted for lazy-loaded architecture)
+    // Main bundle is ~1.7MB, with Shiki (146KB) and PDF.js (405KB) lazy-loaded separately
+    chunkSizeWarningLimit: 2000
   },
   
   // Optimize dependencies
   optimizeDeps: {
-    include: ['svelte', '@tauri-apps/api', 'pdfjs-dist'],
-    exclude: []
+    include: ['svelte', '@tauri-apps/api'],
+    exclude: ['pdfjs-dist', 'shiki'] // Lazy-loaded dependencies
   }
 }));

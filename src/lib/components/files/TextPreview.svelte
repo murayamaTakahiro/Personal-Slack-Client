@@ -4,7 +4,7 @@
   import { formatFileSize, getFileContent } from '$lib/api/files';
   import { downloadFile } from '$lib/api/files';
   import { showSuccess, showError, showInfo } from '$lib/stores/toast';
-  import { highlightCode, isHighlightSupported } from '$lib/utils/syntaxHighlight';
+  import { highlightCode, isHighlightSupported } from '$lib/utils/lazyHighlight';
   import { settings } from '$lib/stores/settings';
 
   export let file: SlackFile;
