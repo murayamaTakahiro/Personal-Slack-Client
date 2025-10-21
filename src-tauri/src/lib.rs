@@ -42,9 +42,20 @@ pub fn run() {
         .setup(|app| {
             // Get the main window and maximize it on startup
             if let Some(window) = app.get_webview_window("main") {
+                // Enable devtools only in debug builds
+                #[cfg(debug_assertions)]
+                {
+                    window.open_devtools();
+                    tracing::info!("DevTools opened (debug build)");
+                }
+
                 window.maximize().unwrap_or_else(|e| {
                     tracing::warn!("Failed to maximize window: {}", e);
                 });
+
+                tracing::info!("Window setup completed successfully");
+            } else {
+                tracing::error!("Failed to get main window!");
             }
             Ok(())
         })

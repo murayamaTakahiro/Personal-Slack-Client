@@ -106,7 +106,8 @@
   let initializationProgress = 0;
   let initializationTimeout: NodeJS.Timeout | null = null;
   let unsubscribeSettings: (() => void) | null = null;
-  
+  let workspaceInitialized = false; // Track workspace initialization completion
+
   onMount(async () => {
     // Subscribe to settings changes to update keyboard service
     unsubscribeSettings = settings.subscribe($settings => {
@@ -193,6 +194,7 @@
         console.log('[App] Full initialization completed successfully');
       }).catch(error => {
         console.error('[App] Workspace/UI initialization failed:', error);
+        workspaceInitialized = false;
         // Removed unnecessary warning toast
         // showToast('Some features may not be available', 'warning');
       });
@@ -497,9 +499,12 @@
       
       // Initialize workspace mode with robust error handling
       await initializeWorkspaceMode();
-      
+      workspaceInitialized = true;
+      console.log('[App] Workspace initialization completed, ready for searches');
+
     } catch (error) {
       console.error('[App] Error during workspace and UI initialization:', error);
+      workspaceInitialized = false; // Mark as failed
       // Don't let this crash the app, but warn the user
       // Removed unnecessary warning toast
       // showToast('Some features may not be available due to initialization errors', 'warning');
@@ -562,8 +567,10 @@
         // Continue with legacy mode
         await initializeLegacyToken(savedToken, savedWorkspace);
       } else {
-        // No token saved, show a helpful message
-        searchError.set('Welcome! Please configure your Slack token in Settings to start searching.');
+        // No token saved - provide friendly onboarding experience
+        searchError.set('');  // Clear any existing errors
+        showSettings = true;  // Automatically open settings dialog
+        showInfo('👋 Welcome to Personal Slack Client!\n\nPlease configure your Slack API token in Settings to get started.\n\nYou can obtain a token from https://api.slack.com/apps');
       }
     } catch (error) {
       console.error('[App] Legacy workspace initialization failed:', error);
@@ -595,14 +602,20 @@
         });
 
         await loadChannels();
+
+        // Mark workspace as initialized after successful legacy initialization
+        workspaceInitialized = true;
+        console.log('[App] Legacy workspace initialization completed, ready for searches');
       } else {
         // Token found in frontend but not initialized in backend
         logger.warn('[App] Token not initialized in backend, skipping emoji service initialization');
         searchError.set('Failed to initialize Slack connection. Please check your token.');
+        workspaceInitialized = false;
       }
     } catch (err) {
       console.error('[App] Failed to initialize legacy token:', err);
       searchError.set('Failed to initialize Slack connection. Please check your token and try again.');
+      workspaceInitialized = false;
     }
   }
   
@@ -1389,7 +1402,10 @@
     try {
       console.log('[App] Handling workspace switch...');
       const switchEvent = event.detail;
-    
+
+    // Mark workspace as not initialized during switch
+    workspaceInitialized = false;
+
     // Clear current state including channels and search results
     searchResults.set(null);
     selectedMessage.set(null);
@@ -1490,12 +1506,16 @@
 
           // Force UI update by reassigning channels
           channels = [...channels];
-          
+
           // Clear the search bar if it exists
           if (searchBarElement && typeof searchBarElement.clearChannelSelection === 'function') {
             searchBarElement.clearChannelSelection();
           }
-          
+
+          // Mark workspace as initialized after successful switch
+          workspaceInitialized = true;
+          console.log('[App] Workspace switch completed successfully');
+
           searchError.set(null);
         } else {
           // Failed to initialize backend token
@@ -1556,6 +1576,28 @@
     const params = event?.detail || $searchParams;
 
     try {
+      // Check if workspace initialization is complete
+      if (!workspaceInitialized) {
+        console.warn('[App] Search attempted before workspace initialization completed');
+        searchError.set('Please wait... Application is still loading your workspace.');
+
+        // Wait for initialization with timeout
+        let waitTime = 0;
+        const maxWaitTime = 5000; // 5 seconds max
+        while (!workspaceInitialized && waitTime < maxWaitTime) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          waitTime += 100;
+        }
+
+        if (!workspaceInitialized) {
+          searchError.set('Workspace initialization timed out. Please try reloading the app.');
+          return;
+        }
+
+        // Clear the loading message
+        searchError.set(null);
+      }
+
       // Don't show loading state for realtime updates - keep UI stable
       if (!params.isRealtimeUpdate) {
         searchLoading.set(true);
@@ -1717,8 +1759,18 @@
         addToHistory(params.query, result.messages.length);
       }
     } catch (err) {
+      // Log full error for debugging
+      console.error('[App] Search failed with error:', err);
+
       let errorMessage = 'Search failed';
       if (err instanceof Error) {
+        // Always include the actual error message for debugging
+        console.error('[App] Error details:', {
+          message: err.message,
+          stack: err.stack,
+          searchParams: params
+        });
+
         // Provide more specific error messages
         if (err.message.includes('No Slack token') || err.message.includes('Authentication')) {
           errorMessage = 'Authentication failed. Please check your Slack token in Settings.';
@@ -1726,9 +1778,18 @@
           errorMessage = 'Network error. Please check your internet connection.';
         } else if (err.message.includes('API')) {
           errorMessage = `Slack API error: ${err.message}`;
+        } else if (err.message.includes('not_in_channel') || err.message.includes('channel_not_found')) {
+          errorMessage = `Channel access error: You may not have access to this channel. Details: ${err.message}`;
+        } else if (err.message.includes('rate_limited')) {
+          errorMessage = 'Rate limited by Slack API. Please wait a moment and try again.';
         } else {
-          errorMessage = err.message;
+          // Always show the actual error to help with debugging
+          errorMessage = `Search failed: ${err.message}`;
         }
+      } else {
+        // Non-Error object
+        console.error('[App] Non-Error thrown:', err);
+        errorMessage = `Search failed: ${JSON.stringify(err)}`;
       }
       searchError.set(errorMessage);
       // Search error
@@ -2014,12 +2075,17 @@
       <div class="settings-content">
         {#if !useMultiWorkspace}
         <div class="setting-group">
+          <p class="info-text">
+            <strong>⚠️ Legacy Single-Workspace Mode</strong><br/>
+            You are currently using the legacy single-workspace mode.<br/>
+            Please enable Multi-Workspace Support below to add and manage workspaces.
+          </p>
           <label>
             <input
               type="checkbox"
               on:change={(e) => {
                 if (e.target.checked) {
-                  if (confirm('Enable multi-workspace support? Your current workspace will be preserved.')) {
+                  if (confirm('Enable multi-workspace support? This will allow you to manage multiple Slack workspaces.')) {
                     useMultiWorkspace = true;
                     localStorage.setItem('multiWorkspaceEnabled', 'true');
                     if (token) {
@@ -2035,53 +2101,7 @@
             Enable Multi-Workspace Support
           </label>
           <p class="help-text">
-            Manage multiple Slack workspaces and switch between them easily
-          </p>
-        </div>
-        
-        <div class="setting-group">
-          <label>
-            Slack User Token (Required: xoxp-)
-            <input
-              type="password"
-              bind:value={token}
-              placeholder="xoxp-xxxxxxxxxxxx"
-              on:input={(e) => {
-                const value = e.target.value.trim();
-                if (value && !value.startsWith('xoxp-')) {
-                  if (value.startsWith('xoxb-')) {
-                    alert('⚠️ Bot tokens (xoxb-) are not supported.\n\nThis app requires a User Token (xoxp-) to search messages.\nBot tokens cannot access message history or search.\n\nPlease see SLACK_TOKEN_GUIDE.md for instructions on getting a User Token.');
-                  } else if (value.length > 10) {
-                    alert('⚠️ Invalid token format.\n\nUser tokens must start with "xoxp-".\n\nPlease see SLACK_TOKEN_GUIDE.md for instructions.');
-                  }
-                }
-              }}
-            />
-          </label>
-          {#if maskedToken}
-            <p class="masked-token">Current token: {maskedToken}</p>
-          {/if}
-          <p class="help-text" style="color: var(--warning, orange); font-weight: bold;">
-            ⚠️ IMPORTANT: Must be a User Token (xoxp-), NOT a Bot Token (xoxb-)
-          </p>
-          <p class="help-text">
-            <a href="https://github.com/your-repo/personal-slack-client/blob/main/SLACK_TOKEN_GUIDE.md" target="_blank">
-              📖 Read the Token Setup Guide
-            </a> for detailed instructions
-          </p>
-        </div>
-        
-        <div class="setting-group">
-          <label>
-            Workspace Name
-            <input
-              type="text"
-              bind:value={workspace}
-              placeholder="your-workspace"
-            />
-          </label>
-          <p class="help-text">
-            The name that appears in your Slack URL (workspace.slack.com)
+            Manage multiple Slack workspaces and switch between them easily using the workspace switcher in the header.
           </p>
         </div>
       {:else}
