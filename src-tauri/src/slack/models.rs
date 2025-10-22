@@ -312,6 +312,29 @@ pub struct ReactionResponse {
 }
 
 // File models
+// Email-specific types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EmailAddress {
+    /// Email address (e.g., "user@example.com")
+    pub address: String,
+    /// Display name (e.g., "John Doe"), optional
+    pub name: Option<String>,
+    /// Original formatted string from Slack (e.g., "John Doe <user@example.com>")
+    pub original: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EmailAttachment {
+    /// Attachment filename
+    pub filename: String,
+    /// MIME type (e.g., "application/pdf")
+    pub mimetype: String,
+    /// File size in bytes
+    pub size: i64,
+    /// Download URL (private)
+    pub url: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SlackFile {
     pub id: String,
@@ -369,6 +392,26 @@ pub struct SlackFile {
     pub groups: Option<Vec<String>>,
     pub ims: Option<Vec<String>>,
     pub comments_count: Option<i32>,
+
+    // Email-specific fields (for email filetype)
+    /// Email subject line
+    pub subject: Option<String>,
+    /// List of senders (usually one)
+    pub from: Option<Vec<EmailAddress>>,
+    /// List of primary recipients
+    pub to: Option<Vec<EmailAddress>>,
+    /// List of CC recipients
+    pub cc: Option<Vec<EmailAddress>>,
+    /// List of BCC recipients (rarely provided)
+    pub bcc: Option<Vec<EmailAddress>>,
+    /// List of file attachments in the email
+    pub attachments: Option<Vec<EmailAttachment>>,
+    /// Total count of attachments
+    pub original_attachment_count: Option<i32>,
+    /// Count of inline attachments (images in body)
+    pub inline_attachment_count: Option<i32>,
+    /// Plain text version of email body
+    pub plain_text: Option<String>,
 }
 
 // Post message models

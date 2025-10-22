@@ -4,6 +4,15 @@
   import { formatFileSize, getFileContent } from '$lib/api/files';
   import { downloadFile } from '$lib/api/files';
   import { showSuccess, showError, showInfo } from '$lib/stores/toast';
+  import {
+    formatEmailAddress,
+    getPrimarySender,
+    getShortSender,
+    getAttachmentCountText,
+    getAttachmentIcon,
+    validateAttachment
+  } from '$lib/utils/emailHelpers';
+  import type { EmailAttachment } from '$lib/types/slack';
 
   export let file: SlackFile;
   export let workspaceId: string;
@@ -26,6 +35,34 @@
 
   $: formattedSize = formatFileSize(file.size);
   $: fileName = file.name || file.title || 'Untitled Email';
+
+  // Email metadata for enhanced display
+  $: primarySender = getShortSender(file.from) || 'Unknown Sender';
+  $: emailSubject = file.subject || file.name || 'Untitled Email';
+  $: attachmentInfo = getAttachmentCountText(file.original_attachment_count);
+  $: hasMetadata = !!(file.subject || file.from || file.to);
+  $: hasAttachments = !!(file.attachments && file.attachments.length > 0);
+
+  // 🔍 DEBUG: Comprehensive logging for email metadata
+  $: {
+    console.group('[EmailPreview] Reactive values updated');
+    console.log('File object:', file);
+    console.log('File type:', file.filetype);
+    console.log('Email fields:');
+    console.log('  - subject:', file.subject);
+    console.log('  - from:', file.from);
+    console.log('  - to:', file.to);
+    console.log('  - cc:', file.cc);
+    console.log('  - attachments:', file.attachments);
+    console.log('  - original_attachment_count:', file.original_attachment_count);
+    console.log('Computed values:');
+    console.log('  - hasMetadata:', hasMetadata);
+    console.log('  - primarySender:', primarySender);
+    console.log('  - emailSubject:', emailSubject);
+    console.log('  - attachmentInfo:', attachmentInfo);
+    console.log('  - hasAttachments:', hasAttachments);
+    console.groupEnd();
+  }
 
   // Debug logging
   console.log('[EmailPreview] Component mounted', { file, workspaceId, compact });
@@ -358,6 +395,57 @@ ${sanitizedHtml}
       showError('Copy failed', 'Failed to copy content', 3000);
     });
   }
+
+  /**
+   * Download an email attachment
+   */
+  async function downloadAttachment(attachment: EmailAttachment, index: number) {
+    // Validate attachment before download
+    const validation = validateAttachment(attachment);
+
+    if (!validation.valid) {
+      showError('Invalid attachment', validation.message || 'Cannot download this file', 5000);
+      return;
+    }
+
+    // Show warning if file is potentially dangerous
+    if (validation.warning) {
+      showInfo('Security warning', validation.warning, 8000);
+    }
+
+    showInfo('Download started', `Downloading ${attachment.filename}...`, 3000);
+
+    try {
+      // Create unique ID for attachment
+      const attachmentId = `${file.id}_att_${index}`;
+
+      // Use existing downloadFile API
+      const localPath = await downloadFile(
+        workspaceId,
+        attachmentId,
+        attachment.url,
+        attachment.filename
+      );
+
+      if (localPath.success) {
+        showSuccess(
+          'Download complete',
+          `${attachment.filename} saved successfully`,
+          3000
+        );
+      } else {
+        showError(
+          'Download failed',
+          `Failed to download ${attachment.filename}`,
+          5000
+        );
+      }
+    } catch (error) {
+      console.error('[EmailPreview] Attachment download error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Download failed';
+      showError('Download failed', errorMessage, 5000);
+    }
+  }
 </script>
 
 <div class="email-preview" class:compact>
@@ -374,7 +462,7 @@ ${sanitizedHtml}
       <span>{error}</span>
     </div>
   {:else if compact}
-    <button class="compact-preview" on:click={() => {}} title={fileName}>
+    <button class="compact-preview" on:click={() => {}} title={emailSubject}>
       <div class="compact-thumbnail">
         <div class="email-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -383,8 +471,22 @@ ${sanitizedHtml}
         </div>
       </div>
       <div class="compact-info">
-        <div class="email-subject">{fileName}</div>
-        <div class="file-size">{formattedSize}</div>
+        {#if hasMetadata}
+          <!-- Enhanced display with email metadata -->
+          <div class="email-from">{primarySender}</div>
+          <div class="email-subject">{emailSubject}</div>
+          <div class="email-meta">
+            {#if attachmentInfo}
+              <span class="attachment-badge">📎 {attachmentInfo}</span>
+              <span class="meta-separator">·</span>
+            {/if}
+            <span class="file-size">{formattedSize}</span>
+          </div>
+        {:else}
+          <!-- Fallback for emails without metadata -->
+          <div class="email-subject">{fileName}</div>
+          <div class="file-size">{formattedSize}</div>
+        {/if}
       </div>
     </button>
   {:else}
@@ -423,6 +525,88 @@ ${sanitizedHtml}
           </button>
         </div>
       </div>
+
+      <!-- Email Metadata Section -->
+      {#if hasMetadata && !compact}
+        <div class="email-metadata-section">
+          {#if file.from && file.from.length > 0}
+            <div class="metadata-row">
+              <span class="metadata-label">From:</span>
+              <span class="metadata-value">{formatEmailAddress(file.from)}</span>
+            </div>
+          {/if}
+
+          {#if file.to && file.to.length > 0}
+            <div class="metadata-row">
+              <span class="metadata-label">To:</span>
+              <span class="metadata-value">{formatEmailAddress(file.to)}</span>
+            </div>
+          {/if}
+
+          {#if file.cc && file.cc.length > 0}
+            <div class="metadata-row">
+              <span class="metadata-label">CC:</span>
+              <span class="metadata-value">{formatEmailAddress(file.cc)}</span>
+            </div>
+          {/if}
+
+          {#if file.subject}
+            <div class="metadata-row">
+              <span class="metadata-label">Subject:</span>
+              <span class="metadata-value subject">{file.subject}</span>
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      <!-- Email Attachments Section -->
+      {#if hasAttachments && !compact}
+        <div class="attachments-section">
+          <div class="attachments-header">
+            <span class="attachments-title">
+              📎 {file.attachments.length} Attachment{file.attachments.length !== 1 ? 's' : ''}
+            </span>
+            <span class="attachments-total-size">
+              Total: {formatFileSize(file.attachments.reduce((sum, att) => sum + att.size, 0))}
+            </span>
+          </div>
+
+          <div class="attachments-list">
+            {#each file.attachments as attachment, index (attachment.filename + index)}
+              <div class="attachment-item">
+                <div class="attachment-icon">
+                  {getAttachmentIcon(attachment.mimetype)}
+                </div>
+
+                <div class="attachment-info">
+                  <div class="attachment-name" title={attachment.filename}>
+                    {attachment.filename}
+                  </div>
+                  <div class="attachment-meta">
+                    <span class="attachment-size">{formatFileSize(attachment.size)}</span>
+                    <span class="meta-separator">·</span>
+                    <span class="attachment-type">{attachment.mimetype}</span>
+                  </div>
+                </div>
+
+                <button
+                  class="attachment-download-btn"
+                  on:click={() => downloadAttachment(attachment, index)}
+                  title="Download {attachment.filename}"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path
+                      fill="currentColor"
+                      d="M8 11L4 7h2.5V2h3v5H12L8 11zm-6 3v1h12v-1H2z"
+                    />
+                  </svg>
+                  <span>Download</span>
+                </button>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
 
       <div class="email-content">
         <div class="email-body">
@@ -500,23 +684,54 @@ ${sanitizedHtml}
   .compact-info {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.125rem;  /* Reduced from 0.25rem to accommodate 3 lines */
     flex: 1;
     min-width: 0;
+  }
+
+  /* Email from field in thumbnail */
+  .email-from {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 0.125rem;
   }
 
   .email-subject {
     font-size: 0.875rem;
     font-weight: 500;
     color: var(--color-text-primary);
-    white-space: normal;
+    white-space: nowrap;
     overflow: hidden;
-    line-height: 1.4;
-    word-break: break-word;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    max-height: 2.8rem; /* 1.4 line-height * 2 lines */
+    text-overflow: ellipsis;
+    line-height: 1.3;
+  }
+
+  /* Email metadata row (attachments + size) */
+  .email-meta {
+    display: flex;
+    gap: 0.375rem;
+    align-items: center;
+    font-size: 0.6875rem;
+    color: var(--color-text-secondary);
+  }
+
+  /* Separator dot between metadata items */
+  .meta-separator {
+    color: var(--color-text-tertiary);
+    opacity: 0.6;
+  }
+
+  /* Attachment count badge */
+  .attachment-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--color-primary);
+    font-weight: 500;
   }
 
   .compact-info .file-size {
@@ -641,6 +856,220 @@ ${sanitizedHtml}
   .action-btn.primary:hover:not(:disabled) {
     background: var(--color-primary-hover);
     border-color: var(--color-primary-hover);
+  }
+
+  /* Email Metadata Section */
+  .email-metadata-section {
+    padding: 0.875rem 1rem;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    flex-shrink: 0;
+  }
+
+  .metadata-row {
+    display: flex;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    align-items: baseline;
+  }
+
+  .metadata-label {
+    color: var(--color-text-secondary);
+    font-weight: 600;
+    min-width: 70px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+
+  .metadata-value {
+    color: var(--color-text-primary);
+    word-break: break-word;
+    flex: 1;
+    line-height: 1.6;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .metadata-value.subject {
+    font-weight: 500;
+  }
+
+  /* ============================================
+     Email Attachments Section
+     ============================================ */
+
+  .attachments-section {
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+    flex-shrink: 0;
+  }
+
+  .attachments-header {
+    padding: 0.75rem 1rem;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .attachments-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .attachments-total-size {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    font-weight: 500;
+  }
+
+  .attachments-list {
+    padding: 0.625rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  /* Individual attachment item */
+  .attachment-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.02);
+    border: 1px solid var(--color-border);
+    border-radius: 0.375rem;
+    transition: all 0.15s ease;
+  }
+
+  .attachment-item:hover {
+    background: var(--color-hover-bg);
+    border-color: var(--color-border);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Attachment icon */
+  .attachment-icon {
+    font-size: 1.75rem;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+
+  /* Attachment info (name and metadata) */
+  .attachment-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .attachment-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+  }
+
+  .attachment-meta {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .attachment-size {
+    font-weight: 500;
+  }
+
+  .attachment-type {
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+    font-size: 0.6875rem;
+    opacity: 0.8;
+  }
+
+  /* Download button */
+  .attachment-download-btn {
+    padding: 0.5rem 0.875rem;
+    background: var(--color-primary);
+    border: none;
+    border-radius: 0.25rem;
+    color: white;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .attachment-download-btn:hover {
+    background: var(--color-primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  }
+
+  .attachment-download-btn:active {
+    transform: translateY(0);
+  }
+
+  .attachment-download-btn svg {
+    opacity: 0.95;
+  }
+
+  /* Scrollbar styling for attachment list */
+  .attachments-list::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .attachments-list::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 4px;
+  }
+
+  .attachments-list::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+  }
+
+  .attachments-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+  }
+
+  /* Responsive: Stack download button on small screens */
+  @media (max-width: 640px) {
+    .attachment-item {
+      flex-wrap: wrap;
+    }
+
+    .attachment-download-btn {
+      width: 100%;
+      justify-content: center;
+      margin-top: 0.25rem;
+    }
   }
 
   .email-content {

@@ -408,4 +408,54 @@ export interface SlackFile {
   groups?: string[];
   ims?: string[];
   comments_count?: number;
+
+  // Email-specific fields (optional for backward compatibility)
+  /** Email subject line */
+  subject?: string;
+  /** List of senders (usually one) */
+  from?: EmailAddress[];
+  /** List of primary recipients */
+  to?: EmailAddress[];
+  /** List of CC recipients */
+  cc?: EmailAddress[];
+  /** List of BCC recipients (rarely provided) */
+  bcc?: EmailAddress[];
+  /** List of file attachments in the email */
+  attachments?: EmailAttachment[];
+  /** Total count of attachments */
+  original_attachment_count?: number;
+  /** Count of inline attachments (images in body) */
+  inline_attachment_count?: number;
+  /** Plain text version of email body */
+  plain_text?: string;
+}
+
+/**
+ * Email address with display name
+ * Used in email files for from/to/cc/bcc fields
+ */
+export interface EmailAddress {
+	/** Email address (e.g., "user@example.com") */
+	address: string;
+	/** Display name (e.g., "John Doe") */
+	name: string;
+	/** Original format (e.g., "John Doe <user@example.com>") */
+	original: string;
+}
+
+/**
+ * Email attachment metadata
+ * Represents files attached to forwarded email messages
+ */
+export interface EmailAttachment {
+	/** File name as it appears in the email */
+	filename: string;
+	/** File size in bytes */
+	size: number;
+	/** MIME type (e.g., "application/pdf") */
+	mimetype: string;
+	/** Authenticated download URL from Slack */
+	url: string;
+	/** Additional metadata (usually null) */
+	metadata: any | null;
 }
