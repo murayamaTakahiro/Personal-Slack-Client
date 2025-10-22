@@ -100,7 +100,7 @@
 
     // Prevent default behavior for navigation keys FIRST
     // This ensures the App.svelte handler sees defaultPrevented = true
-    const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'j', 'k', 'h', 'l', 'J', 'K', 'H', 'L', 'PageUp', 'PageDown', 'Home', 'End', 'd', 'D', '+', '-', '=', '0', '?', 'Escape', 'f', 'F', 'c', 'C'];
+    const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'j', 'k', 'h', 'l', 'J', 'K', 'H', 'L', 'PageUp', 'PageDown', 'Home', 'End', 'd', 'D', '+', '-', '=', '0', '?', 'Escape', 'f', 'F', 'c', 'C', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
     if (navigationKeys.includes(event.key) || (event.key === '0' && (event.ctrlKey || event.metaKey))) {
       event.preventDefault();
     }
@@ -215,17 +215,32 @@
         showKeyboardHelp();
         break;
       case 'd':
-        if (event.shiftKey) {
-          // Shift+d - Download all files from current message
-          downloadAllFiles();
+      case 'D':
+        // D - Download all email attachments (or current file for non-email)
+        if (isEmail && file.file.attachments && file.file.attachments.length > 0) {
+          // For email files, download all attachments
+          downloadAllEmailAttachments();
         } else {
-          // d - Download current file
+          // For non-email files, download the current file
           downloadFullFile(false);
         }
         break;
-      case 'D':
-        // Capital D (Shift+d) - Download all files
-        downloadAllFiles();
+      case '1':
+      case '2':
+      case '3':
+      case '4':
+      case '5':
+      case '6':
+      case '7':
+      case '8':
+      case '9':
+        // Download email attachment by number (1-9)
+        if (isEmail && file.file.attachments) {
+          const attachmentIndex = parseInt(event.key) - 1;
+          if (attachmentIndex < file.file.attachments.length) {
+            downloadEmailAttachment(attachmentIndex);
+          }
+        }
         break;
       case 'c':
         // c - Copy content to clipboard (for text/CSV files)
@@ -936,6 +951,119 @@
     }
   }
 
+  /**
+   * Download a specific email attachment by index
+   */
+  async function downloadEmailAttachment(attachmentIndex: number) {
+    if (!file.file.attachments || attachmentIndex >= file.file.attachments.length) {
+      return;
+    }
+
+    const attachment = file.file.attachments[attachmentIndex];
+
+    showInfo(
+      'Download started',
+      `Downloading ${attachment.filename}...`,
+      3000
+    );
+
+    try {
+      const downloadFolder = getDownloadFolder();
+      const result = await downloadFile(
+        $activeWorkspace?.id || 'default',
+        `${file.file.id}_att_${attachmentIndex}`,
+        attachment.url,
+        attachment.filename,
+        {
+          savePath: downloadFolder,
+          showDialog: !downloadFolder
+        }
+      );
+
+      if (result.success) {
+        const location = downloadFolder || 'Downloads folder';
+        showSuccess(
+          'Download complete',
+          `${attachment.filename} saved to ${location}`,
+          3000
+        );
+      } else if (result.error && !result.error.includes('cancelled')) {
+        showError(
+          'Download failed',
+          `Failed to download ${attachment.filename}: ${result.error}`,
+          5000
+        );
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Download failed';
+      showError(
+        'Download failed',
+        `Failed to download ${attachment.filename}: ${errorMessage}`,
+        5000
+      );
+    }
+  }
+
+  /**
+   * Download all email attachments (not the email file itself)
+   */
+  async function downloadAllEmailAttachments() {
+    if (!file.file.attachments || file.file.attachments.length === 0) {
+      return;
+    }
+
+    const totalAttachments = file.file.attachments.length;
+
+    showInfo(
+      'Batch download started',
+      `Downloading ${totalAttachments} attachment${totalAttachments !== 1 ? 's' : ''}...`,
+      3000
+    );
+
+    try {
+      const downloadFolder = getDownloadFolder();
+      const filesToDownload = file.file.attachments.map((attachment) => ({
+        url: attachment.url,
+        fileName: attachment.filename
+      }));
+
+      const result = await downloadFilesInBatch(filesToDownload, {
+        savePath: downloadFolder,
+        showDialog: !downloadFolder
+      });
+
+      if (result.success) {
+        const downloadedCount = result.paths?.length || 0;
+        const location = downloadFolder || 'Downloads folder';
+
+        showSuccess(
+          'Batch download complete',
+          `${downloadedCount} of ${totalAttachments} attachments saved to ${location}`,
+          3000
+        );
+
+        // List file names if reasonable number
+        if (downloadedCount > 0 && downloadedCount <= 5) {
+          const fileNames = file.file.attachments.slice(0, downloadedCount).map((attachment) => attachment.filename).join(', ');
+          showInfo('Downloaded attachments', fileNames, 5000);
+        }
+      } else if (result.error && !result.error.includes('cancelled')) {
+        showError(
+          'Batch download failed',
+          `Failed to download attachments: ${result.error}`,
+          5000
+        );
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Batch download failed';
+      showError(
+        'Batch download failed',
+        `Failed to download attachments: ${errorMessage}`,
+        5000
+      );
+    }
+  }
+
   function handleBackdropClick(event: MouseEvent) {
     if (event.target === containerElement) {
       onClose();
@@ -1328,6 +1456,7 @@
               workspaceId={$activeWorkspace?.id || 'default'}
               compact={false}
               hideHeader={true}
+              showAccessKeys={true}
             />
           {/key}
         </div>

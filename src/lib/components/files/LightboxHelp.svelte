@@ -30,8 +30,8 @@
       { key: 'Scroll wheel', description: 'Zoom in/out (images only)' }
     ]},
     { category: 'Download', items: [
-      { key: 'd', description: 'Download current file' },
-      { key: 'Shift+d', description: 'Download all files' }
+      { key: 'd', description: 'Download file (or all attachments for email)' },
+      { key: '1-9', description: 'Download specific email attachment by number' }
     ]},
     { category: 'Text Files', items: [
       { key: 'c / Shift+c', description: 'Copy text content to clipboard' }
