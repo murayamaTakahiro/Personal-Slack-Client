@@ -368,7 +368,7 @@
 
 <style>
   .excel-preview {
-    max-width: 200px;
+    width: 100%;
     border-radius: 0.375rem;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
