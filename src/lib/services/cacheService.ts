@@ -13,7 +13,7 @@ class CacheService {
   private readonly CACHE_PREFIX = 'slack_cache_';
   private readonly CHANNELS_KEY = 'channels';
   private readonly USERS_KEY = 'users';
-  private readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+  private readonly DEFAULT_CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours default
 
   /**
    * Save channels to cache
@@ -38,7 +38,7 @@ class CacheService {
   }
 
   /**
-   * Load channels from cache
+   * Load channels from cache (returns data even if expired, use isCacheValid to check freshness)
    */
   loadChannels(workspaceId?: string): [string, string][] | null {
     try {
@@ -50,13 +50,6 @@ class CacheService {
       if (!cached) return null;
 
       const cacheData: CacheData<[string, string][]> = JSON.parse(cached);
-
-      // Check if cache is still valid
-      if (Date.now() - cacheData.timestamp > this.CACHE_DURATION) {
-        console.log('[CacheService] Channels cache expired');
-        localStorage.removeItem(key);
-        return null;
-      }
 
       console.log('[CacheService] Loaded channels from cache:', cacheData.data.length);
       return cacheData.data;
@@ -89,7 +82,7 @@ class CacheService {
   }
 
   /**
-   * Load users from cache
+   * Load users from cache (returns data even if expired, use isCacheValid to check freshness)
    */
   loadUsers(workspaceId?: string): any[] | null {
     try {
@@ -101,13 +94,6 @@ class CacheService {
       if (!cached) return null;
 
       const cacheData: CacheData<any[]> = JSON.parse(cached);
-
-      // Check if cache is still valid
-      if (Date.now() - cacheData.timestamp > this.CACHE_DURATION) {
-        console.log('[CacheService] Users cache expired');
-        localStorage.removeItem(key);
-        return null;
-      }
 
       console.log('[CacheService] Loaded users from cache:', cacheData.data.length);
       return cacheData.data;
@@ -169,6 +155,59 @@ class CacheService {
     } catch (error) {
       return null;
     }
+  }
+
+  /**
+   * Check if cache is valid (not expired) based on max age
+   * @param type - Type of cache to check
+   * @param workspaceId - Optional workspace ID
+   * @param maxAge - Maximum age in milliseconds (defaults to DEFAULT_CACHE_DURATION)
+   * @returns true if cache exists and is within max age, false otherwise
+   */
+  isCacheValid(type: 'channels' | 'users', workspaceId?: string, maxAge?: number): boolean {
+    try {
+      const age = this.getCacheAge(type, workspaceId);
+      if (age === null) return false;
+
+      const maxAgeToUse = maxAge !== undefined ? maxAge : this.DEFAULT_CACHE_DURATION;
+      return age <= maxAgeToUse;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Get the timestamp of when cache was last updated
+   * @param type - Type of cache to check
+   * @param workspaceId - Optional workspace ID
+   * @returns timestamp in milliseconds or null if not found
+   */
+  getLastRefreshTimestamp(type: 'channels' | 'users', workspaceId?: string): number | null {
+    try {
+      const keyBase = type === 'channels' ? this.CHANNELS_KEY : this.USERS_KEY;
+      const key = workspaceId
+        ? `${this.CACHE_PREFIX}${workspaceId}_${keyBase}`
+        : `${this.CACHE_PREFIX}${keyBase}`;
+
+      const cached = localStorage.getItem(key);
+      if (!cached) return null;
+
+      const cacheData: CacheData<any> = JSON.parse(cached);
+      return cacheData.timestamp;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Check if both channels and users cache are valid
+   * @param workspaceId - Optional workspace ID
+   * @param maxAge - Maximum age in milliseconds (defaults to DEFAULT_CACHE_DURATION)
+   * @returns true if both caches exist and are valid
+   */
+  isWorkspaceCacheValid(workspaceId?: string, maxAge?: number): boolean {
+    return this.isCacheValid('channels', workspaceId, maxAge) &&
+           this.isCacheValid('users', workspaceId, maxAge);
   }
 }
 

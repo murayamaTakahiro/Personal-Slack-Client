@@ -100,6 +100,7 @@ const defaultSettings: AppSettings = {
   debugMode: false,  // Performance monitor is hidden by default
   downloadFolder: null,  // null means use default Downloads folder
   enableAccessKeyHints: true,  // Excel-style Alt key access hints enabled by default
+  channelCacheMaxAge: 6 * 60 * 60 * 1000,  // 6 hours default cache duration
   experimentalFeatures: {
     highlightNewSearchResults: true  // New message highlighting is enabled by default
   }

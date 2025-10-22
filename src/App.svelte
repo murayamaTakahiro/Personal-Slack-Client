@@ -48,6 +48,7 @@
   import PerformanceSettings from './lib/components/PerformanceSettings.svelte';
   import PerformanceDashboard from './lib/components/PerformanceDashboard.svelte';
   import DownloadSettings from './lib/components/DownloadSettings.svelte';
+  import CacheSettings from './lib/components/CacheSettings.svelte';
   import Toast from './lib/components/Toast.svelte';
   import LightboxContainer from './lib/components/files/LightboxContainer.svelte';
   import { lightboxOpen } from './lib/stores/filePreview';
@@ -497,6 +498,14 @@
       } catch (error) {
         console.error('[App] Failed to add workspace switch listener:', error);
       }
+
+      // Add force refresh workspace data event listener
+      try {
+        window.addEventListener('force-refresh-workspace-data', handleForceRefreshWorkspaceData);
+        console.log('[App] Force refresh workspace data listener added successfully');
+      } catch (error) {
+        console.error('[App] Failed to add force refresh listener:', error);
+      }
       
       // Initialize workspace mode with robust error handling
       await initializeWorkspaceMode();
@@ -642,6 +651,7 @@
     accessKeyService.clearAll();
     if (typeof window !== 'undefined') {
       window.removeEventListener('workspace-switched', handleWorkspaceSwitched);
+      window.removeEventListener('force-refresh-workspace-data', handleForceRefreshWorkspaceData);
     }
     // Clean up realtime updates
     stopRealtimeUpdates();
@@ -1274,29 +1284,38 @@
       
       console.log('[App] saveCurrentSearch handler registered successfully');
 
-      // Refresh Search - re-execute search with same conditions
+      // Refresh Search - re-execute search with same conditions AND refresh workspace data
       keyboardService.registerHandler('refreshSearch', {
-        action: () => {
-          // 1. ライブモード時は何もせず終了（サイレント）
+        action: async () => {
+          // 1. Always refresh workspace data (channels/users) from Slack API
+          console.log('[App] Force refreshing workspace data...');
+          try {
+            await loadChannels(true);  // forceRefresh = true
+          } catch (error) {
+            console.error('[App] Failed to refresh workspace data:', error);
+            showToast('Failed to refresh workspace data', 'error');
+          }
+
+          // 2. ライブモード時は検索リフレッシュをスキップ
           if (get(realtimeStore).isEnabled) {
             return;
           }
 
-          // 2. SearchBar が存在するか確認
+          // 3. SearchBar が存在するか確認
           if (!searchBarElement?.triggerRealtimeSearch) {
             console.warn('[App] Search refresh unavailable: SearchBar not ready');
             return;
           }
 
-          // 3. 検索が実行済みか確認（未実行時もサイレント）
+          // 4. 検索が実行済みか確認（未実行時もサイレント）
           if (!get(searchParams) || !get(searchResults)) {
             return;
           }
 
-          // 4. リフレッシュ実行
+          // 5. 検索リフレッシュ実行
           console.log('[App] Refreshing search with current conditions');
           searchBarElement.triggerRealtimeSearch();
-          showToast('検索を更新しました', 'info');
+          showToast('Search and workspace data refreshed', 'info');
         },
         allowInInput: false  // 入力中は無効
       });
@@ -1406,6 +1425,16 @@
     }
   }
   
+  async function handleForceRefreshWorkspaceData() {
+    try {
+      console.log('[App] Handling force refresh workspace data...');
+      await loadChannels(true); // forceRefresh = true
+    } catch (error) {
+      console.error('[App] Failed to force refresh workspace data:', error);
+      showToast('Failed to refresh workspace data', 'error');
+    }
+  }
+
   async function handleWorkspaceSwitched(event: CustomEvent) {
     try {
       console.log('[App] Handling workspace switch...');
@@ -1809,11 +1838,15 @@
     }
   }
   
-  async function loadChannels() {
+  async function loadChannels(forceRefresh: boolean = false) {
     try {
       // Get current workspace ID if in multi-workspace mode
       const currentWorkspace = get(activeWorkspace);
       const workspaceId = currentWorkspace?.id;
+
+      // Get cache max age from settings (default: 6 hours)
+      const currentSettings = get(settings);
+      const cacheMaxAge = currentSettings.channelCacheMaxAge || (6 * 60 * 60 * 1000);
 
       // Step 1: Load cached data immediately for instant UI
       const cachedChannels = cacheService.loadChannels(workspaceId);
@@ -1821,54 +1854,68 @@
 
       if (cachedChannels && cachedUsers) {
         const cacheAge = cacheService.getCacheAge('channels', workspaceId) || 0;
-        console.log(`[Performance] Using cached data (age: ${(cacheAge / 1000 / 60).toFixed(0)} minutes)`);
+        console.log(`[Cache] Using cached data (age: ${(cacheAge / 1000 / 60).toFixed(0)} minutes, max: ${(cacheMaxAge / 1000 / 60).toFixed(0)} minutes)`);
 
-        // Show cached data immediately
+        // Show cached data immediately - this enables search right away!
         channels = cachedChannels;
         await channelStore.initChannels(channels);
         await userStore.initUsers(cachedUsers);
 
-        // Mark that we're using cached data
-        // Removed unnecessary toast notification during refresh
-        // showToast('Loading workspace data...', 'info', 1000);
+        console.log('[Cache] Workspace data loaded from cache - search is now ready!');
       } else {
-        console.log('[Performance] No valid cache found, loading fresh data...');
+        console.log('[Cache] No cache found, will load fresh data...');
         // Clear existing channels while loading
         channels = [];
       }
 
-      // Step 2: Load fresh data in parallel (background refresh if cached)
-      const includeDMs = true; // Always include DMs in channel list
-      const startTime = performance.now();
-      console.log('[Performance] Starting parallel load of channels and users...');
+      // Step 2: Check if we need to refresh
+      const needsRefresh = forceRefresh ||
+                          !cacheService.isWorkspaceCacheValid(workspaceId, cacheMaxAge);
 
-      const [newChannels, users] = await Promise.all([
-        getUserChannels(includeDMs),
-        getUsers()
-      ]);
+      if (needsRefresh) {
+        // Load fresh data in background (non-blocking if cache exists)
+        const includeDMs = true; // Always include DMs in channel list
+        const startTime = performance.now();
 
-      const loadTime = performance.now() - startTime;
-      console.log(`[Performance] Fresh data loaded in ${loadTime.toFixed(0)}ms`);
-      console.log('[DEBUG] Received channels:', newChannels.length);
-      console.log('[DEBUG] Received users:', users?.length || 0);
+        if (cachedChannels && cachedUsers) {
+          console.log('[Cache] Cache is stale, refreshing in background...');
+        } else {
+          console.log('[Cache] No cache, fetching fresh data...');
+        }
 
-      // Step 3: Update cache for next time
-      cacheService.saveChannels(newChannels, workspaceId);
-      cacheService.saveUsers(users, workspaceId);
+        const [newChannels, users] = await Promise.all([
+          getUserChannels(includeDMs),
+          getUsers()
+        ]);
 
-      // Step 4: Update UI with fresh data
-      const dmChannels = newChannels.filter(([id, name]) => name.startsWith('@'));
-      console.log('[DEBUG] DM channels found:', dmChannels.length);
+        const loadTime = performance.now() - startTime;
+        console.log(`[Cache] Fresh data fetched in ${loadTime.toFixed(0)}ms`);
+        console.log('[DEBUG] Received channels:', newChannels.length);
+        console.log('[DEBUG] Received users:', users?.length || 0);
 
-      channels = newChannels || [];
-      await channelStore.initChannels(channels);
-      await userStore.initUsers(users);
+        // Step 3: Update cache for next time
+        cacheService.saveChannels(newChannels, workspaceId);
+        cacheService.saveUsers(users, workspaceId);
 
-      // Show success message only if we loaded fresh data
-      if (!cachedChannels || !cachedUsers) {
-        console.log('[Performance] Workspace data loaded successfully');
+        // Step 4: Update UI with fresh data
+        const dmChannels = newChannels.filter(([id, name]) => name.startsWith('@'));
+        console.log('[DEBUG] DM channels found:', dmChannels.length);
+
+        channels = newChannels || [];
+        await channelStore.initChannels(channels);
+        await userStore.initUsers(users);
+
+        // Show appropriate message
+        if (!cachedChannels || !cachedUsers) {
+          console.log('[Cache] Initial workspace data loaded successfully');
+        } else {
+          console.log('[Cache] Workspace data refreshed successfully');
+          if (forceRefresh) {
+            showToast('Workspace data refreshed', 'success', 2000);
+          }
+        }
       } else {
-        console.log('[Performance] Workspace data refreshed in background');
+        console.log('[Cache] Cache is still valid, skipping refresh');
       }
     } catch (err) {
       console.error('[DEBUG] Failed to load channels:', err);
@@ -2154,13 +2201,15 @@
         </div>
 
         <KeyboardSettings />
-        
+
         <EmojiSettings />
-        
+
         <RealtimeSettings />
-        
+
+        <CacheSettings />
+
         <PerformanceSettings />
-        
+
         <DownloadSettings />
 
         <div class="setting-group">
