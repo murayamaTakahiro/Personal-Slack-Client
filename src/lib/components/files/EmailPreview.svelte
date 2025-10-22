@@ -473,7 +473,7 @@ ${sanitizedHtml}
       <div class="compact-info">
         {#if hasMetadata}
           <!-- Enhanced display with email metadata -->
-          <div class="email-from">{primarySender}</div>
+          <div class="email-from">From: {primarySender}</div>
           <div class="email-subject">{emailSubject}</div>
           <div class="email-meta">
             {#if attachmentInfo}
