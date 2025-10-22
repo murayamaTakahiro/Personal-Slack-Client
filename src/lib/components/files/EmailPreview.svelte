@@ -17,6 +17,7 @@
   export let file: SlackFile;
   export let workspaceId: string;
   export let compact: boolean = false;
+  export let hideHeader: boolean = false;
 
   // Extract sender from username or user field
   $: sender = file.username || file.user || 'Unknown';
@@ -491,40 +492,42 @@ ${sanitizedHtml}
     </button>
   {:else}
     <div class="preview-container">
-      <div class="preview-header">
-        <div class="file-info">
-          <span class="file-name">{fileName}</span>
-          <span class="file-meta">{formattedSize}</span>
-        </div>
+      {#if !hideHeader}
+        <div class="preview-header">
+          <div class="file-info">
+            <span class="file-name">{fileName}</span>
+            <span class="file-meta">{formattedSize}</span>
+          </div>
 
 
-        <div class="preview-actions">
-          <button
-            class="action-btn"
-            on:click={copyToClipboard}
-            title="Copy to clipboard"
-            disabled={!rawContent || rawContent.includes('[Preview not available')}
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16">
-              <path fill="currentColor" d="M10 3H6C4.9 3 4 3.9 4 5v9c0 1.1.9 2 2 2h7c1.1 0 2-.9 2-2V8l-5-5zm4 11c0 .55-.45 1-1 1H6c-.55 0-1-.45-1-1V5c0-.55.45-1 1-1h3v3c0 .55.45 1 1 1h3v6zm-4-8V3.5L13.5 7H10z"/>
-            </svg>
-          </button>
-          <button
-            class="action-btn primary"
-            on:click={handleDownload}
-            disabled={isDownloading}
-            title="Download file"
-          >
-            {#if isDownloading}
-              <div class="spinner small"></div>
-            {:else}
+          <div class="preview-actions">
+            <button
+              class="action-btn"
+              on:click={copyToClipboard}
+              title="Copy to clipboard"
+              disabled={!rawContent || rawContent.includes('[Preview not available')}
+            >
               <svg width="14" height="14" viewBox="0 0 16 16">
-                <path fill="currentColor" d="M8 11L4 7h2.5V2h3v5H12L8 11zm-6 3v1h12v-1H2z"/>
+                <path fill="currentColor" d="M10 3H6C4.9 3 4 3.9 4 5v9c0 1.1.9 2 2 2h7c1.1 0 2-.9 2-2V8l-5-5zm4 11c0 .55-.45 1-1 1H6c-.55 0-1-.45-1-1V5c0-.55.45-1 1-1h3v3c0 .55.45 1 1 1h3v6zm-4-8V3.5L13.5 7H10z"/>
               </svg>
-            {/if}
-          </button>
+            </button>
+            <button
+              class="action-btn primary"
+              on:click={handleDownload}
+              disabled={isDownloading}
+              title="Download file"
+            >
+              {#if isDownloading}
+                <div class="spinner small"></div>
+              {:else}
+                <svg width="14" height="14" viewBox="0 0 16 16">
+                  <path fill="currentColor" d="M8 11L4 7h2.5V2h3v5H12L8 11zm-6 3v1h12v-1H2z"/>
+                </svg>
+              {/if}
+            </button>
+          </div>
         </div>
-      </div>
+      {/if}
 
       <!-- Email Metadata Section -->
       {#if hasMetadata && !compact}

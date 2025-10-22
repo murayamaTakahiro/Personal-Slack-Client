@@ -1327,6 +1327,7 @@
               file={file.file}
               workspaceId={$activeWorkspace?.id || 'default'}
               compact={false}
+              hideHeader={true}
             />
           {/key}
         </div>
