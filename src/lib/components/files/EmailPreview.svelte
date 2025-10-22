@@ -9,6 +9,9 @@
   export let workspaceId: string;
   export let compact: boolean = false;
 
+  // Extract sender from username or user field
+  $: sender = file.username || file.user || 'Unknown';
+
   type ViewMode = 'html';
   let viewMode: ViewMode = 'html';  // HTML-only view
   let isLoading = true;
@@ -374,13 +377,13 @@ ${sanitizedHtml}
     <button class="compact-preview" on:click={() => {}} title={fileName}>
       <div class="compact-thumbnail">
         <div class="email-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill="currentColor"/>
           </svg>
         </div>
       </div>
       <div class="compact-info">
-        <div class="file-name">{fileName}</div>
+        <div class="email-subject">{fileName}</div>
         <div class="file-size">{formattedSize}</div>
       </div>
     </button>
@@ -448,7 +451,7 @@ ${sanitizedHtml}
   .email-preview.compact {
     border-radius: 0.375rem;
     width: 100%;
-    max-width: 100px;
+    max-width: none;
     background: transparent;
     border: none;
     height: auto;
@@ -456,38 +459,37 @@ ${sanitizedHtml}
 
   .compact-preview {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0;
-    width: 100%;
-    background: transparent;
-    border: none;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    width: fit-content;
+    max-width: 100%;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.375rem;
     cursor: pointer;
     transition: all 0.2s;
+    min-height: 52px;
   }
 
   .compact-preview:hover {
-    transform: scale(1.02);
+    border-color: var(--color-primary);
+    background: var(--color-hover-bg);
   }
 
   .compact-thumbnail {
-    width: 100px;
-    height: 75px;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--color-email-bg);
     border: 1px solid var(--color-border);
-    border-radius: 0.375rem;
+    border-radius: 0.25rem;
     overflow: hidden;
     position: relative;
-    transition: all 0.2s;
-  }
-
-  .compact-preview:hover .compact-thumbnail {
-    border-color: var(--color-primary);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
   .email-icon {
@@ -498,25 +500,27 @@ ${sanitizedHtml}
   .compact-info {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 0.125rem;
-    width: 100%;
-    padding: 0 0.25rem;
+    gap: 0.25rem;
+    flex: 1;
+    min-width: 0;
   }
 
-  .compact-info .file-name {
-    font-size: 0.6875rem;
+  .email-subject {
+    font-size: 0.875rem;
     font-weight: 500;
     color: var(--color-text-primary);
-    white-space: nowrap;
+    white-space: normal;
     overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-    text-align: center;
+    line-height: 1.4;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    max-height: 2.8rem; /* 1.4 line-height * 2 lines */
   }
 
   .compact-info .file-size {
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
     color: var(--color-text-secondary);
   }
 

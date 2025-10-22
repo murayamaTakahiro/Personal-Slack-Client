@@ -184,7 +184,7 @@
           
           <div class="files-grid" class:image-grid={group.type === 'image'}>
             {#each group.files as metadata (metadata.file.id)}
-              <div class="file-item">
+              <div class="file-item" class:email={group.type === 'email'}>
                 {#if group.type === 'image'}
                   <ImagePreview
                     file={metadata.file}
@@ -418,6 +418,11 @@
 
   .file-item {
     display: flex;
+  }
+
+  /* Email file items should span the full width of the grid */
+  .file-item.email {
+    grid-column: 1 / -1;
   }
 
   .files-footer {
