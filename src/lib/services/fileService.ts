@@ -15,6 +15,7 @@ export type FileType =
   | 'pdf'
   | 'text'         // Plain text files (txt, log, etc.)
   | 'csv'          // CSV and TSV files
+  | 'email'        // Email files (eml, html emails)
   | 'excel'        // Excel files (xlsx, xls)
   | 'word'         // Word documents (docx, doc)
   | 'powerpoint'   // PowerPoint presentations (pptx, ppt)
@@ -53,6 +54,18 @@ export function getFileType(file: SlackFile): FileType {
   const fileExt = file.name?.split('.').pop()?.toLowerCase() || '';
   const filetype = file.filetype?.toLowerCase() || '';
 
+  // Debug logging for email files
+  if (file.name?.includes('メール') || prettyType.includes('メール') || prettyType.includes('email')) {
+    console.log('[getFileType] Potential email file detected:', {
+      name: file.name,
+      mimetype: mimeType,
+      prettyType: prettyType,
+      fileExt: fileExt,
+      filetype: filetype,
+      fullFile: file
+    });
+  }
+
   // Google Docs/Sheets (PRIORITY: Check first to avoid conflicts with generic spreadsheet/document detection)
   if (file.is_external) {
     const url = file.url_private || '';
@@ -81,6 +94,24 @@ export function getFileType(file: SlackFile): FileType {
   // PDF files
   if (mimeType === 'application/pdf' || prettyType.includes('pdf')) {
     return 'pdf';
+  }
+
+  // Email files (must check before generic text/html)
+  const emailExtensions = ['eml', 'msg'];
+  const emailMimeTypes = ['message/rfc822', 'message/rfc2822'];
+
+  // Check for email indicators in pretty_type or filetype
+  const emailIndicators = ['email', 'メール', 'eメール', 'e-mail', 'mail'];
+  const hasEmailIndicator = emailIndicators.some(indicator =>
+    prettyType.includes(indicator) || filetype.includes(indicator)
+  );
+
+  if (emailExtensions.includes(fileExt) ||
+      emailMimeTypes.includes(mimeType) ||
+      hasEmailIndicator ||
+      (mimeType === 'text/html' && file.name && file.name.includes('メール'))) {
+    console.log('[getFileType] Email file detected!', { name: file.name, prettyType, filetype, mimeType });
+    return 'email';
   }
 
   // Text files (specific handling for plain text)
@@ -264,6 +295,7 @@ export function groupFilesByType(files: SlackFile[]): FileGroup[] {
     'pdf',
     'text',
     'csv',
+    'email',
     'excel',
     'word',
     'powerpoint',
@@ -326,6 +358,7 @@ export function getFileTypeDisplayName(type: FileType): string {
     pdf: 'PDFs',
     text: 'Text Files',
     csv: 'CSV/TSV Files',
+    email: 'Email Messages',
     excel: 'Excel Files',
     word: 'Word Documents',
     powerpoint: 'PowerPoint Presentations',

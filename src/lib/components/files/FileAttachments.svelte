@@ -14,6 +14,7 @@
   import PdfPreview from './PdfPreview.svelte';
   import TextPreview from './TextPreview.svelte';
   import CsvPreview from './CsvPreview.svelte';
+  import EmailPreview from './EmailPreview.svelte';
   import ExcelPreview from './ExcelPreview.svelte';
   import WordPreview from './WordPreview.svelte';
   import OfficePreview from './OfficePreview.svelte';
@@ -205,6 +206,12 @@
                   />
                 {:else if group.type === 'csv'}
                   <CsvPreview
+                    file={metadata.file}
+                    {workspaceId}
+                    {compact}
+                  />
+                {:else if group.type === 'email'}
+                  <EmailPreview
                     file={metadata.file}
                     {workspaceId}
                     {compact}

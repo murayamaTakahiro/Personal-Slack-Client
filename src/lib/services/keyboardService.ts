@@ -177,13 +177,9 @@ export class KeyboardService {
   handleKeyboardEvent(event: KeyboardEvent): boolean {
     if (!this.enabled) return false;
 
-    // Check if lightbox is open - if so, let it handle all navigation keys
-    if (get(lightboxOpen)) {
-      // Block all keyboard shortcuts when lightbox is open
-      // The lightbox component handles its own keyboard events
-      console.log('🔍 DEBUG: Lightbox is open, blocking keyboard shortcuts');
-      return false;
-    }
+    // Lightbox handles its own keyboard events with capture: true
+    // It calls preventDefault() and stopPropagation(), so events won't reach here anyway
+    // No need to block - Lightbox's capture handler prevents event from bubbling down
 
     // Log for navigation keys and important keys to debug
     if (['i', 'r', 'p', 't', '1', '2', '3', '/', 'j', 'k', 'e', 'ArrowUp', 'ArrowDown'].includes(event.key.toLowerCase()) || (event.key === 'Enter' && event.altKey) || (event.key === '/' && event.ctrlKey) || event.shiftKey) {

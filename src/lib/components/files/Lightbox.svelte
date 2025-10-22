@@ -12,6 +12,7 @@
   import MultiPagePdfRenderer from './MultiPagePdfRenderer.svelte';
   import TextPreview from './TextPreview.svelte';
   import CsvPreview from './CsvPreview.svelte';
+  import EmailPreview from './EmailPreview.svelte';
   import ExcelPreview from './ExcelPreview.svelte';
   import WordPreview from './WordPreview.svelte';
   import OfficePreview from './OfficePreview.svelte';
@@ -61,6 +62,7 @@
   $: isPdf = file.type === 'pdf';
   $: isText = file.type === 'text' || file.type === 'code';
   $: isCsv = file.type === 'csv';
+  $: isEmail = file.type === 'email';
   $: isExcel = file.type === 'excel';
   // Only .docx files can be previewed with Mammoth.js (.doc files need to fall back to OfficePreview)
   $: isWord = file.type === 'word' && (file.file.name?.toLowerCase().endsWith('.docx') || file.file.mimetype?.includes('openxmlformats'));
@@ -89,6 +91,13 @@
   }
 
   function handleKeydown(event: KeyboardEvent) {
+    console.log('[Lightbox] handleKeydown called', {
+      key: event.key,
+      target: event.target,
+      eventPhase: event.eventPhase,
+      currentTarget: event.currentTarget
+    });
+
     // Prevent default behavior for navigation keys FIRST
     // This ensures the App.svelte handler sees defaultPrevented = true
     const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'j', 'k', 'h', 'l', 'J', 'K', 'H', 'L', 'PageUp', 'PageDown', 'Home', 'End', 'd', 'D', '+', '-', '=', '0', '?', 'Escape', 'f', 'F', 'c', 'C'];
@@ -100,7 +109,7 @@
     // when lightbox is open - we handle everything here
     event.stopPropagation();
     event.stopImmediatePropagation();
-    
+
     switch (event.key) {
       case 'Escape':
         onClose();
@@ -286,10 +295,22 @@
       if (wrapper) {
         wrapper.scrollTop = Math.max(0, wrapper.scrollTop - scrollSpeed);
       }
+    } else if (isEmail) {
+      // For email files, scroll the email-content div
+      const emailContent = containerDiv?.querySelector('.email-preview-wrapper .email-content');
+      if (emailContent) {
+        emailContent.scrollTop = Math.max(0, emailContent.scrollTop - scrollSpeed);
+      }
     }
   }
-  
+
   function scrollDown() {
+    console.log('[Lightbox] scrollDown called', {
+      isPdf, isImage, isText, isCsv, isExcel, isWord, isOffice, isGoogleFile, isEmail,
+      containerDiv: !!containerDiv,
+      containerDivClass: containerDiv?.className
+    });
+
     if (isPdf) {
       // For PDF, scroll the multi-page PDF renderer container
       const pdfContainer = containerDiv?.querySelector('.multi-page-pdf-renderer');
@@ -362,9 +383,18 @@
           wrapper.scrollTop + scrollSpeed
         );
       }
+    } else if (isEmail) {
+      // For email files, scroll the email-content div (direct HTML rendering)
+      const emailContent = containerDiv?.querySelector('.email-preview-wrapper .email-content');
+      if (emailContent) {
+        emailContent.scrollTop = Math.min(
+          emailContent.scrollHeight - emailContent.clientHeight,
+          emailContent.scrollTop + scrollSpeed
+        );
+      }
     }
   }
-  
+
   function scrollLeft() {
     if (isPdf) {
       // For PDF, scroll the multi-page PDF renderer container horizontally
@@ -424,9 +454,15 @@
       if (wrapper) {
         wrapper.scrollLeft = Math.max(0, wrapper.scrollLeft - scrollSpeed);
       }
+    } else if (isEmail) {
+      // For email files, scroll the email-content div horizontally
+      const emailContent = containerDiv?.querySelector('.email-preview-wrapper .email-content');
+      if (emailContent) {
+        emailContent.scrollLeft = Math.max(0, emailContent.scrollLeft - scrollSpeed);
+      }
     }
   }
-  
+
   function scrollRight() {
     if (isPdf) {
       // For PDF, scroll the multi-page PDF renderer container horizontally
@@ -510,9 +546,18 @@
           wrapper.scrollLeft + scrollSpeed
         );
       }
+    } else if (isEmail) {
+      // For email files, scroll the email-content div horizontally
+      const emailContent = containerDiv?.querySelector('.email-preview-wrapper .email-content');
+      if (emailContent) {
+        emailContent.scrollLeft = Math.min(
+          emailContent.scrollWidth - emailContent.clientWidth,
+          emailContent.scrollLeft + scrollSpeed
+        );
+      }
     }
   }
-  
+
   function scrollPageUp() {
     if (isPdf) {
       // For PDF, scroll up by one viewport height
@@ -555,9 +600,14 @@
       if (wrapper) {
         wrapper.scrollTop = Math.max(0, wrapper.scrollTop - wrapper.clientHeight);
       }
+    } else if (isEmail) {
+      const emailContent = containerDiv?.querySelector('.email-preview-wrapper .email-content');
+      if (emailContent) {
+        emailContent.scrollTop = Math.max(0, emailContent.scrollTop - emailContent.clientHeight);
+      }
     }
   }
-  
+
   function scrollPageDown() {
     if (isPdf) {
       // For PDF, scroll down by one viewport height
@@ -624,9 +674,17 @@
           wrapper.scrollTop + wrapper.clientHeight
         );
       }
+    } else if (isEmail) {
+      const emailContent = containerDiv?.querySelector('.email-preview-wrapper .email-content');
+      if (emailContent) {
+        emailContent.scrollTop = Math.min(
+          emailContent.scrollHeight - emailContent.clientHeight,
+          emailContent.scrollTop + emailContent.clientHeight
+        );
+      }
     }
   }
-  
+
   function scrollToTop() {
     if (isPdf) {
       // For PDF, scroll to the top of all pages
@@ -669,9 +727,14 @@
       if (wrapper) {
         wrapper.scrollTop = 0;
       }
+    } else if (isEmail) {
+      const emailContent = containerDiv?.querySelector('.email-preview-wrapper .email-content');
+      if (emailContent) {
+        emailContent.scrollTop = 0;
+      }
     }
   }
-  
+
   function scrollToBottom() {
     if (isPdf) {
       // For PDF, scroll to the bottom of all pages
@@ -714,9 +777,14 @@
       if (wrapper) {
         wrapper.scrollTop = wrapper.scrollHeight - wrapper.clientHeight;
       }
+    } else if (isEmail) {
+      const emailContent = containerDiv?.querySelector('.email-preview-wrapper .email-content');
+      if (emailContent) {
+        emailContent.scrollTop = emailContent.scrollHeight - emailContent.clientHeight;
+      }
     }
   }
-  
+
   function showKeyboardHelp() {
     showHelp = !showHelp;
   }
@@ -1099,7 +1167,7 @@
           </button>
 
           <div class="separator-vertical"></div>
-        {:else if isImage || isGoogleFile}
+        {:else if isImage || isGoogleFile || isEmail || isExcel || isWord || isOffice}
           <button
             class="action-btn"
             on:click={zoomOut}
@@ -1246,6 +1314,16 @@
           {#key file.file.id}
             <CsvPreview
               bind:this={csvPreviewRef}
+              file={file.file}
+              workspaceId={$activeWorkspace?.id || 'default'}
+              compact={false}
+            />
+          {/key}
+        </div>
+      {:else if isEmail}
+        <div class="email-preview-wrapper" style="zoom: {zoomLevel};">
+          {#key file.file.id}
+            <EmailPreview
               file={file.file}
               workspaceId={$activeWorkspace?.id || 'default'}
               compact={false}
@@ -1529,8 +1607,7 @@
   .lightbox-content {
     flex: 1;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
     overflow: hidden;
     position: relative;
     min-height: 400px;
@@ -1540,12 +1617,14 @@
 
   .image-wrapper {
     width: 100%;
-    height: 100%;
+    flex: 1;
     overflow: auto;
     cursor: zoom-in;
     position: relative;
-    /* Top-left alignment for proper scroll behavior when zoomed */
-    display: block;
+    /* Center image in viewport */
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .image-wrapper.zoomed {
@@ -1629,11 +1708,12 @@
   .pdf-content {
     /* Fixed size container for PDF with scrolling */
     width: 100%;
-    height: 100%;
+    flex: 1;
     overflow: hidden;
     position: relative;
     background: #525252;
-    display: block;
+    display: flex;
+    flex-direction: column;
   }
 
   /* Multi-page PDF renderer fills container */
@@ -1681,6 +1761,7 @@
   }
 
   .generic-preview {
+    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1706,25 +1787,29 @@
 
   .text-preview-wrapper,
   .csv-preview-wrapper,
+  .email-preview-wrapper,
   .excel-preview-wrapper,
   .word-preview-wrapper,
   .office-preview-wrapper {
     width: 100%;
-    height: 100%;
+    /* Use flex: 1 to fill available height in parent flex container */
+    flex: 1;
+    min-height: 0; /* Critical for flex children to be scrollable */
     overflow: auto;
     background: var(--color-surface);
     border-radius: 8px;
     /* Top-left alignment for proper scroll behavior when zoomed */
-    display: block;
+    display: flex;
+    flex-direction: column;
   }
 
   /* Google Docs/Sheets Lightbox Styles */
   .google-docs-lightbox {
+    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     width: 100%;
-    height: 100%;
     padding: 2rem;
   }
 

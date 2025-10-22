@@ -50,6 +50,7 @@
   import DownloadSettings from './lib/components/DownloadSettings.svelte';
   import Toast from './lib/components/Toast.svelte';
   import LightboxContainer from './lib/components/files/LightboxContainer.svelte';
+  import { lightboxOpen } from './lib/stores/filePreview';
   import { workspaceStore, activeWorkspace } from './lib/stores/workspaces';
   import { channelStore } from './lib/stores/channels';
   import userStore from './lib/stores/users';
@@ -856,6 +857,13 @@
       // Check if the event was already handled (e.g., by Lightbox in capture phase)
       if (event.defaultPrevented) {
         console.log('[App] Event already handled by another component, skipping keyboardService');
+        return;
+      }
+
+      // Check if lightbox is open - if so, let it handle all keyboard events
+      // Lightbox registers its own capture handler and calls preventDefault()/stopPropagation()
+      if ($lightboxOpen) {
+        console.log('[App] Lightbox is open, skipping keyboardService - letting Lightbox handle event');
         return;
       }
 
