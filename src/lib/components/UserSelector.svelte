@@ -403,6 +403,12 @@
       return;
     }
 
+    // If the event target is the input element and it's a J/K key, allow normal input
+    if (e.target === inputElement && (e.key === 'j' || e.key === 'J' || e.key === 'k' || e.key === 'K')) {
+      // Don't prevent default - allow the character to be typed
+      return;
+    }
+
     if (!showDropdown && e.key === 'ArrowDown') {
       showDropdown = true;
       return;
@@ -540,6 +546,12 @@
       if (showDropdown &&
           (event.target && (dropdownElement?.contains(event.target as Node) ||
                            inputElement?.contains(event.target as Node)))) {
+        // Special handling for J/K keys - only handle when focus is NOT on input element
+        if ((event.key === 'j' || event.key === 'J' || event.key === 'k' || event.key === 'K') &&
+            event.target === inputElement) {
+          // Allow input element to handle J/K as text input
+          return;
+        }
         handleKeydown(event);
       }
     }
