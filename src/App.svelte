@@ -87,6 +87,7 @@
   let maskedToken = '';
   let workspace = '';
   let useMultiWorkspace = false; // Feature flag for multi-workspace mode
+  let hasLegacyToken = false; // Track if user has legacy token (for settings UI)
   let keyboardService: KeyboardService;
   let searchBarElement: SearchBar;
   let resultListElement: ResultList;
@@ -526,11 +527,27 @@
     try {
       // Check for multi-workspace mode preference
       const multiWorkspaceEnabled = localStorage.getItem('multiWorkspaceEnabled');
-      if (multiWorkspaceEnabled === 'true') {
+      const existingWorkspaces = localStorage.getItem('workspaces');
+      const { token: savedToken } = await loadSecureSettings();
+
+      // Determine if this is a first-time user (no saved data)
+      const isFirstTimeUser = !savedToken && !existingWorkspaces && multiWorkspaceEnabled === null;
+
+      if (isFirstTimeUser) {
+        // New user - default to multi-workspace mode for better UX
+        console.log('[App] First-time user detected, enabling multi-workspace mode by default');
         useMultiWorkspace = true;
+        hasLegacyToken = false;
+        localStorage.setItem('multiWorkspaceEnabled', 'true');
+        await safeInitializeMultiWorkspace();
+      } else if (multiWorkspaceEnabled === 'true' || existingWorkspaces) {
+        // Existing multi-workspace user or user with workspace data
+        useMultiWorkspace = true;
+        hasLegacyToken = savedToken && !existingWorkspaces; // Has token but not migrated yet
         await safeInitializeMultiWorkspace();
       } else {
-        // Legacy single workspace mode
+        // Legacy single workspace mode (existing users with legacy token)
+        hasLegacyToken = true;
         await safeInitializeLegacyWorkspace();
       }
     } catch (error) {
@@ -2128,7 +2145,8 @@
       </div>
       
       <div class="settings-content">
-        {#if !useMultiWorkspace}
+        {#if !useMultiWorkspace && hasLegacyToken}
+        <!-- Only show legacy mode UI for users who actually have legacy tokens -->
         <div class="setting-group">
           <p class="info-text">
             <strong>⚠️ Legacy Single-Workspace Mode</strong><br/>
@@ -2159,12 +2177,16 @@
             Manage multiple Slack workspaces and switch between them easily using the workspace switcher in the header.
           </p>
         </div>
-      {:else}
+      {/if}
+
+      {#if useMultiWorkspace}
         <div class="setting-group">
           <p class="info-text">
-            <strong>Multi-Workspace Mode Active</strong><br/>
-            Use the workspace switcher in the header to manage workspaces.
+            <strong>✓ Multi-Workspace Mode</strong><br/>
+            Use the workspace switcher in the header to add and manage workspaces.
           </p>
+          {#if hasLegacyToken}
+          <!-- Only show disable option for users who migrated from legacy mode -->
           <button
             class="btn-secondary"
             on:click={() => {
@@ -2177,6 +2199,7 @@
           >
             Disable Multi-Workspace Mode
           </button>
+          {/if}
         </div>
       {/if}
 
