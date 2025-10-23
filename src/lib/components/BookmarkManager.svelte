@@ -230,8 +230,8 @@
     dispatch('select', {
       messageTs: bookmark.messageTs,
       channelId: bookmark.channelId,
-      channelName: bookmark.channelName,  // 追加: チャンネル名
-      timestamp: bookmark.timestamp        // 追加: タイムスタンプ
+      channelName: bookmark.channelName,  // Added: Channel name
+      timestamp: bookmark.timestamp        // Added: Timestamp
     });
 
     // Close the dropdown

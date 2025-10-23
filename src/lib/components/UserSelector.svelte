@@ -62,7 +62,7 @@
       applyButtonDropdown: !!applyButtonDropdown
     });
 
-    // 4: モード切替ボタン (左端のボタン)
+    // 4: Mode toggle button (leftmost button)
     if (modeToggleButton) {
       const id = accessKeyService.register('4', modeToggleButton, () => {
         console.log('[UserSelector] Access key 4 pressed: toggleMode');
@@ -71,7 +71,7 @@
       if (id) registrations.push(id);
     }
 
-    // 5: お気に入りボタン (中央の⭐ボタン)
+    // 5: Favorites button (center ⭐ button)
     if (favoritesButton) {
       const id = accessKeyService.register('5', favoritesButton, () => {
         console.log('[UserSelector] Access key 5 pressed: selectAllFavorites');
@@ -80,7 +80,7 @@
       if (id) registrations.push(id);
     }
 
-    // 6: 最近使用ボタン (右端の🕒ボタン)
+    // 6: Recent usage button (rightmost 🕒 button)
     if (recentButton) {
       const id = accessKeyService.register('6', recentButton, () => {
         console.log('[UserSelector] Access key 6 pressed: selectRecentUsers');
@@ -89,7 +89,7 @@
       if (id) registrations.push(id);
     }
 
-    // 8: Apply button (マルチセレクトモードのみ) - inline or dropdown version
+    // 8: Apply button (multi-select mode only) - inline or dropdown version
     const applyButton = applyButtonInline || applyButtonDropdown;
     if (applyButton && mode === 'multi' && selectedUsers.length > 0) {
       const id = accessKeyService.register('8', applyButton, () => {

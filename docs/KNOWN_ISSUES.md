@@ -1,179 +1,179 @@
-# Known Issues / 既知の問題
+# Known Issues
 
-## インラインコード表示の不具合（メッセージ一覧）
+## Inline Code Display Issue (Message List)
 
-### 問題の概要
-メッセージ一覧において、バッククォート（`` ` ``）で囲まれたインラインコードが正しく表示されません。
+### Issue Overview
+Inline code enclosed in backticks (`` ` ``) is not displayed correctly in the message list.
 
-**例:**
-- 期待される表示: `` `inline code` `` → ピンク色のインラインコード表示
-- 実際の表示: `inline code` → 通常のテキストとして表示（バッククォートが削除される）
+**Example:**
+- Expected display: `` `inline code` `` → Pink inline code display
+- Actual display: `inline code` → Displayed as regular text (backticks are removed)
 
-### 影響範囲
-- **メッセージ一覧**: ❌ インラインコードが正しく表示されない
-- **スレッド表示**: ✅ 正常に表示される
+### Scope of Impact
+- **Message List**: ❌ Inline code not displayed correctly
+- **Thread Display**: ✅ Displayed correctly
 
-### 原因
-Slack APIの仕様による制限です：
+### Cause
+This is a limitation due to the Slack API specification:
 
-1. **search.messages API**（メッセージ一覧で使用）
-   - 検索用に最適化された前処理済みテキストを返す
-   - バッククォートなどのマークダウン記号が削除される
-   - 例: `` `code` `` → `code`
+1. **search.messages API** (used for message list)
+   - Returns preprocessed text optimized for search
+   - Markdown symbols such as backticks are removed
+   - Example: `` `code` `` → `code`
 
-2. **conversations.replies API**（スレッド表示で使用）
-   - 生のテキストをそのまま返す
-   - マークダウン記号が保持される
-   - 例: `` `code` `` → `` `code` ``
+2. **conversations.replies API** (used for thread display)
+   - Returns raw text as-is
+   - Markdown symbols are preserved
+   - Example: `` `code` `` → `` `code` ``
 
-### 技術的詳細
+### Technical Details
 ```
-# メッセージ一覧のAPIレスポンス
-text: "inline display"  # バッククォートが削除されている
+# Message list API response
+text: "inline display"  # Backticks have been removed
 
-# スレッド表示のAPIレスポンス
-text: "`inline display`"  # バッククォートが保持されている
+# Thread display API response
+text: "`inline display`"  # Backticks are preserved
 ```
 
-### 解決策の検討
-完全な解決には以下のいずれかのバックエンド修正が必要です：
+### Consideration of Solutions
+Complete resolution requires one of the following backend modifications:
 
-1. search.messages APIの代わりにconversations.history APIを使用
-2. 検索後に各メッセージの生データを個別に取得
-3. Slack APIの`blocks`フィールドから元のフォーマット情報を復元
+1. Use conversations.history API instead of search.messages API
+2. Fetch raw data for each message individually after search
+3. Restore original format information from the `blocks` field in Slack API
 
-ただし、これらの変更は：
-- パフォーマンスへの影響が大きい
-- API呼び出し数が増加する可能性がある
-- 実装の複雑性が高い
+However, these changes have:
+- Significant performance impact
+- Potentially increased API call count
+- High implementation complexity
 
-### 現在の対応
-現時点では、この制限を受け入れて運用しています。正確なマークダウン表示が必要な場合は、スレッド表示で確認してください。
+### Current Response
+We currently accept this limitation. If you need accurate markdown display, please check in the thread display.
 
 ---
 
-## 既読機能の制限（スレッドメッセージ）
+## Read Status Limitation (Thread Messages)
 
-### 問題の概要
-実装済みの既読機能（Shift+Rキーボードショートカット）では、Slack側でスレッドとして表示されるメッセージを既読にすることができません。
+### Issue Overview
+With the implemented read status feature (Shift+R keyboard shortcut), messages displayed as threads in Slack cannot be marked as read.
 
-### 影響範囲
-- **チャンネルメッセージ（親メッセージ）**: ✅ 既読マーク可能
-- **スレッド内のメッセージ（返信）**: ❌ 既読マークできない
-- **DM（ダイレクトメッセージ）**: ✅ 既読マーク可能
+### Scope of Impact
+- **Channel Messages (Parent Messages)**: ✅ Can be marked as read
+- **Thread Messages (Replies)**: ❌ Cannot be marked as read
+- **DMs (Direct Messages)**: ✅ Can be marked as read
 
-### 原因
-Slack APIの仕様による制限です：
+### Cause
+This is a limitation due to the Slack API specification:
 
-**使用API**: `conversations.mark`
-- チャンネル単位でのメッセージ既読マークをサポート
-- スレッド内の個別メッセージの既読状態は管理しない
-- `thread_ts`パラメータによるスレッドメッセージの既読マークに対応していない
+**API Used**: `conversations.mark`
+- Supports marking messages as read on a per-channel basis
+- Does not manage read status for individual messages within threads
+- Does not support marking thread messages as read using the `thread_ts` parameter
 
-### 技術的詳細
+### Technical Details
 ```typescript
-// 現在の実装
+// Current implementation
 await invoke<void>('mark_as_read', {
   channel: message.channel,
-  ts: message.ts  // スレッドメッセージの場合、このtsでは既読マークできない
+  ts: message.ts  // For thread messages, this ts cannot mark as read
 });
 ```
 
-### 回避策
-スレッド内のメッセージを既読にするには、Slack公式アプリで該当スレッドを開いて確認する必要があります。
+### Workaround
+To mark messages within a thread as read, you need to open the corresponding thread in the official Slack app.
 
-### 将来的な対応
-現在のSlack API仕様では、スレッドメッセージの個別既読マークは提供されていません。Slack APIの仕様変更があれば対応を検討します。
-
----
-
-## チャンネル/ユーザー検索の表示エリア制限
-
-### 問題の概要
-チャンネル検索およびユーザー検索において、初期表示のエリアを拡大できません。拡大表示するためには、複数回下矢印キーを押してスクロールする必要があります。
-
-### 影響範囲
-- **チャンネル検索**: ❌ 初期表示エリアが制限される
-- **ユーザー検索**: ❌ 初期表示エリアが制限される
-
-### 現在の対応
-ユーザーは下矢印キーを複数回押して、表示エリアを手動で拡大する必要があります。
+### Future Response
+The current Slack API specification does not provide individual read marking for thread messages. We will consider support if the Slack API specification changes.
 
 ---
 
-## アクセスキーの挙動不安定
+## Channel/User Search Display Area Limitation
 
-### 問題の概要
-検索を実行した後など、特定の操作を行った後にアクセスキーの挙動が不安定になります。
+### Issue Overview
+In channel search and user search, the initial display area cannot be expanded. To expand the display, users need to press the down arrow key multiple times to scroll.
 
-### 影響範囲
-- **検索実行後**: ❌ アクセスキーが期待通りに動作しないことがある
-- **その他の操作後**: ❌ 不安定な挙動が発生する可能性がある
+### Scope of Impact
+- **Channel Search**: ❌ Initial display area is limited
+- **User Search**: ❌ Initial display area is limited
 
-### 現在の対応
-現時点では、この問題の根本原因を調査中です。
-
----
-
-## スレッドメッセージへの絵文字リアクション制限
-
-### 問題の概要
-スレッドに含まれるメッセージの場合、メッセージ一覧でフォーカスを当てても絵文字リアクションを追加できません。また、他のユーザーがつけた絵文字リアクションをショートカットキーで選択することもできません。
-
-### 影響範囲
-- **メッセージ一覧**: ❌ スレッドメッセージに絵文字リアクションを追加できない
-- **スレッド一覧**: ✅ 正常に絵文字リアクションを追加できる
-- **ショートカットキー**: ❌ 既存の絵文字リアクションを選択できない
-
-### 現在の対応
-スレッドメッセージに絵文字リアクションを追加する場合は、スレッド一覧画面でフォーカスを当てて操作してください。
+### Current Response
+Users need to manually expand the display area by pressing the down arrow key multiple times.
 
 ---
 
-## Saved SearchesでのDMチャンネル表示問題
+## Unstable Access Key Behavior
 
-### 問題の概要
-「Saved searches」機能において、DMチャンネルがチャンネル名ではなく、チャンネルIDとして表示されてしまいます。
+### Issue Overview
+Access key behavior becomes unstable after certain operations, such as executing a search.
 
-### 影響範囲
-- **Saved searches**: ❌ DMチャンネルがIDで表示される
-- **通常のチャンネル**: ✅ チャンネル名が正しく表示される
+### Scope of Impact
+- **After Search Execution**: ❌ Access keys may not work as expected
+- **After Other Operations**: ❌ Unstable behavior may occur
 
-### 現在の対応
-現時点では、チャンネルIDからチャンネル名へのマッピング処理が不完全です。改善を検討中です。
-
----
-
-## "New"バッジの表示不具合
-
-### 問題の概要
-キャッシュに含まれないメッセージを取得した際、「New」バッジが表示されるべきですが、表示されないことがあります。逆に、キャッシュされているはずのメッセージに誤ってバッジが表示されることもあります。
-
-### 影響範囲
-- **未キャッシュメッセージ**: ⚠️ 「New」バッジが表示されないことがある
-- **キャッシュ済みメッセージ**: ⚠️ 誤って「New」バッジが表示されることがある
-
-### 原因
-キャッシュ状態とバッジ表示ロジックの同期に問題がある可能性があります。
-
-### 現在の対応
-キャッシュ管理とバッジ表示の実装を見直し中です。
+### Current Response
+We are currently investigating the root cause of this issue.
 
 ---
 
-## 絵文字リアクション送信の不具合
+## Emoji Reaction Limitation on Thread Messages
 
-### 問題の概要
-reactionPickerにて絵文字リアクションを選択した際、選択していない別の絵文字リアクションが送信されてしまうことがあります。
+### Issue Overview
+For messages that are part of a thread, emoji reactions cannot be added even when focused in the message list. Also, emoji reactions added by other users cannot be selected using shortcut keys.
 
-### 影響範囲
-- **reactionPicker**: ⚠️ 選択した絵文字とは異なる絵文字が送信されることがある
+### Scope of Impact
+- **Message List**: ❌ Cannot add emoji reactions to thread messages
+- **Thread List**: ✅ Can add emoji reactions normally
+- **Shortcut Keys**: ❌ Cannot select existing emoji reactions
 
-### 原因
-絵文字選択とAPI送信の間でデータのマッピングに問題がある可能性があります。
-
-### 現在の対応
-reactionPickerの実装を調査し、選択と送信のロジックを修正予定です。
+### Current Response
+When adding emoji reactions to thread messages, please focus on them in the thread list view.
 
 ---
-*最終更新: 2025年10月23日*
+
+## DM Channel Display Issue in Saved Searches
+
+### Issue Overview
+In the "Saved searches" feature, DM channels are displayed as channel IDs instead of channel names.
+
+### Scope of Impact
+- **Saved searches**: ❌ DM channels displayed as IDs
+- **Regular Channels**: ✅ Channel names displayed correctly
+
+### Current Response
+Currently, the mapping process from channel ID to channel name is incomplete. We are considering improvements.
+
+---
+
+## "New" Badge Display Issue
+
+### Issue Overview
+When retrieving messages not in the cache, a "New" badge should be displayed, but sometimes it is not. Conversely, the badge may incorrectly appear on messages that should already be cached.
+
+### Scope of Impact
+- **Uncached Messages**: ⚠️ "New" badge may not be displayed
+- **Cached Messages**: ⚠️ "New" badge may be displayed incorrectly
+
+### Cause
+There may be an issue with synchronization between cache state and badge display logic.
+
+### Current Response
+We are reviewing the cache management and badge display implementation.
+
+---
+
+## Emoji Reaction Sending Issue
+
+### Issue Overview
+When selecting an emoji reaction in the reactionPicker, a different emoji reaction than the one selected may be sent.
+
+### Scope of Impact
+- **reactionPicker**: ⚠️ A different emoji than selected may be sent
+
+### Cause
+There may be an issue with data mapping between emoji selection and API transmission.
+
+### Current Response
+We plan to investigate the reactionPicker implementation and fix the selection and transmission logic.
+
+---
+*Last updated: October 23, 2025*

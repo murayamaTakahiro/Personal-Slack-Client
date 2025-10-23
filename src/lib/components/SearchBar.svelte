@@ -286,35 +286,35 @@
   function handleBookmarkSelect(event: CustomEvent<{
     messageTs: string;
     channelId: string;
-    channelName: string;  // BookmarkManagerから追加で受け取る
-    timestamp: Date;       // BookmarkManagerから追加で受け取る
+    channelName: string;  // Additionally received from BookmarkManager
+    timestamp: Date;       // Additionally received from BookmarkManager
   }>) {
     const { messageTs, channelId, channelName, timestamp } = event.detail;
     showBookmarks = false;
 
     console.log('[SearchBar] Bookmark selected', { messageTs, channelId, channelName, timestamp });
 
-    // メッセージの日付を取得
+    // Get message date
     const messageDate = new Date(parseFloat(messageTs) * 1000);
-    const dateStr = messageDate.toISOString().split('T')[0]; // YYYY-MM-DD形式
+    const dateStr = messageDate.toISOString().split('T')[0]; // YYYY-MM-DD format
 
     console.log('[SearchBar] Setting filters', { channel: channelName, fromDate: dateStr, toDate: dateStr });
 
-    // チャンネルと日付でフィルタを設定
+    // Set filters by channel and date
     channel = channelName;
     fromDate = dateStr;
     toDate = dateStr;
 
-    // 検索完了後にメッセージにフォーカス
-    // searchLoadingの変化を監視して、loadingがfalseになったらfocusを実行
+    // Focus on message after search completes
+    // Monitor searchLoading changes and execute focus when loading becomes false
     let hasStartedLoading = false;
     const unsubscribe = searchLoading.subscribe(isLoading => {
       if (isLoading) {
         hasStartedLoading = true;
       } else if (hasStartedLoading) {
-        // 検索が完了した（loading: true → false）
+        // Search completed (loading: true → false)
         console.log('[SearchBar] Search completed, dispatching focusMessage event');
-        // 少し遅延させて、検索結果が確実に反映されてから実行
+        // Add slight delay to ensure search results are reflected
         setTimeout(() => {
           dispatch('focusMessage', { messageTs });
         }, 100);
@@ -322,7 +322,7 @@
       }
     });
 
-    // 検索を実行
+    // Execute search
     console.log('[SearchBar] Executing search');
     handleSearch();
   }

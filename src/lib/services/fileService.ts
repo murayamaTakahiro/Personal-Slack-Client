@@ -55,7 +55,7 @@ export function getFileType(file: SlackFile): FileType {
   const filetype = file.filetype?.toLowerCase() || '';
 
   // Debug logging for email files
-  if (file.name?.includes('メール') || prettyType.includes('メール') || prettyType.includes('email')) {
+  if (file.name?.includes('mail') || file.name?.includes('メール') || prettyType.includes('メール') || prettyType.includes('email')) {
     console.log('[getFileType] Potential email file detected:', {
       name: file.name,
       mimetype: mimeType,
@@ -100,7 +100,7 @@ export function getFileType(file: SlackFile): FileType {
   const emailExtensions = ['eml', 'msg'];
   const emailMimeTypes = ['message/rfc822', 'message/rfc2822'];
 
-  // Check for email indicators in pretty_type or filetype
+  // Check for email indicators in pretty_type or filetype (including Japanese "メール")
   const emailIndicators = ['email', 'メール', 'eメール', 'e-mail', 'mail'];
   const hasEmailIndicator = emailIndicators.some(indicator =>
     prettyType.includes(indicator) || filetype.includes(indicator)

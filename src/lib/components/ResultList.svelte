@@ -214,7 +214,7 @@
     }
   }
 
-  // メッセージタイムスタンプでメッセージを検索してフォーカスする
+  // Search for message by timestamp and focus on it
   export function focusMessageByTs(messageTs: string) {
     console.log('[ResultList] focusMessageByTs called', { messageTs, messagesLength: messages.length });
 
@@ -223,23 +223,23 @@
       console.log('[ResultList] Found message at index', index);
       const message = messages[index];
 
-      // メッセージにフォーカスを設定
+      // Set focus on message
       focusedIndex = index;
 
-      // メッセージが progressive loading で未表示の場合は表示する
+      // Display message if not yet shown due to progressive loading
       if (index >= displayedCount) {
         console.log('[ResultList] Message not yet displayed, loading more messages');
         displayedCount = Math.min(index + LOAD_INCREMENT, messages.length);
       }
 
-      // 即座に selectedMessage を設定してスレッドビューに表示
+      // Immediately set selectedMessage to display in thread view
       selectedMessage.set(message);
       console.log('[ResultList] selectedMessage set to:', message.ts);
 
-      // フォーカスを更新（スクロールとハイライト）
+      // Update focus (scroll and highlight)
       updateFocus();
 
-      // メッセージをスクロールして表示
+      // Scroll to display message
       setTimeout(() => {
         const messageElement = document.querySelector(`[data-message-ts="${message.ts}"]`) as HTMLElement;
         if (messageElement) {
@@ -658,10 +658,10 @@
     try {
       showInfo('Exporting...', 'Preparing message list export');
 
-      // 検索クエリ情報を取得
+      // Get search query information
       const searchQuery = $searchParams?.query || '';
 
-      // デフォルトダウンロードフォルダを取得
+      // Get default download folder
       const downloadFolder = $settings.downloadFolder;
 
       if (options.format === 'markdown-folder') {
@@ -711,7 +711,7 @@
           extension = 'md';
         }
 
-        // Tauriバックエンドでファイル保存（既存のコマンドを再利用）
+        // Save file using Tauri backend (reuse existing command)
         // Convert to JST (UTC+9) for file name
         const now2 = new Date();
         const jstOffset2 = 9 * 60; // JST is UTC+9 hours in minutes
@@ -744,7 +744,7 @@
     } finally {
       showExportDialog = false;
 
-      // リストコンテナにフォーカスを戻す
+      // Return focus to list container
       requestAnimationFrame(() => {
         if (listContainer) {
           listContainer.focus();
@@ -754,12 +754,12 @@
   }
 
   /**
-   * エクスポートキャンセル
+   * Cancel export
    */
   function handleExportCancel() {
     showExportDialog = false;
 
-    // リストコンテナにフォーカスを戻す
+    // Return focus to list container
     requestAnimationFrame(() => {
       if (listContainer) {
         listContainer.focus();
@@ -781,7 +781,7 @@
 
     // Handle Ctrl+E for export
     if (event.key.toLowerCase() === 'e' && event.ctrlKey && !event.altKey && !event.metaKey) {
-      // フォーカスチェック（他のキーハンドラと同様）
+      // Focus check (same as other key handlers)
       if (!listContainer || (!listContainer.contains(document.activeElement) && document.activeElement !== listContainer)) {
         return;
       }

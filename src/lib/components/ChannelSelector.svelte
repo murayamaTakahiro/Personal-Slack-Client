@@ -155,7 +155,7 @@
       applyButtonDropdown: !!applyButtonDropdown
     });
 
-    // 1: モード切替ボタン (左端のボタン)
+    // 1: Mode toggle button (leftmost button)
     if (modeToggleButton) {
       const id = accessKeyService.register('1', modeToggleButton, () => {
         toggleMode();
@@ -163,7 +163,7 @@
       if (id) registrations.push(id);
     }
 
-    // 2: お気に入りボタン (中央の⭐ボタン)
+    // 2: Favorites button (center ⭐ button)
     if (favoritesButton) {
       const id = accessKeyService.register('2', favoritesButton, () => {
         selectAllFavorites();
@@ -171,7 +171,7 @@
       if (id) registrations.push(id);
     }
 
-    // 3: 最近使用ボタン (右端の🕒ボタン)
+    // 3: Recent usage button (rightmost 🕒 button)
     if (recentButton) {
       const id = accessKeyService.register('3', recentButton, () => {
         selectRecentChannels();
@@ -179,7 +179,7 @@
       if (id) registrations.push(id);
     }
 
-    // 7: Apply button (マルチセレクトモードのみ) - inline or dropdown version
+    // 7: Apply button (multi-select mode only) - inline or dropdown version
     const applyButton = applyButtonInline || applyButtonDropdown;
     if (applyButton && mode === 'multi' && selectedChannels.length > 0) {
       const id = accessKeyService.register('7', applyButton, () => {

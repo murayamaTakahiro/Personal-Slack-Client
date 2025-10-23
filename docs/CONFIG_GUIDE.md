@@ -1,80 +1,80 @@
-# 絵文字リアクション設定ガイド
+# Emoji Reaction Configuration Guide
 
-## 設定方法
+## Configuration Method
 
-絵文字リアクションの設定は、`public/config.json`ファイルで管理されます。
+Emoji reaction settings are managed in the `public/config.json` file.
 
-### 1. 設定ファイルの作成
+### 1. Creating the Configuration File
 
 ```bash
-# サンプルファイルをコピー
+# Copy the sample file
 cp public/config.example.json public/config.json
 ```
 
-### 2. 設定ファイルの編集
+### 2. Editing the Configuration File
 
-`public/config.json`を編集して、好きな絵文字を設定します：
+Edit `public/config.json` to configure your preferred emojis:
 
 ```json
 {
   "reactionMappings": [
-    { 
-      "shortcut": 1,           // 数字キー
-      "emoji": "thumbsup",     // Slack絵文字名（:を除く）
-      "display": "👍"          // 表示用の絵文字
+    {
+      "shortcut": 1,           // Number key
+      "emoji": "thumbsup",     // Slack emoji name (without colons)
+      "display": "👍"          // Display emoji
     },
     { "shortcut": 2, "emoji": "arigataya", "display": "🙏" },
     { "shortcut": 3, "emoji": "smile", "display": "😄" }
-    // ... 最大9まで設定可能
+    // ... You can configure up to 9 reactions
   ]
 }
 ```
 
-### 3. 設定の反映
+### 3. Applying the Configuration
 
-- **開発環境**: 設定ファイルを保存すると、5秒ごとに自動的に再読み込みされます
-- **本番環境**: アプリを再起動すると設定が反映されます
+- **Development Environment**: The configuration file is automatically reloaded every 5 seconds after saving
+- **Production Environment**: Restart the application to apply the configuration
 
-## Slack絵文字名の調べ方
+## How to Find Slack Emoji Names
 
-1. Slackでメッセージにマウスオーバー
-2. 絵文字リアクションボタン（😊）をクリック
-3. 使いたい絵文字にマウスオーバー
-4. 表示される `:emoji_name:` から `:` を除いた部分が絵文字名です
+1. Hover your mouse over a message in Slack
+2. Click the emoji reaction button (😊)
+3. Hover over the emoji you want to use
+4. The displayed `:emoji_name:` without the `:` symbols is the emoji name
 
-例：
+Examples:
 - `:thumbsup:` → `"emoji": "thumbsup"`
 - `:+1:` → `"emoji": "+1"`
 - `:white_check_mark:` → `"emoji": "white_check_mark"`
 
-## カスタム絵文字
+## Custom Emojis
 
-Slackワークスペースのカスタム絵文字も使用できます：
+You can also use custom emojis from your Slack workspace:
 
 ```json
 {
-  "shortcut": 2, 
-  "emoji": "arigataya",      // カスタム絵文字名
-  "display": "🙏"             // 適当な代替表示
+  "shortcut": 2,
+  "emoji": "arigataya",      // Custom emoji name
+  "display": "🙏"             // Suitable alternative display
 }
 ```
 
-## トラブルシューティング
+## Troubleshooting
 
-### 設定が反映されない場合
+### If Configuration is Not Applied
 
-1. ブラウザのコンソール（F12）を開く
-2. `[ConfigService]`のログを確認
-3. `config.json`が正しいJSON形式か確認（[JSONLint](https://jsonlint.com/)でチェック）
+1. Open the browser console (F12)
+2. Check logs with `[ConfigService]`
+3. Verify that `config.json` is in valid JSON format (check with [JSONLint](https://jsonlint.com/))
 
-### エラーが出る場合
+### If Errors Occur
 
-- JSONの構文エラー（カンマ忘れ、引用符忘れなど）を確認
-- 最後の要素の後ろにカンマがないか確認
+- Check for JSON syntax errors (missing commas, missing quotes, etc.)
+- Verify there's no comma after the last element
 
-## 設定例
+## Configuration Examples
 
-### 日本語ワークスペース向け設定
+### Settings for Japanese Workspaces
 
 ```json
 {
@@ -92,7 +92,7 @@ Slackワークスペースのカスタム絵文字も使用できます：
 }
 ```
 
-### 開発チーム向け設定
+### Settings for Development Teams
 
 ```json
 {

@@ -14,8 +14,8 @@
   let resizeObserver: ResizeObserver | null = null;
   let resizeDebounceTimeout: number | null = null;
 
-  // アクセスキーモードの状態を購読
-  // IMPORTANT: 即座にバッジを表示するためデバウンスなし
+  // Subscribe to access key mode state
+  // IMPORTANT: No debounce to display badges immediately
   $: if ($accessKeyMode.isActive) {
     updateBadgePositions();
   } else {
@@ -23,15 +23,15 @@
   }
 
   /**
-   * バッジの位置を計算
+   * Calculate badge positions
    */
   function updateBadgePositions() {
-    // 即座にバッジを表示（デバウンスなし）
+    // Display badges immediately (no debounce)
     badges = $accessKeyMode.visibleMappings.map(mapping => {
       const rect = mapping.element.getBoundingClientRect();
 
-      // 要素の左上にバッジを配置
-      // （Excelスタイル: 要素の内部左上）
+      // Place badge at element's top-left
+      // (Excel style: inside top-left of element)
       return {
         key: mapping.key,
         label: mapping.label,
@@ -43,12 +43,12 @@
   }
 
   /**
-   * ウィンドウリサイズ/スクロール時の更新（デバウンス付き）
+   * Update on window resize/scroll (with debounce)
    */
   function handleWindowChange() {
     if (!$accessKeyMode.isActive) return;
 
-    // リサイズ/スクロール時のみデバウンスを適用
+    // Apply debounce only for resize/scroll events
     if (resizeDebounceTimeout) {
       clearTimeout(resizeDebounceTimeout);
     }
@@ -59,7 +59,7 @@
   }
 
   onMount(() => {
-    // ウィンドウイベントリスナー
+    // Window event listeners
     window.addEventListener('resize', handleWindowChange);
     window.addEventListener('scroll', handleWindowChange, true); // capture phase
 
@@ -68,7 +68,7 @@
       handleWindowChange();
     });
 
-    // document.bodyを監視
+    // Observe document.body
     resizeObserver.observe(document.body);
   });
 
@@ -127,12 +127,12 @@
     height: 18px;
     padding: 2px 4px;
 
-    /* Excelスタイル: 黄色背景 */
+    /* Excel style: Yellow background */
     background: #FFF4CE;
     border: 1px solid #D4A017;
     border-radius: 3px;
 
-    /* テキストスタイル */
+    /* Text style */
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
     font-size: 11px;
     font-weight: 600;
@@ -140,10 +140,10 @@
     text-align: center;
     line-height: 14px;
 
-    /* シャドウ */
+    /* Shadow */
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 
-    /* アニメーション */
+    /* Animation */
     animation: badgePop 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55);
   }
 
@@ -158,7 +158,7 @@
     }
   }
 
-  /* ダークモード対応 */
+  /* Dark mode support */
   :global(.dark) .access-key-badge {
     background: #4A4A00;
     border-color: #8B8B00;

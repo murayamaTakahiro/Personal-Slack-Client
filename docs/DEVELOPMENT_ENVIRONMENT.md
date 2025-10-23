@@ -1,113 +1,113 @@
-# 開発環境セットアップガイド
+# Development Environment Setup Guide
 
-## 概要
-このプロジェクトはTauriを使用したデスクトップアプリケーションです。WSL（Windows Subsystem for Linux）とWindows環境の両方で開発可能ですが、それぞれの環境に応じた適切なセットアップが必要です。
+## Overview
+This project is a desktop application built with Tauri. Development is possible in both WSL (Windows Subsystem for Linux) and Windows environments, but each environment requires appropriate setup.
 
-## 重要：プラットフォーム固有のバイナリについて
+## Important: Platform-Specific Binaries
 
-### 問題の背景
-Node.jsのネイティブモジュール（特にTauri CLI）は、プラットフォーム固有のバイナリファイルを使用します：
+### Background
+Node.js native modules (especially Tauri CLI) use platform-specific binary files:
 - **WSL/Linux**: `cli-linux-x64-gnu.node`
 - **Windows**: `cli.win32-x64-msvc.node`
 
-これらのバイナリは互換性がないため、**WSLでインストールしたnode_modulesをWindows PowerShellから実行することはできません**（逆も同様）。
+These binaries are not compatible, so **you cannot run node_modules installed in WSL from Windows PowerShell** (and vice versa).
 
-## 環境別セットアップ手順
+## Setup Instructions by Environment
 
-### Windows PowerShellで開発する場合
+### When Developing in Windows PowerShell
 
-1. **Windows PowerShell**を開く（管理者権限は不要）
+1. Open **Windows PowerShell** (administrator privileges not required)
 
-2. プロジェクトディレクトリに移動：
+2. Navigate to the project directory:
    ```powershell
-   cd C:\Users\[ユーザー名]\tools\personal-slack-client\personal-slack-client
+   cd C:\Users\[username]\personal-slack-client
    ```
 
-3. 既存のnode_modules（WSLでインストールされたもの）がある場合は削除：
+3. If there are existing node_modules (installed in WSL), delete them:
    ```powershell
    Remove-Item -Recurse -Force node_modules
    Remove-Item -Force package-lock.json
    ```
 
-4. Windows環境用に依存関係をインストール：
+4. Install dependencies for the Windows environment:
    ```powershell
    npm install
    ```
 
-5. Tauriアプリケーションを起動：
+5. Start the Tauri application:
    ```powershell
    npm run tauri:dev
    ```
 
-### WSLで開発する場合
+### When Developing in WSL
 
-1. **WSLターミナル**を開く
+1. Open a **WSL terminal**
 
-2. プロジェクトディレクトリに移動：
+2. Navigate to the project directory:
    ```bash
-   cd /mnt/c/Users/[ユーザー名]/tools/personal-slack-client/personal-slack-client
+   cd /mnt/c/Users/[username]/personal-slack-client
    ```
 
-3. 既存のnode_modules（Windowsでインストールされたもの）がある場合は削除：
+3. If there are existing node_modules (installed in Windows), delete them:
    ```bash
    rm -rf node_modules package-lock.json
    ```
 
-4. WSL環境用に依存関係をインストール：
+4. Install dependencies for the WSL environment:
    ```bash
    npm install
    ```
 
-5. Tauriアプリケーションを起動：
+5. Start the Tauri application:
    ```bash
    npm run tauri:dev
    ```
 
-## よくあるエラーと解決方法
+## Common Errors and Solutions
 
-### エラー: "Cannot find module './cli.win32-x64-msvc.node'"
-- **発生環境**: Windows PowerShell
-- **原因**: WSLでインストールしたnode_modulesを使用している
-- **解決方法**: 
+### Error: "Cannot find module './cli.win32-x64-msvc.node'"
+- **Environment**: Windows PowerShell
+- **Cause**: Using node_modules installed in WSL
+- **Solution**:
   ```powershell
   Remove-Item -Recurse -Force node_modules
   npm install
   ```
 
-### エラー: "Cannot find module './cli-linux-x64-gnu.node'"
-- **発生環境**: WSL
-- **原因**: Windows PowerShellでインストールしたnode_modulesを使用している
-- **解決方法**:
+### Error: "Cannot find module './cli-linux-x64-gnu.node'"
+- **Environment**: WSL
+- **Cause**: Using node_modules installed in Windows PowerShell
+- **Solution**:
   ```bash
   rm -rf node_modules
   npm install
   ```
 
-### エラー: "Found version mismatched Tauri packages"
-- **原因**: NPMパッケージとRustクレートのバージョン不一致
-- **解決方法**: package.jsonで指定されているバージョンを確認し、必要に応じて調整
+### Error: "Found version mismatched Tauri packages"
+- **Cause**: Version mismatch between NPM packages and Rust crates
+- **Solution**: Check the versions specified in package.json and adjust as necessary
 
-## ベストプラクティス
+## Best Practices
 
-1. **一貫した環境を維持**
-   - 開発を始めたら、同じ環境（WindowsまたはWSL）を使い続ける
-   - チーム開発の場合は、環境を統一することを推奨
+1. **Maintain a Consistent Environment**
+   - Once you start development, continue using the same environment (Windows or WSL)
+   - For team development, it's recommended to standardize the environment
 
-2. **環境切り替え時の注意**
-   - 環境を切り替える場合は、必ず`node_modules`を削除してから`npm install`を実行
-   - `package-lock.json`も削除することで、クリーンな状態から始められる
+2. **Precautions When Switching Environments**
+   - When switching environments, always delete `node_modules` before running `npm install`
+   - Deleting `package-lock.json` as well allows you to start from a clean state
 
-3. **推奨される開発環境**
-   - **Windows開発者**: Windows PowerShellまたはコマンドプロンプト
-   - **Linux/Mac経験者**: WSL
-   - **Visual Studio Code使用時**: ターミナルの環境を統一する
+3. **Recommended Development Environment**
+   - **Windows developers**: Windows PowerShell or Command Prompt
+   - **Linux/Mac experienced users**: WSL
+   - **When using Visual Studio Code**: Standardize the terminal environment
 
-## Tauri特有の注意事項
+## Tauri-Specific Notes
 
-- Tauriは両方の環境で動作しますが、ビルド出力はホストOS（Windows）用になります
-- WSLから実行しても、生成される実行ファイルはWindows用（.exe）です
-- 開発サーバーはどちらの環境でも同じように動作します
+- Tauri works in both environments, but the build output is for the host OS (Windows)
+- Even when running from WSL, the generated executable is for Windows (.exe)
+- The development server works the same way in both environments
 
-## まとめ
+## Summary
 
-最も重要なのは**node_modulesをインストールした環境と実行する環境を一致させる**ことです。これさえ守れば、どちらの環境でも問題なく開発できます。
+The most important thing is to **match the environment where you installed node_modules with the environment where you run it**. As long as you follow this, you can develop without problems in either environment.

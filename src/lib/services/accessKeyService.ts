@@ -5,12 +5,12 @@ class AccessKeyService {
   private registrationId = 0;
 
   /**
-   * アクセスキーを登録
-   * @param key - アクセスキー（A-Z, 0-9）
-   * @param element - 対象DOM要素
-   * @param action - 実行するアクション
-   * @param priority - 優先度（デフォルト: 10）
-   * @returns 登録ID（解除時に使用）
+   * Register an access key
+   * @param key - Access key (A-Z, 0-9)
+   * @param element - Target DOM element
+   * @param action - Action to execute
+   * @param priority - Priority (default: 10)
+   * @returns Registration ID (used for unregistration)
    */
   register(
     key: string,
@@ -18,10 +18,10 @@ class AccessKeyService {
     action: () => void,
     priority: number = 10
   ): string {
-    // キーを大文字に正規化
+    // Normalize key to uppercase
     const normalizedKey = key.toUpperCase();
 
-    // バリデーション
+    // Validation
     if (!/^[A-Z0-9]$/.test(normalizedKey)) {
       console.error(`[AccessKey] Invalid key: "${key}". Must be A-Z or 0-9.`);
       return '';
@@ -32,10 +32,10 @@ class AccessKeyService {
       return '';
     }
 
-    // 一意のIDを生成
+    // Generate unique ID
     const id = `access-key-${this.registrationId++}`;
 
-    // マッピング作成
+    // Create mapping
     const mapping: AccessKeyMapping = {
       id,
       key: normalizedKey,
@@ -45,7 +45,7 @@ class AccessKeyService {
       priority
     };
 
-    // ストアに登録
+    // Register to store
     accessKeyMode.registerMapping(mapping);
 
     console.log(`[AccessKey] Registered: ${id} (key: ${normalizedKey}, priority: ${priority})`);
@@ -54,8 +54,8 @@ class AccessKeyService {
   }
 
   /**
-   * アクセスキー登録を解除
-   * @param id - register()で返された登録ID
+   * Unregister an access key
+   * @param id - Registration ID returned by register()
    */
   unregister(id: string): void {
     if (!id) return;
@@ -65,9 +65,9 @@ class AccessKeyService {
   }
 
   /**
-   * アクセスキーを実行
-   * @param key - 押されたキー
-   * @returns 実行されたかどうか
+   * Execute an access key action
+   * @param key - Pressed key
+   * @returns Whether the action was executed
    */
   executeKey(key: string): boolean {
     const normalizedKey = key.toUpperCase();
@@ -88,7 +88,7 @@ class AccessKeyService {
 
     try {
       mapping.action();
-      // アクション実行後は自動的に非アクティブ化
+      // Automatically deactivate after executing action
       accessKeyMode.deactivate();
       return true;
     } catch (error) {
@@ -98,7 +98,7 @@ class AccessKeyService {
   }
 
   /**
-   * すべての登録をクリア
+   * Clear all registrations
    */
   clearAll(): void {
     accessKeyMode.clear();
@@ -106,7 +106,7 @@ class AccessKeyService {
   }
 
   /**
-   * 登録状況をデバッグ出力
+   * Debug output for registration status
    */
   debug(): void {
     const state = get(accessKeyMode);
@@ -126,5 +126,5 @@ class AccessKeyService {
   }
 }
 
-// シングルトンインスタンス
+// Singleton instance
 export const accessKeyService = new AccessKeyService();

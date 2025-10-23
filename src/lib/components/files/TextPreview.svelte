@@ -27,14 +27,14 @@
   $: formattedSize = formatFileSize(file.size);
   $: fileName = file.name || file.title || 'Untitled';
 
-  // テーマストアから現在のテーマを取得
+  // Get current theme from theme store
   $: currentTheme = (() => {
     if ($settings.theme === 'light') {
       return 'light' as const;
     } else if ($settings.theme === 'dark') {
       return 'dark' as const;
     } else {
-      // 'auto'の場合はシステム設定を確認
+      // For 'auto', check system settings
       const prefersDark = typeof window !== 'undefined'
         ? window.matchMedia('(prefers-color-scheme: dark)').matches
         : true;
@@ -42,12 +42,12 @@
     }
   })();
 
-  // ファイル読み込み時にハイライト可否を判定
+  // Determine if highlighting is supported when file loads
   $: shouldHighlight = isHighlightSupported(fileName);
 
-  // ファイルコンテンツ変更時にハイライト適用（非同期処理のトリガー）
+  // Apply highlighting when file content changes (trigger for async processing)
   $: if (fileContent && !isLoading && shouldHighlight && !fileContent.includes('[Preview not available')) {
-    // 非同期関数を即座実行
+    // Execute async function immediately
     (async () => {
       await applyHighlighting();
     })();
@@ -57,19 +57,19 @@
   // It would cause content to load even in compact mode when focus changes
 
   /**
-   * シンタックスハイライトを適用
+   * Apply syntax highlighting
    */
   async function applyHighlighting() {
-    if (isHighlighting) return; // 既にハイライト処理中
+    if (isHighlighting) return; // Already highlighting
 
     isHighlighting = true;
     try {
-      // 行番号を表示（デフォルトtrue）
+      // Show line numbers (default: true)
       highlightedContent = await highlightCode(fileContent, fileName, currentTheme, true);
       console.log('[TextPreview] Syntax highlighting applied with line numbers');
     } catch (error) {
       console.error('[TextPreview] Failed to highlight code:', error);
-      highlightedContent = ''; // フォールバックでプレーンテキスト表示
+      highlightedContent = ''; // Fallback to plain text display
     } finally {
       isHighlighting = false;
     }

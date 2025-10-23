@@ -1,18 +1,18 @@
 import { writable } from 'svelte/store';
 
 export interface AccessKeyMapping {
-  id: string;              // 一意識別子
-  key: string;             // アクセスキー（A-Z, 0-9）
-  element: HTMLElement;    // 対象DOM要素
-  label: string;           // 表示ラベル（通常はkeyと同じ）
-  action: () => void;      // 実行するアクション
-  priority: number;        // 衝突時の優先度（高いほど優先）
+  id: string;              // Unique identifier
+  key: string;             // Access key (A-Z, 0-9)
+  element: HTMLElement;    // Target DOM element
+  label: string;           // Display label (usually same as key)
+  action: () => void;      // Action to execute
+  priority: number;        // Priority when collision occurs (higher priority wins)
 }
 
 export interface AccessKeyState {
-  isActive: boolean;                          // Altキーが押されているか
+  isActive: boolean;                          // Whether Alt key is pressed
   mappings: Map<string, AccessKeyMapping>;    // key -> mapping
-  visibleMappings: AccessKeyMapping[];        // 現在表示中のマッピング
+  visibleMappings: AccessKeyMapping[];        // Currently visible mappings
 }
 
 const initialState: AccessKeyState = {
@@ -27,9 +27,9 @@ function createAccessKeyModeStore() {
   return {
     subscribe,
 
-    // Altキー押下時
+    // When Alt key is pressed
     activate: () => update(state => {
-      // 可視要素のみをvisibleMappingsに追加
+      // Add only visible elements to visibleMappings
       const visible = Array.from(state.mappings.values())
         .filter(mapping => isElementVisible(mapping.element));
 
@@ -40,18 +40,18 @@ function createAccessKeyModeStore() {
       };
     }),
 
-    // Altキー解放時
+    // When Alt key is released
     deactivate: () => update(state => ({
       ...state,
       isActive: false,
       visibleMappings: []
     })),
 
-    // マッピング登録
+    // Register mapping
     registerMapping: (mapping: AccessKeyMapping) => update(state => {
       const mappings = new Map(state.mappings);
 
-      // 既存のキーとの衝突チェック
+      // Check for key collision with existing mappings
       const existing = mappings.get(mapping.key);
       if (existing) {
         console.warn(
@@ -60,9 +60,9 @@ function createAccessKeyModeStore() {
           `\n  New: ${mapping.id} (priority: ${mapping.priority})`
         );
 
-        // 優先度が高い方を採用
+        // Use the one with higher priority
         if (mapping.priority <= existing.priority) {
-          return state; // 既存を保持
+          return state; // Keep existing
         }
       }
 
@@ -70,11 +70,11 @@ function createAccessKeyModeStore() {
       return { ...state, mappings };
     }),
 
-    // マッピング解除
+    // Unregister mapping
     unregisterMapping: (id: string) => update(state => {
       const mappings = new Map(state.mappings);
 
-      // IDで検索して削除
+      // Search and delete by ID
       for (const [key, mapping] of mappings.entries()) {
         if (mapping.id === id) {
           mappings.delete(key);
@@ -85,12 +85,12 @@ function createAccessKeyModeStore() {
       return { ...state, mappings };
     }),
 
-    // すべてクリア
+    // Clear all
     clear: () => set(initialState)
   };
 }
 
-// 要素が可視かどうか判定
+// Check if element is visible
 function isElementVisible(element: HTMLElement): boolean {
   if (!element || !element.isConnected) return false;
 
