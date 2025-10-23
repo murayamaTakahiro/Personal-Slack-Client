@@ -7,7 +7,7 @@
     "ask": [
       "Bash(git push:*)",
       "Bash(git commit:*)"
-    ]
-    "allow": [],
-  },
+    ],
+    "allow": []
+  }
 
