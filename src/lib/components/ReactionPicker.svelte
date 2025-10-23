@@ -26,12 +26,19 @@
     searchQuery = '';
     selectedIndex = 0;
     emojiButtons = [];
-    
+
     // Store the previously focused element to restore later
     previousFocusElement = document.activeElement as HTMLElement;
-    
-    // Use tick to ensure proper focus management
+
+    // Move the picker backdrop to document.body to ensure proper centering
+    // This prevents parent transform/positioning from affecting the fixed positioning
     tick().then(() => {
+      if (pickerElement && pickerElement.parentElement) {
+        const backdrop = pickerElement.closest('.reaction-picker-backdrop');
+        if (backdrop && backdrop.parentElement !== document.body) {
+          document.body.appendChild(backdrop);
+        }
+      }
       initializeFocusTrap();
     });
   });
@@ -195,9 +202,18 @@
     // Always stop propagation to prevent global shortcuts
     event.stopPropagation();
 
-    // Always prevent default for navigation keys to stop scrolling
-    const navigationKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'j', 'J', 'k', 'K', 'h', 'H', 'l', 'L'];
-    if (navigationKeys.includes(event.key)) {
+    // Check if we're in the search input first
+    const inSearchInput = event.target === searchInput;
+
+    // Prevent default for arrow keys to stop scrolling
+    // For HJKL, only prevent default when NOT in search input
+    const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+    const hjklKeys = ['h', 'H', 'j', 'J', 'k', 'K', 'l', 'L'];
+
+    if (arrowKeys.includes(event.key)) {
+      event.preventDefault();
+    } else if (hjklKeys.includes(event.key) && !inSearchInput) {
+      // Only prevent default for HJKL when NOT in search input
       event.preventDefault();
     }
 
@@ -207,15 +223,13 @@
       return;
     }
 
-    // Check if we're in the search input
-    const inSearchInput = event.target === searchInput;
-
     // Allow typing in search input, but still handle special keys
     if (inSearchInput) {
-      // These are the only keys we handle when in search input
+      // When in search input, only handle navigation arrows, Enter, Escape, and Tab
+      // HJKL keys should type into the search field, not navigate
       const searchHandledKeys = ['Escape', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'];
       if (!searchHandledKeys.includes(event.key)) {
-        // Let the search input handle regular typing
+        // Let the search input handle regular typing (including hjkl)
         return;
       }
     }
@@ -270,17 +284,23 @@
         event.stopImmediatePropagation();
         selectedIndex = Math.min(filteredEmojis.length - 1, selectedIndex + 1);
         break;
-      // Add HJKL navigation support
+      // HJKL navigation - only works when NOT in search input
       case 'h':
       case 'H':
-        // Don't handle if in search input
+        // Don't handle if in search input (let user type 'h')
         if (inSearchInput) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         selectedIndex = Math.max(0, selectedIndex - 1);
         break;
       case 'j':
       case 'J':
-        // Don't handle if in search input
+        // Don't handle if in search input (let user type 'j')
         if (inSearchInput) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         if (selectedIndex + 6 < filteredEmojis.length) {
           selectedIndex += 6; // Move down one row (6 columns)
         } else {
@@ -289,8 +309,11 @@
         break;
       case 'k':
       case 'K':
-        // Don't handle if in search input
+        // Don't handle if in search input (let user type 'k')
         if (inSearchInput) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         if (selectedIndex > 5) {
           selectedIndex -= 6; // Move up one row (6 columns)
         } else {
@@ -299,8 +322,11 @@
         break;
       case 'l':
       case 'L':
-        // Don't handle if in search input
+        // Don't handle if in search input (let user type 'l')
         if (inSearchInput) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         selectedIndex = Math.min(filteredEmojis.length - 1, selectedIndex + 1);
         break;
       case '1':
@@ -350,16 +376,25 @@
   onMount(() => {
     // Add global keydown listener in capture phase to intercept all keyboard events
     document.addEventListener('keydown', handleGlobalKeydown, true);
-    
+
     // Add click outside listener with a slight delay to avoid immediate triggers
     const timeoutId = setTimeout(() => {
       document.addEventListener('click', handleClickOutside, true); // Use capture phase
     }, 100); // Increased delay to ensure proper setup
-    
+
     return () => {
       clearTimeout(timeoutId);
       document.removeEventListener('click', handleClickOutside, true);
       document.removeEventListener('keydown', handleGlobalKeydown, true);
+
+      // Clean up the backdrop element from document.body if it was moved there
+      if (pickerElement) {
+        const backdrop = pickerElement.closest('.reaction-picker-backdrop');
+        if (backdrop && backdrop.parentElement === document.body) {
+          backdrop.remove();
+        }
+      }
+
       // Restore focus on cleanup if component unmounts unexpectedly
       restorePreviousFocus();
     };
@@ -406,7 +441,14 @@
               on:click={() => selectEmoji(emoji)}
               on:mouseenter={() => selectedIndex = index}
               on:focus={() => selectedIndex = index}
-              on:keydown={(e) => e.key === 'Enter' && selectEmoji(emoji)}
+              on:keydown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.stopImmediatePropagation();
+                  selectEmoji(emoji);
+                }
+              }}
               title={emoji}
               tabindex="0"
             >
@@ -444,7 +486,14 @@
             on:click={() => selectEmoji('display' in item ? item.emoji : item)}
             on:mouseenter={() => selectedIndex = actualIndex}
             on:focus={() => selectedIndex = actualIndex}
-            on:keydown={(e) => e.key === 'Enter' && selectEmoji('display' in item ? item.emoji : item)}
+            on:keydown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                selectEmoji('display' in item ? item.emoji : item);
+              }
+            }}
             title={'display' in item ? item.emoji : item}
             tabindex="0"
           >
