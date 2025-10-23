@@ -38,7 +38,7 @@ Thumbs.db
 # Rust
 Cargo.lock
 
-# Serena cache
+# Serena cache only (config and memories should be committed)
 .serena/cache/
 
 # User configuration (keep example only)
@@ -46,3 +46,9 @@ public/config.json
 
 # Vite temporary files
 *.timestamp-*
+
+# Application data directory
+data/
+
+# Build artifacts and temporary files
+build.log
