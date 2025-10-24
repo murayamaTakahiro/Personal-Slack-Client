@@ -287,10 +287,10 @@
         bodyContainer.scrollTop = Math.max(0, bodyContainer.scrollTop - scrollSpeed);
       }
     } else if (isExcel) {
-      // For Excel files, scroll the wrapper (due to transform: scale() affecting inner scroll)
-      const wrapper = containerDiv?.querySelector('.excel-preview-wrapper');
-      if (wrapper) {
-        wrapper.scrollTop = Math.max(0, wrapper.scrollTop - scrollSpeed);
+      // For Excel files, scroll the table body container
+      const bodyContainer = containerDiv?.querySelector('.excel-preview-wrapper .table-body-wrapper');
+      if (bodyContainer) {
+        bodyContainer.scrollTop = Math.max(0, bodyContainer.scrollTop - scrollSpeed);
       }
     } else if (isWord) {
       // For Word files, scroll the wrapper (due to transform: scale() affecting inner scroll)
@@ -363,12 +363,12 @@
         );
       }
     } else if (isExcel) {
-      // For Excel files, scroll the wrapper (due to transform: scale() affecting inner scroll)
-      const wrapper = containerDiv?.querySelector('.excel-preview-wrapper');
-      if (wrapper) {
-        wrapper.scrollTop = Math.min(
-          wrapper.scrollHeight - wrapper.clientHeight,
-          wrapper.scrollTop + scrollSpeed
+      // For Excel files, scroll the table body container
+      const bodyContainer = containerDiv?.querySelector('.excel-preview-wrapper .table-body-wrapper');
+      if (bodyContainer) {
+        bodyContainer.scrollTop = Math.min(
+          bodyContainer.scrollHeight - bodyContainer.clientHeight,
+          bodyContainer.scrollTop + scrollSpeed
         );
       }
     } else if (isWord) {
@@ -596,9 +596,9 @@
         bodyContainer.scrollTop = Math.max(0, bodyContainer.scrollTop - bodyContainer.clientHeight);
       }
     } else if (isExcel) {
-      const wrapper = containerDiv?.querySelector('.excel-preview-wrapper');
-      if (wrapper) {
-        wrapper.scrollTop = Math.max(0, wrapper.scrollTop - wrapper.clientHeight);
+      const bodyContainer = containerDiv?.querySelector('.excel-preview-wrapper .table-body-wrapper');
+      if (bodyContainer) {
+        bodyContainer.scrollTop = Math.max(0, bodyContainer.scrollTop - bodyContainer.clientHeight);
       }
     } else if (isWord) {
       const wrapper = containerDiv?.querySelector('.word-preview-wrapper');
@@ -658,11 +658,11 @@
         );
       }
     } else if (isExcel) {
-      const wrapper = containerDiv?.querySelector('.excel-preview-wrapper');
-      if (wrapper) {
-        wrapper.scrollTop = Math.min(
-          wrapper.scrollHeight - wrapper.clientHeight,
-          wrapper.scrollTop + wrapper.clientHeight
+      const bodyContainer = containerDiv?.querySelector('.excel-preview-wrapper .table-body-wrapper');
+      if (bodyContainer) {
+        bodyContainer.scrollTop = Math.min(
+          bodyContainer.scrollHeight - bodyContainer.clientHeight,
+          bodyContainer.scrollTop + bodyContainer.clientHeight
         );
       }
     } else if (isWord) {
@@ -723,9 +723,9 @@
         bodyContainer.scrollTop = 0;
       }
     } else if (isExcel) {
-      const wrapper = containerDiv?.querySelector('.excel-preview-wrapper');
-      if (wrapper) {
-        wrapper.scrollTop = 0;
+      const bodyContainer = containerDiv?.querySelector('.excel-preview-wrapper .table-body-wrapper');
+      if (bodyContainer) {
+        bodyContainer.scrollTop = 0;
       }
     } else if (isWord) {
       const wrapper = containerDiv?.querySelector('.word-preview-wrapper');
@@ -773,9 +773,9 @@
         bodyContainer.scrollTop = bodyContainer.scrollHeight - bodyContainer.clientHeight;
       }
     } else if (isExcel) {
-      const wrapper = containerDiv?.querySelector('.excel-preview-wrapper');
-      if (wrapper) {
-        wrapper.scrollTop = wrapper.scrollHeight - wrapper.clientHeight;
+      const bodyContainer = containerDiv?.querySelector('.excel-preview-wrapper .table-body-wrapper');
+      if (bodyContainer) {
+        bodyContainer.scrollTop = bodyContainer.scrollHeight - bodyContainer.clientHeight;
       }
     } else if (isWord) {
       const wrapper = containerDiv?.querySelector('.word-preview-wrapper');

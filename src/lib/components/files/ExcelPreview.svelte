@@ -562,6 +562,7 @@
     overflow: hidden;
     background: var(--color-header-bg);
     border-bottom: 2px solid var(--color-border);
+    flex-shrink: 0;
   }
 
   .table-body-wrapper {
