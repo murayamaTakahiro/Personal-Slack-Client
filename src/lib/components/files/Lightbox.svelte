@@ -215,13 +215,25 @@
         showKeyboardHelp();
         break;
       case 'd':
-      case 'D':
-        // D - Download all email attachments (or current file for non-email)
+        // d - Download current file
         if (isEmail && file.file.attachments && file.file.attachments.length > 0) {
-          // For email files, download all attachments
+          // For email files with attachments, download all attachments
           downloadAllEmailAttachments();
         } else {
-          // For non-email files, download the current file
+          // For non-email files or emails without attachments, download the current file
+          downloadFullFile(false);
+        }
+        break;
+      case 'D':
+        // Shift+D - Download all files (including all files in allFiles array)
+        if (isEmail && file.file.attachments && file.file.attachments.length > 0) {
+          // For email files with attachments, download all attachments
+          downloadAllEmailAttachments();
+        } else if (allFiles.length > 1) {
+          // For non-email files with multiple files available, download all files
+          downloadAllFiles();
+        } else {
+          // For single file without attachments, download the current file
           downloadFullFile(false);
         }
         break;

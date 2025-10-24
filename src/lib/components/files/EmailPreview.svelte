@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import type { SlackFile } from '$lib/types/slack';
   import { formatFileSize, getFileContent } from '$lib/api/files';
   import { downloadFile } from '$lib/api/files';
@@ -13,11 +13,13 @@
     validateAttachment
   } from '$lib/utils/emailHelpers';
   import type { EmailAttachment } from '$lib/types/slack';
+  import { accessKeyService } from '$lib/services/accessKeyService';
 
   export let file: SlackFile;
   export let workspaceId: string;
   export let compact: boolean = false;
   export let hideHeader: boolean = false;
+  export let showAccessKeys: boolean = false;
 
   // Extract sender from username or user field
   $: sender = file.username || file.user || 'Unknown';
@@ -31,6 +33,10 @@
   let sanitizedHtml: string = '';
   let error: string | null = null;
   let iframeContent: string = '';
+
+  // Access key registration IDs
+  let accessKeyIds: string[] = [];
+  let attachmentButtonRefs: (HTMLButtonElement | null)[] = [];
 
   const MAX_PREVIEW_SIZE = 1024 * 1024; // 1MB
 
@@ -68,9 +74,37 @@
   // Debug logging
   console.log('[EmailPreview] Component mounted', { file, workspaceId, compact });
 
+  // Register access keys for attachment download buttons
+  $: if (showAccessKeys && hasAttachments && attachmentButtonRefs.length > 0) {
+    // Unregister existing access keys first
+    accessKeyIds.forEach(id => accessKeyService.unregister(id));
+    accessKeyIds = [];
+
+    // Register new access keys for each attachment button
+    file.attachments.forEach((attachment, index) => {
+      const button = attachmentButtonRefs[index];
+      if (button && index < 9) { // Support keys 1-9
+        const key = (index + 1).toString();
+        const id = accessKeyService.register(
+          key,
+          button,
+          () => downloadAttachment(attachment, index),
+          10 // Default priority
+        );
+        accessKeyIds.push(id);
+      }
+    });
+  }
+
   onMount(() => {
     console.log('[EmailPreview] onMount called, loading file content...');
     loadFileContent();
+  });
+
+  onDestroy(() => {
+    // Clean up access key registrations
+    accessKeyIds.forEach(id => accessKeyService.unregister(id));
+    accessKeyIds = [];
   });
 
   /**
@@ -593,6 +627,7 @@ ${sanitizedHtml}
                 </div>
 
                 <button
+                  bind:this={attachmentButtonRefs[index]}
                   class="attachment-download-btn"
                   on:click={() => downloadAttachment(attachment, index)}
                   title="Download {attachment.filename}"
@@ -604,6 +639,9 @@ ${sanitizedHtml}
                     />
                   </svg>
                   <span>Download</span>
+                  {#if showAccessKeys && index < 9}
+                    <span class="access-key-hint">({index + 1})</span>
+                  {/if}
                 </button>
               </div>
             {/each}
@@ -1041,6 +1079,13 @@ ${sanitizedHtml}
 
   .attachment-download-btn svg {
     opacity: 0.95;
+  }
+
+  .access-key-hint {
+    margin-left: 0.25rem;
+    font-size: 0.75rem;
+    opacity: 0.8;
+    font-weight: 500;
   }
 
   /* Scrollbar styling for attachment list */
