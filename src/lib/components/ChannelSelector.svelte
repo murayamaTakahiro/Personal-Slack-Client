@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte';
+  import { onMount, onDestroy, afterUpdate, createEventDispatcher, tick } from 'svelte';
   import { channelStore, favoriteChannels, recentChannelsList, sortedChannels, channelGroups } from '../stores/channels';
   import { realtimeStore } from '../stores/realtime';
   import { showToast } from '../stores/toast';
@@ -14,6 +14,11 @@
 
   // Access key registration IDs for cleanup
   let accessKeyRegistrations: string[] = [];
+
+  // Track previous state to detect changes for access key re-registration
+  let previousMode: string | undefined = undefined;
+  let previousSelectedChannelsLength = 0;
+  let previousFavoriteChannelsLength = 0;
 
   let searchInput = '';
 
@@ -30,6 +35,7 @@
   let modeToggleButton: HTMLButtonElement;
   let favoritesButton: HTMLButtonElement;
   let recentButton: HTMLButtonElement;
+  let realtimeToggleButton: HTMLButtonElement;  // LIVE/STOP toggle button
   let applyButtonInline: HTMLButtonElement;  // Apply button in selected-channels section
   let applyButtonDropdown: HTMLButtonElement;  // Apply button in dropdown footer
   
@@ -69,16 +75,6 @@
     ...groupedChannels.recent,
     ...groupedChannels.all
   ];
-  
-  // Reactively re-register access keys when favorite channels or selection changes
-  $: if ($favoriteChannels || selectedChannels || mode) {
-    // Clean up existing registrations
-    cleanupAccessKeys();
-    // Re-register after a short delay to ensure DOM is updated
-    tick().then(() => {
-      setupAccessKeys();
-    });
-  }
 
   onMount(() => {
     // Initialize channel store with channels
@@ -151,6 +147,7 @@
       modeToggleButton: !!modeToggleButton,
       favoritesButton: !!favoritesButton,
       recentButton: !!recentButton,
+      realtimeToggleButton: !!realtimeToggleButton,
       applyButtonInline: !!applyButtonInline,
       applyButtonDropdown: !!applyButtonDropdown
     });
@@ -179,6 +176,15 @@
       if (id) registrations.push(id);
     }
 
+    // 4: Realtime toggle button (LIVE/STOP button, only in multi-select mode)
+    if (realtimeToggleButton && mode === 'multi' && selectedChannels.length > 0) {
+      const id = accessKeyService.register('4', realtimeToggleButton, () => {
+        console.log('[ChannelSelector] Access key 4 pressed: toggle realtime mode');
+        realtimeToggleButton.click();
+      }, 10);
+      if (id) registrations.push(id);
+    }
+
     // 7: Apply button (multi-select mode only) - inline or dropdown version
     const applyButton = applyButtonInline || applyButtonDropdown;
     if (applyButton && mode === 'multi' && selectedChannels.length > 0) {
@@ -203,6 +209,32 @@
     accessKeyRegistrations = [];
     console.log('[ChannelSelector] Cleaned up access keys');
   }
+
+  // Re-setup access keys when mode, selection, or favorites change
+  afterUpdate(() => {
+    const currentFavoritesLength = $favoriteChannels?.length ?? 0;
+    const currentSelectedLength = selectedChannels?.length ?? 0;
+
+    if (previousMode !== mode ||
+        previousSelectedChannelsLength !== currentSelectedLength ||
+        previousFavoriteChannelsLength !== currentFavoritesLength) {
+
+      console.log('[ChannelSelector] State changed, re-registering access keys:', {
+        mode: `${previousMode} -> ${mode}`,
+        selected: `${previousSelectedChannelsLength} -> ${currentSelectedLength}`,
+        favorites: `${previousFavoriteChannelsLength} -> ${currentFavoritesLength}`
+      });
+
+      previousMode = mode;
+      previousSelectedChannelsLength = currentSelectedLength;
+      previousFavoriteChannelsLength = currentFavoritesLength;
+
+      tick().then(() => {
+        cleanupAccessKeys();
+        setupAccessKeys();
+      });
+    }
+  });
 
   onDestroy(() => {
     cleanupAccessKeys();
@@ -573,6 +605,7 @@
       
       {#if mode === 'multi' && selectedChannels.length > 0}
         <button
+          bind:this={realtimeToggleButton}
           on:click={() => {
             if ($realtimeStore.isEnabled) {
               realtimeStore.setEnabled(false);

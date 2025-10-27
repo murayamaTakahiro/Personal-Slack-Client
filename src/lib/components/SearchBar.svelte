@@ -1,6 +1,6 @@
 <script lang="ts">
   import { searchQuery, searchParams, searchLoading, searchProgress, selectedMessage, searchError } from '../stores/search';
-  import { createEventDispatcher, onMount, onDestroy, tick } from 'svelte';
+  import { createEventDispatcher, onMount, onDestroy, afterUpdate, tick } from 'svelte';
   import ChannelSelector from './ChannelSelector.svelte';
   import UserSelector from './UserSelector.svelte';
   import SavedSearchManager from './SavedSearchManager.svelte';
@@ -25,6 +25,9 @@
 
   // Access key registration IDs for cleanup
   let accessKeyRegistrations: string[] = [];
+
+  // Track previous showAdvanced state to detect changes
+  let previousShowAdvanced = showAdvanced;
   
   const dispatch = createEventDispatcher();
   
@@ -647,7 +650,7 @@
   
   // Check if search is possible
   $: canSearch = $searchQuery.trim() || channel || userId || user || fromDate || toDate;
-  
+
   function toggleAdvanced() {
     showAdvanced = !showAdvanced;
   }
@@ -1078,7 +1081,21 @@
     // Note: toggleSavedSearches and saveCurrentSearch handlers are now registered in App.svelte
     // to ensure proper timing and avoid conflicts
   });
-  
+
+  // Re-setup access keys when advanced panel visibility changes
+  afterUpdate(() => {
+    if (previousShowAdvanced !== showAdvanced) {
+      console.log(`[SearchBar] Advanced panel toggled: ${previousShowAdvanced} -> ${showAdvanced}`);
+      previousShowAdvanced = showAdvanced;
+
+      // Wait for DOM to update, then re-register access keys
+      tick().then(() => {
+        cleanupAccessKeys();
+        setupAccessKeys();
+      });
+    }
+  });
+
   onDestroy(() => {
     const keyboardService = getKeyboardService();
     if (keyboardService) {

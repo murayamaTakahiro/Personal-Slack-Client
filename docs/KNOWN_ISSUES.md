@@ -101,20 +101,6 @@ Users need to manually expand the display area by pressing the down arrow key mu
 
 ---
 
-## Unstable Access Key Behavior
-
-### Issue Overview
-Access key behavior becomes unstable after certain operations, such as executing a search.
-
-### Scope of Impact
-- **After Search Execution**: ❌ Access keys may not work as expected
-- **After Other Operations**: ❌ Unstable behavior may occur
-
-### Current Response
-We are currently investigating the root cause of this issue.
-
----
-
 ## DM Channel Display Issue in Saved Searches
 
 ### Issue Overview

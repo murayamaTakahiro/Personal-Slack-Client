@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte';
+  import { onMount, onDestroy, afterUpdate, createEventDispatcher, tick } from 'svelte';
   import { userService } from '../services/userService';
   import { settings } from '../stores/settings';
   import { showToast } from '../stores/toast';
@@ -14,6 +14,12 @@
 
   // Access key registration IDs for cleanup
   let accessKeyRegistrations: string[] = [];
+
+  // Track previous state to detect changes for access key re-registration
+  let previousMode: string | undefined = undefined;
+  let previousSelectedUsersLength = 0;
+  let previousUserFavoritesLength = 0;
+  let isInitialMount = true;
 
   // Subscribe to multi-select mode and selected users
   $: mode = $isMultiSelectMode ? 'multi' : 'single';
@@ -39,16 +45,6 @@
   let recentButton: HTMLButtonElement;
   let applyButtonInline: HTMLButtonElement;  // Apply button in selected-users section
   let applyButtonDropdown: HTMLButtonElement;  // Apply button in dropdown footer
-  
-  // Reactively re-register access keys when user favorites or selection changes
-  $: if (userFavorites || selectedUsers || mode) {
-    // Clean up existing registrations
-    cleanupAccessKeys();
-    // Re-register after a short delay to ensure DOM is updated
-    tick().then(() => {
-      setupAccessKeys();
-    });
-  }
 
   // Load favorites on mount and listen for workspace switches
   function setupAccessKeys() {
@@ -62,19 +58,19 @@
       applyButtonDropdown: !!applyButtonDropdown
     });
 
-    // 4: Mode toggle button (leftmost button)
+    // 5: Mode toggle button (leftmost button)
     if (modeToggleButton) {
-      const id = accessKeyService.register('4', modeToggleButton, () => {
-        console.log('[UserSelector] Access key 4 pressed: toggleMode');
+      const id = accessKeyService.register('5', modeToggleButton, () => {
+        console.log('[UserSelector] Access key 5 pressed: toggleMode');
         toggleMode();
       }, 10);
       if (id) registrations.push(id);
     }
 
-    // 5: Favorites button (center ⭐ button)
+    // 6: Favorites button (center ⭐ button)
     if (favoritesButton) {
-      const id = accessKeyService.register('5', favoritesButton, () => {
-        console.log('[UserSelector] Access key 5 pressed: selectAllFavorites');
+      const id = accessKeyService.register('6', favoritesButton, () => {
+        console.log('[UserSelector] Access key 6 pressed: selectAllFavorites');
         selectAllFavorites();
       }, 10);
       if (id) registrations.push(id);
@@ -110,6 +106,42 @@
     accessKeyRegistrations = [];
     console.log('[UserSelector] Cleaned up access keys');
   }
+
+  // Re-setup access keys when mode, selection, or favorites change
+  afterUpdate(() => {
+    // Skip the initial mount to avoid race condition with onMount's setupAccessKeys
+    if (isInitialMount) {
+      isInitialMount = false;
+      // Set initial values for next comparison
+      previousMode = mode;
+      previousSelectedUsersLength = selectedUsers?.length ?? 0;
+      previousUserFavoritesLength = userFavorites?.length ?? 0;
+      return;
+    }
+
+    const currentFavoritesLength = userFavorites?.length ?? 0;
+    const currentSelectedLength = selectedUsers?.length ?? 0;
+
+    if (previousMode !== mode ||
+        previousSelectedUsersLength !== currentSelectedLength ||
+        previousUserFavoritesLength !== currentFavoritesLength) {
+
+      console.log('[UserSelector] State changed, re-registering access keys:', {
+        mode: `${previousMode} -> ${mode}`,
+        selected: `${previousSelectedUsersLength} -> ${currentSelectedLength}`,
+        favorites: `${previousUserFavoritesLength} -> ${currentFavoritesLength}`
+      });
+
+      previousMode = mode;
+      previousSelectedUsersLength = currentSelectedLength;
+      previousUserFavoritesLength = currentFavoritesLength;
+
+      tick().then(() => {
+        cleanupAccessKeys();
+        setupAccessKeys();
+      });
+    }
+  });
 
   onMount(async () => {
     // Function to load user data
