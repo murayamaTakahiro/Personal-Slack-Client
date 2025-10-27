@@ -242,7 +242,20 @@
   
   function handleInputFocus() {
     showDropdown = true;
-    highlightedIndex = -1;
+
+    // Auto-highlight first item in ALL CHANNELS section for better visibility
+    tick().then(() => {
+      if (!searchInput) {
+        // Only auto-highlight when there's no search query
+        const targetIndex = getFirstAllChannelsIndex();
+        if (targetIndex >= 0 && filteredChannels.length > 0) {
+          highlightedIndex = targetIndex;
+          scrollToHighlighted();
+        }
+      } else {
+        highlightedIndex = -1;
+      }
+    });
   }
   
   function handleInput(event: Event) {
@@ -263,8 +276,20 @@
     showDropdown = !showDropdown;
     if (showDropdown && inputElement) {
       inputElement.focus();
+
+      // Auto-highlight for visibility
+      tick().then(() => {
+        if (!searchInput) {
+          const targetIndex = getFirstAllChannelsIndex();
+          if (targetIndex >= 0 && filteredChannels.length > 0) {
+            highlightedIndex = targetIndex;
+            scrollToHighlighted();
+          }
+        }
+      });
+    } else {
+      highlightedIndex = -1;
     }
-    highlightedIndex = -1;
   }
   
   function handleInputKeydown(event: KeyboardEvent) {
@@ -375,11 +400,25 @@
   
   function scrollToHighlighted() {
     if (highlightedIndex < 0) return;
-    
+
     const items = dropdownElement?.querySelectorAll('.channel-item');
     if (items && items[highlightedIndex]) {
       items[highlightedIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
+  }
+
+  function getFirstAllChannelsIndex(): number {
+    // Calculate index of first item in "ALL CHANNELS" section
+    const favCount = groupedChannels.favorites.length;
+    const recentCount = groupedChannels.recent.length;
+
+    // If there are items in ALL CHANNELS section
+    if (groupedChannels.all.length > 0) {
+      return favCount + recentCount;
+    }
+
+    // Fallback to first item if ALL CHANNELS is empty
+    return 0;
   }
   
   function showFavoriteToggleFeedback(channelName: string, isNowFavorite: boolean) {
