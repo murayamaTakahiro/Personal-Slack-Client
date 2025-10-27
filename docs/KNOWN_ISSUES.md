@@ -101,20 +101,6 @@ Users need to manually expand the display area by pressing the down arrow key mu
 
 ---
 
-## DM Channel Display Issue in Saved Searches
-
-### Issue Overview
-In the "Saved searches" feature, DM channels are displayed as channel IDs instead of channel names.
-
-### Scope of Impact
-- **Saved searches**: ❌ DM channels displayed as IDs
-- **Regular Channels**: ✅ Channel names displayed correctly
-
-### Current Response
-Currently, the mapping process from channel ID to channel name is incomplete. We are considering improvements.
-
----
-
 ## "New" Badge Display Issue
 
 ### Issue Overview

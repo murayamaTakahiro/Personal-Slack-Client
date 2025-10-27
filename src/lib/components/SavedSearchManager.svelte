@@ -2,12 +2,12 @@
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { flip } from 'svelte/animate';
   import { fade, slide } from 'svelte/transition';
-  import { 
-    savedSearchesStore, 
-    favoriteSearches, 
-    recentSearches, 
+  import {
+    savedSearchesStore,
+    favoriteSearches,
+    recentSearches,
     frequentSearches,
-    type SavedSearch 
+    type SavedSearch
   } from '../stores/savedSearches';
   import { searchQuery, searchParams } from '../stores/search';
   import { showToast } from '../stores/toast';
@@ -16,6 +16,7 @@
   import { get } from 'svelte/store';
   import { cleanupDuplicateSavedSearches } from '../utils/cleanupSavedSearches';
   import { savedSearchOpen } from '../stores/savedSearchOpen';
+  import { channelStore } from '../stores/channels';
 
   const dispatch = createEventDispatcher();
 
@@ -462,7 +463,7 @@
     const now = new Date();
     const diff = now.getTime() - d.getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
+
     if (days === 0) return 'Today';
     if (days === 1) return 'Yesterday';
     if (days < 7) return `${days} days ago`;
@@ -471,9 +472,38 @@
     return `${Math.floor(days / 365)} years ago`;
   }
 
+  // Helper function to get channel display name from ID or name
+  function getChannelDisplayName(channelIdOrName: string): string {
+    // Get current channel list from store
+    const channels = get(channelStore);
+
+    // Try to find by ID first
+    const channelById = channels.allChannels.find(ch => ch.id === channelIdOrName);
+    if (channelById) {
+      return channelById.name;
+    }
+
+    // If not found by ID, assume it's already a name
+    return channelIdOrName;
+  }
+
+  // Helper function to check if a channel name is a DM or Group DM
+  function isDMChannel(channelName: string): boolean {
+    return channelName.startsWith('@') || channelName.startsWith('👥');
+  }
+
   function getSearchDescription(search: SavedSearch): { mainDisplay: string; subDisplay: string } {
     const parts = [];
-    if (search.channel) parts.push(`in #${search.channel}`);
+    if (search.channel) {
+      // Resolve channel ID to display name
+      const channelDisplayName = getChannelDisplayName(search.channel);
+      // Format channel name: DMs don't get # prefix, regular channels do
+      if (isDMChannel(channelDisplayName)) {
+        parts.push(`in ${channelDisplayName}`);
+      } else {
+        parts.push(`in #${channelDisplayName}`);
+      }
+    }
     if (search.query) parts.push(`"${search.query}"`);
     // Display userName if available, fallback to user or userId
     if (search.userName || search.user || search.userId) {
@@ -495,11 +525,13 @@
 
     const criteria = parts.length > 0 ? parts.join(' ') : 'All messages';
 
-    // If alias exists, show alias on top and criteria below
+    // If alias exists, resolve any channel IDs in the name and show it on top
     // Otherwise, show criteria on top and criteria below as well (same content)
     if (search.name) {
+      // Resolve channel IDs in the search name (e.g., "in #D04EGFW8PDM" -> "in @username")
+      const resolvedName = resolveChannelIdsInText(search.name);
       return {
-        mainDisplay: search.name,
+        mainDisplay: resolvedName,
         subDisplay: ` · ${criteria}`
       };
     } else {
@@ -508,6 +540,24 @@
         subDisplay: ` · ${criteria}`
       };
     }
+  }
+
+  // Helper function to resolve channel IDs in text
+  function resolveChannelIdsInText(text: string): string {
+    // Match channel IDs like #D04EGFW8PDM or #C123456789
+    return text.replace(/#([DC][A-Z0-9]+)/g, (match, channelId) => {
+      const channelDisplayName = getChannelDisplayName(channelId);
+      // If it's a DM/Group DM, return without # prefix
+      if (isDMChannel(channelDisplayName)) {
+        return channelDisplayName;
+      }
+      // If resolved to a different name, use it with # prefix
+      if (channelDisplayName !== channelId) {
+        return `#${channelDisplayName}`;
+      }
+      // If not resolved, return original
+      return match;
+    });
   }
 
   onMount(() => {
