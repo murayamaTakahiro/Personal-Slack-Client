@@ -570,13 +570,21 @@
       }
     }
   }
+
+  // Export function to reset focus when switching away from ThreadView
+  export function resetFocus() {
+    // Reset selection to -1 so ThreadView doesn't appear focused
+    selectedIndex = -1;
+    // Blur the ThreadView element to remove focus
+    if (threadViewElement && document.activeElement === threadViewElement) {
+      threadViewElement.blur();
+    }
+  }
   
   onMount(() => {
-    // Set initial focus when thread loads
-    if (thread && getAllMessages().length > 0) {
-      selectedIndex = 0;
-      setTimeout(() => focusMessage(0), 100);
-    }
+    // DON'T auto-focus when thread loads - this prevents stealing focus from ResultList
+    // ThreadView will only get focus when user explicitly switches to it (Ctrl+2 or click)
+    // This ensures emoji reactions and keyboard shortcuts work correctly in ResultList
 
     // Add event listener in capture phase to handle Q and I keys before KeyboardService
     const handleSpecialKeys = (event: KeyboardEvent) => {
@@ -692,15 +700,11 @@
     };
   });
   
-  $: if (thread && selectedIndex === -1) {
-    // Auto-select first message when thread loads
-    selectedIndex = 0;
-    setTimeout(() => {
-      if (threadViewElement && threadViewElement === document.activeElement) {
-        focusMessage(0);
-      }
-    }, 100);
-  }
+  // REMOVED: Don't auto-select when thread loads
+  // This reactive statement was causing ThreadView to steal focus from ResultList
+  // Auto-selection now only happens when user explicitly focuses ThreadView via:
+  // 1. Ctrl+2 shortcut (calls focusThreadView())
+  // 2. Clicking on ThreadView (triggers handleFocus())
   
   // Handle focus event
   function handleFocus() {

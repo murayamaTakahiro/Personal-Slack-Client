@@ -115,21 +115,6 @@ We are currently investigating the root cause of this issue.
 
 ---
 
-## Emoji Reaction Limitation on Thread Messages
-
-### Issue Overview
-For messages that are part of a thread, emoji reactions cannot be added even when focused in the message list. Also, emoji reactions added by other users cannot be selected using shortcut keys.
-
-### Scope of Impact
-- **Message List**: ❌ Cannot add emoji reactions to thread messages
-- **Thread List**: ✅ Can add emoji reactions normally
-- **Shortcut Keys**: ❌ Cannot select existing emoji reactions
-
-### Current Response
-When adding emoji reactions to thread messages, please focus on them in the thread list view.
-
----
-
 ## DM Channel Display Issue in Saved Searches
 
 ### Issue Overview

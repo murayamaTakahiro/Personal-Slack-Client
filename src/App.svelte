@@ -1082,6 +1082,10 @@
       keyboardService.registerHandler('focusResults', {
         action: () => {
           if (!showSettings && resultListElement && typeof resultListElement.focusList === 'function') {
+            // Reset ThreadView focus when switching to ResultList
+            if (threadViewElement && typeof threadViewElement.resetFocus === 'function') {
+              threadViewElement.resetFocus();
+            }
             resultListElement.focusList();
           }
         },
