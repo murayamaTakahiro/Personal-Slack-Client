@@ -1093,6 +1093,7 @@
     top: calc(100% + 0.5rem);
     left: 0;
     right: 0;
+    min-height: 400px;
     max-height: 400px;
     overflow-y: auto;
     background: var(--bg-primary);
