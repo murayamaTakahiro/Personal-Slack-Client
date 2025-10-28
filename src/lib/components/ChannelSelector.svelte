@@ -59,12 +59,15 @@
     : $sortedChannels;
   
   // Group channels for display
+  // When no search results found, fall back to showing all channels to maintain UI structure
+  $: displayChannels = filteredChannels.length === 0 && searchInput ? $sortedChannels : filteredChannels;
+
   $: groupedChannels = {
-    favorites: filteredChannels.filter(ch => ch.isFavorite),
-    recent: $recentChannelsList.filter(ch => 
-      !ch.isFavorite && filteredChannels.some(fc => fc.id === ch.id)
+    favorites: displayChannels.filter(ch => ch.isFavorite),
+    recent: $recentChannelsList.filter(ch =>
+      !ch.isFavorite && displayChannels.some(fc => fc.id === ch.id)
     ).slice(0, 5),
-    all: filteredChannels.filter(ch => 
+    all: displayChannels.filter(ch =>
       !ch.isFavorite && !$recentChannelsList.some(rc => rc.id === ch.id)
     )
   };
@@ -808,8 +811,12 @@
         </div>
       {/if}
       
-      {#if filteredChannels.length === 0}
-        <div class="no-results">
+      {#if filteredChannels.length === 0 && searchInput}
+        <div class="no-results-banner">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.35-4.35"/>
+          </svg>
           No channels found matching "{searchInput}"
         </div>
       {/if}
@@ -1162,7 +1169,27 @@
     color: var(--text-secondary);
     font-size: 0.875rem;
   }
-  
+
+  .no-results-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    margin: 0.5rem;
+    background: var(--bg-secondary);
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    text-align: center;
+  }
+
+  .no-results-banner svg {
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+
   .dropdown-footer {
     padding: 0.75rem;
     border-top: 1px solid var(--border);
