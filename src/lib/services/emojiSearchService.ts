@@ -131,6 +131,12 @@ const ENGLISH_ALIASES: Record<string, string[]> = {
   'person_shrugging': ['shrug', 'idk', "don't know", 'whatever'],
   'person_raising_hand': ['raise hand', 'question', 'volunteer', 'me'],
   
+  // OK and gesturing emojis - Add aliases for common searches
+  'ok_woman': ['gesturing ok', 'person gesturing ok', 'woman gesturing ok', 'ok gesture woman', 'man-gesturing-ok', 'man gesturing ok'],
+  'ok_hand': ['ok', 'okay', 'ok sign', 'ok symbol', 'okay hand'],
+  'no_good': ['no', 'nope', 'gesturing no', 'person gesturing no', 'not good'],
+  'raising_hand': ['raise', 'raising', 'hand up', 'question', 'volunteer'],
+  
   // Professions
   'police_officer': ['cop', 'police', 'officer'],
   'detective': ['investigator', 'spy', 'sleuth'],
@@ -158,7 +164,7 @@ const ENGLISH_ALIASES: Record<string, string[]> = {
   'cow': ['moo', 'cattle', 'beef'],
   'rabbit': ['bunny', 'hare', 'hop'],
   'bear': ['teddy', 'grizzly', 'panda'],
-};
+};;
 
 // Category mappings for better organization
 const EMOJI_CATEGORIES: Record<string, string[]> = {

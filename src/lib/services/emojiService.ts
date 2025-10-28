@@ -23,6 +23,24 @@ export interface WorkspaceEmojiCache {
 // Cache duration: 24 hours
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 
+// Emoji aliases - map alternative names to actual Slack emoji names
+// This allows users to use common variations or descriptive names
+const EMOJI_ALIASES: Record<string, string> = {
+  // Gesturing emojis - these are commonly searched but may not match Slack's naming
+  'man-gesturing-ok': 'ok_woman',  // The Unicode emoji 🙆 is named ok_woman in Slack
+  'woman-gesturing-ok': 'ok_woman',
+  'person-gesturing-ok': 'ok_woman',
+  'gesturing-ok': 'ok_woman',
+
+  'man-gesturing-no': 'no_good',  // The Unicode emoji 🙅
+  'woman-gesturing-no': 'no_good',
+  'person-gesturing-no': 'no_good',
+  'gesturing-no': 'no_good',
+
+  // Other common aliases
+  'person_gesturing_ok': 'ok_woman',
+  'person_gesturing_no': 'no_good',
+};
 
 // Store for emoji data - initialize with standard emojis
 export const emojiData = writable<EmojiData>({
@@ -287,26 +305,32 @@ export class EmojiService {
    */
   getEmoji(name: string): string | null {
     const data = get(emojiData);
-    
+
     // Remove colons and skin tone modifiers if present
     let cleanName = name.replace(/^:/, '').replace(/:$/, '');
-    
+
     // Debug logging for specific problematic emoji
     if (cleanName.includes('ありがとうございます') || cleanName.includes('thankyou')) {
       console.log('[EmojiService] DEBUG: Looking up emoji:', cleanName);
     }
-    
+
     // Handle skin tone variations (e.g., "woman-raising-hand::skin-tone-2" -> "woman-raising-hand")
     const skinToneMatch = cleanName.match(/^(.+)::?skin-tone-\d$/i);
     if (skinToneMatch) {
       cleanName = skinToneMatch[1];
     }
-    
+
     // Remove trailing numbers that might be accidentally included
-    // e.g., "woman-raising-hand:1" -> "woman-raising-hand" 
+    // e.g., "woman-raising-hand:1" -> "woman-raising-hand"
     const numberSuffixMatch = cleanName.match(/^(.+):(\d+)$/);
     if (numberSuffixMatch) {
       cleanName = numberSuffixMatch[1];
+    }
+
+    // Check emoji aliases first - this maps alternative names to official Slack names
+    if (EMOJI_ALIASES[cleanName]) {
+      console.log(`[EmojiService] Using alias: "${cleanName}" -> "${EMOJI_ALIASES[cleanName]}"`);
+      cleanName = EMOJI_ALIASES[cleanName];
     }
     
     // Check current workspace's custom emojis first
