@@ -31,6 +31,7 @@
   let userFavorites: UserFavorite[] = [];
   let searchResults: SlackUser[] = [];
   let recentUsers: SlackUser[] = [];
+  let allUsers: SlackUser[] = [];  // All users for initial dropdown display
   let loading = false;
   let inputElement: HTMLInputElement;
   let dropdownElement: HTMLDivElement;
@@ -145,16 +146,20 @@
 
   onMount(async () => {
     // Function to load user data
-    const loadUserData = () => {
+    const loadUserData = async () => {
       userFavorites = userService.getUserFavorites();
       recentUsers = userService.getRecentUsers();
+
+      // Pre-load all users for instant dropdown display
+      await loadAllUsers();
 
       console.log('[UserSelector] Loaded users:', {
         favorites: userFavorites.length,
         favoriteIds: userFavorites.map(f => f.id),
         recent: recentUsers.length,
         recentUserData: recentUsers.map(u => ({ id: u.id, name: u.name || u.displayName })),
-        recentNonFavorites: recentUsers.filter(u => !userFavorites.some(f => f.id === u.id)).length
+        recentNonFavorites: recentUsers.filter(u => !userFavorites.some(f => f.id === u.id)).length,
+        all: allUsers.length
       });
 
       // Set initial highlight if dropdown is open
@@ -164,17 +169,19 @@
     };
 
     // Listen for UserService initialization completion
-    const handleUserServiceInit = () => {
+    const handleUserServiceInit = async () => {
       console.log('[UserSelector] UserService initialized event received');
-      loadUserData();
+      await loadUserData();
     };
 
     // Listen for workspace switch events
     const handleWorkspaceSwitch = () => {
       // Add small delay to ensure workspace data is loaded
-      setTimeout(() => {
+      setTimeout(async () => {
         userFavorites = userService.getUserFavorites();
         recentUsers = userService.getRecentUsers();
+        allUsers = []; // Clear cache first
+        await loadAllUsers(); // Pre-load for new workspace
         // Clear any selected users when switching workspace
         if (mode === 'multi') {
           userSelectionStore.clearSelection();
@@ -188,9 +195,17 @@
     window.addEventListener('userservice-initialized', handleUserServiceInit);
     window.addEventListener('workspace-switched', handleWorkspaceSwitch);
 
-    // Load initial data (in case UserService is already initialized)
+    // Try to load initial data
+    // If UserService is already initialized, this will load data successfully
+    // If not, the 'userservice-initialized' event will trigger loading later
     await tick();
-    loadUserData();
+    await loadUserData();
+
+    // If allUsers is still empty after loading, UserService wasn't ready
+    // Wait for the initialization event to fire
+    if (allUsers.length === 0) {
+      console.log('[UserSelector] Initial load returned no users, waiting for userservice-initialized event');
+    }
 
     // Setup access keys after DOM is ready
     tick().then(() => {
@@ -223,7 +238,18 @@
     
     return userId;
   }
-  
+
+  async function loadAllUsers() {
+    if (allUsers.length > 0) return;  // Already loaded
+
+    try {
+      allUsers = await userService.getAllUsers();
+    } catch (error) {
+      console.error('Failed to load all users:', error);
+      allUsers = [];
+    }
+  }
+
   async function handleInput(event: Event) {
     const target = event.target as HTMLInputElement;
     searchQuery = target.value;
@@ -425,8 +451,27 @@
     showDropdown = !showDropdown;
     if (showDropdown && inputElement) {
       inputElement.focus();
+
+      // Ensure all users are loaded
+      loadAllUsers().then(() => {
+        // Auto-highlight first item in ALL USERS section for better visibility
+        tick().then(() => {
+          if (!searchQuery) {
+            // Only auto-highlight when there's no search query
+            const targetIndex = getFirstAllUsersIndex();
+            const visibleUsers = getAllVisibleUsers();
+            if (targetIndex >= 0 && visibleUsers.length > 0) {
+              highlightedIndex = Math.min(targetIndex, visibleUsers.length - 1);
+              scrollToHighlighted();
+            }
+          } else {
+            highlightedIndex = -1;
+          }
+        });
+      });
+    } else {
+      highlightedIndex = -1;
     }
-    highlightedIndex = -1;
   }
   
   function handleKeydown(e: KeyboardEvent) {
@@ -544,9 +589,38 @@
   function getAllVisibleUsers() {
     const favoriteIds = new Set(userFavorites.map(f => f.id));
     const recentNonFavorites = recentUsers.filter(u => !favoriteIds.has(u.id)).slice(0, 5);
-    const searchNonFavorites = searchResults.filter(u => !favoriteIds.has(u.id) && !recentNonFavorites.some(r => r.id === u.id));
+    const recentIds = new Set(recentNonFavorites.map(r => r.id));
 
-    return [...userFavorites, ...recentNonFavorites, ...searchNonFavorites];
+    // If we have search results, show them
+    if (searchResults.length > 0) {
+      const searchNonFavorites = searchResults.filter(u => !favoriteIds.has(u.id) && !recentIds.has(u.id));
+      return [...userFavorites, ...recentNonFavorites, ...searchNonFavorites];
+    }
+
+    // Otherwise, show all users (excluding favorites and recent)
+    const allNonFavoritesNonRecent = allUsers.filter(u => !favoriteIds.has(u.id) && !recentIds.has(u.id));
+    return [...userFavorites, ...recentNonFavorites, ...allNonFavoritesNonRecent];
+  }
+
+  function getFirstAllUsersIndex(): number {
+    // Calculate index of first item in "ALL USERS" section, plus 5 more items
+    // to ensure ALL USERS content is prominently visible with optimal scroll position
+    const favCount = userFavorites.length;
+    const recentNonFavoriteCount = recentUsers.filter(u => !userFavorites.some(f => f.id === u.id)).slice(0, 5).length;
+
+    // If there are all users available
+    const favoriteIds = new Set(userFavorites.map(f => f.id));
+    const recentIds = new Set(recentUsers.map(u => u.id));
+    const allUsersFiltered = allUsers.filter(u => !favoriteIds.has(u.id) && !recentIds.has(u.id));
+
+    if (allUsersFiltered.length > 0) {
+      // Target 5 items down into ALL USERS section for optimal visibility
+      // This is 3 more scrolls from the previous +2 offset
+      return favCount + recentNonFavoriteCount + 5;
+    }
+
+    // Fallback to first item if ALL USERS is empty
+    return 0;
   }
 
   function scrollToHighlighted() {
@@ -611,7 +685,27 @@
         type="text"
         value={searchQuery}
         on:input={handleInput}
-        on:focus={() => showDropdown = true}
+        on:focus={() => {
+          showDropdown = true;
+
+          // Ensure all users are loaded
+          loadAllUsers().then(() => {
+            // Auto-highlight first item in ALL USERS section for better visibility
+            tick().then(() => {
+              if (!searchQuery) {
+                // Only auto-highlight when there's no search query
+                const targetIndex = getFirstAllUsersIndex();
+                const visibleUsers = getAllVisibleUsers();
+                if (targetIndex >= 0 && visibleUsers.length > 0) {
+                  highlightedIndex = Math.min(targetIndex, visibleUsers.length - 1);
+                  scrollToHighlighted();
+                }
+              } else {
+                highlightedIndex = -1;
+              }
+            });
+          });
+        }}
         on:keydown={handleKeydown}
         placeholder={mode === 'multi'
           ? (selectedUsers.length > 0
@@ -733,7 +827,7 @@
 
   {#if showDropdown}
     <div bind:this={dropdownElement} class="user-dropdown" tabindex="0" on:keydown|stopPropagation={handleKeydown}>
-      {#if showDropdown}
+      {#if showDropdown && searchResults.length > 0}
         <div class="dropdown-help">
           <span class="help-text">↑↓ Navigate • Enter/Space Select • e Edit Alias (Enter to save) • f Toggle Favorite</span>
         </div>
@@ -741,7 +835,7 @@
 
       {#if userFavorites.length > 0}
         <div class="user-group">
-          <div class="group-header">⭐ Favorite Users</div>
+          <div class="group-header">⭐ FAVORITES</div>
           {#each userFavorites as favorite, index}
             <div
               class="user-item"
@@ -810,7 +904,7 @@
 
       {#if recentUsers.filter(u => !userFavorites.some(f => f.id === u.id)).length > 0}
         <div class="user-group">
-          <div class="group-header">🕐 Recent</div>
+          <div class="group-header">RECENT</div>
           {#each recentUsers.filter(u => !userFavorites.some(f => f.id === u.id)).slice(0, 5) as user, index}
             {@const actualIndex = userFavorites.length + index}
             <div
@@ -885,7 +979,58 @@
         {/if}
       {/if}
 
-      {#if !searchQuery && userFavorites.length === 0}
+      {#if !searchQuery && searchResults.length === 0 && allUsers.length > 0}
+        {@const favoriteIds = new Set(userFavorites.map(f => f.id))}
+        {@const recentIds = new Set(recentUsers.map(u => u.id))}
+        {@const allFiltered = allUsers.filter(u => !favoriteIds.has(u.id) && !recentIds.has(u.id))}
+        {#if allFiltered.length > 0}
+          <div class="user-group">
+            <div class="group-header">ALL USERS</div>
+            {#each allFiltered as user, index}
+              {@const actualIndex = userFavorites.length + Math.min(5, recentUsers.filter(u => !userFavorites.some(f => f.id === u.id)).length) + index}
+              <div
+                class="user-item"
+                class:highlighted={highlightedIndex === actualIndex}
+                class:selected={mode === 'multi' ? selectedUsers.includes(user.id) : value === user.id}
+                on:click={() => selectUser(user)}
+              >
+                {#if mode === 'multi'}
+                  <input
+                    type="checkbox"
+                    checked={selectedUsers.includes(user.id)}
+                    on:click|stopPropagation={() => userSelectionStore.toggleUserSelection(user.id, user)}
+                  />
+                {/if}
+                <span class="user-name">
+                  {user.displayName || user.realName || user.name}
+                </span>
+                <button
+                  on:click={(e) => toggleFavorite(user, e)}
+                  class="btn-icon"
+                  title="Add to favorites (press 'f' when highlighted)"
+                  tabindex="0"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                </button>
+              </div>
+            {/each}
+          </div>
+        {/if}
+      {/if}
+
+      {#if searchQuery && searchQuery.length >= 2 && searchResults.length === 0 && !loading}
+        <div class="no-results-banner">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.35-4.35"/>
+          </svg>
+          No users found matching "{searchQuery}"
+        </div>
+      {/if}
+
+      {#if !searchQuery && userFavorites.length === 0 && allUsers.length === 0}
         <div class="no-results">
           No favorite users yet. Search for users to add them to favorites.
         </div>
@@ -1090,6 +1235,7 @@
     top: calc(100% + 0.5rem);
     left: 0;
     right: 0;
+    min-height: 400px;
     max-height: 400px;
     overflow-y: auto;
     background: var(--bg-primary);
@@ -1221,7 +1367,27 @@
     font-size: 0.875rem;
   }
 
-.alias-input {
+  .no-results-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    margin: 0.5rem;
+    background: var(--bg-secondary);
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    text-align: center;
+  }
+
+  .no-results-banner svg {
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+
+  .alias-input {
     width: 100%;
     padding: 0.25rem 0.5rem;
     background: var(--bg-primary);
