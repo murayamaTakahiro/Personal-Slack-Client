@@ -112,6 +112,12 @@
   let workspaceInitialized = false; // Track workspace initialization completion
 
   onMount(async () => {
+    // Expose emojiService to window for debugging
+    if (typeof window !== 'undefined') {
+      (window as any).emojiService = emojiService;
+      console.log('[App] emojiService exposed to window for debugging');
+    }
+
     // Subscribe to settings changes to update keyboard service
     unsubscribeSettings = settings.subscribe($settings => {
       if (keyboardService && $settings.keyboardShortcuts) {
