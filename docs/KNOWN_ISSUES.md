@@ -87,20 +87,6 @@ The current Slack API specification does not provide individual read marking for
 
 ---
 
-## Channel/User Search Display Area Limitation
-
-### Issue Overview
-In channel search and user search, the initial display area cannot be expanded. To expand the display, users need to press the down arrow key multiple times to scroll.
-
-### Scope of Impact
-- **Channel Search**: ❌ Initial display area is limited
-- **User Search**: ❌ Initial display area is limited
-
-### Current Response
-Users need to manually expand the display area by pressing the down arrow key multiple times.
-
----
-
 ## "New" Badge Display Issue
 
 ### Issue Overview
@@ -117,20 +103,4 @@ There may be an issue with synchronization between cache state and badge display
 We are reviewing the cache management and badge display implementation.
 
 ---
-
-## Emoji Reaction Sending Issue
-
-### Issue Overview
-When selecting an emoji reaction in the reactionPicker, a different emoji reaction than the one selected may be sent.
-
-### Scope of Impact
-- **reactionPicker**: ⚠️ A different emoji than selected may be sent
-
-### Cause
-There may be an issue with data mapping between emoji selection and API transmission.
-
-### Current Response
-We plan to investigate the reactionPicker implementation and fix the selection and transmission logic.
-
----
-*Last updated: October 23, 2025*
+*Last updated: October 29, 2025*
