@@ -4,6 +4,7 @@
   import ChannelSelector from './ChannelSelector.svelte';
   import UserSelector from './UserSelector.svelte';
   import SavedSearchManager from './SavedSearchManager.svelte';
+  import FileExtensionSelector from './FileExtensionSelector.svelte';
   import { savedSearchesStore } from '../stores/savedSearches';
   import { showToast } from '../stores/toast';
   import { getKeyboardService } from '../services/keyboardService';
@@ -38,7 +39,8 @@
   let fromDate = '';
   let toDate = '';
   let limit = 1000;
-  let hasFiles = false;  // Filter messages with attachments
+  let hasFiles = false;  // Deprecated: kept for backward compatibility
+  let fileExtensions: string[] = [];  // Filter by file extensions
   let searchInput: HTMLInputElement;
   let showChannelSelector = false;
   let channelSelectorComponent: ChannelSelector;
@@ -78,6 +80,15 @@
   }
   
   async function handleSearch(isRealtimeUpdate: boolean = false) {
+    console.log('[SearchBar] handleSearch called', {
+      fileExtensions,
+      channel,
+      userId,
+      fromDate,
+      toDate,
+      query: $searchQuery
+    });
+
     // If realtime mode is enabled (for both initial and updates), auto-set today's date
     // This ensures we always search for today's messages in Live mode
     if ($realtimeStore.isEnabled) {
@@ -95,8 +106,10 @@
     }
 
     // Check if we have either a query or at least one filter
-    const hasFilters = channel || userId || fromDate || toDate;
+    const hasFilters = channel || userId || fromDate || toDate || (fileExtensions && fileExtensions.length > 0);
     const hasQuery = $searchQuery.trim();
+
+    console.log('[SearchBar] hasFilters:', hasFilters, 'hasQuery:', hasQuery);
 
     if (hasQuery || hasFilters) {
       // Save keyword to history if it's a non-empty query
@@ -112,7 +125,8 @@
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
         limit,
-        hasFiles: hasFiles === true ? true : undefined  // Only send true when explicitly checked
+        hasFiles: hasFiles === true ? true : undefined,  // Deprecated: kept for backward compatibility
+        fileExtensions: fileExtensions.length > 0 ? fileExtensions : undefined  // Filter by file extensions
       };
       
       // Check for duplicate before auto-saving
@@ -152,19 +166,26 @@
       // Fix date handling to be inclusive
       // Send dates as YYYY-MM-DD strings directly to backend
       // Backend will handle the inclusive search logic
-      const params = {
-        query: $searchQuery.trim() || undefined,  // Make query optional
-        channel: cleanChannel || undefined,
-        user: resolvedUserId || undefined,
-        userName: user || undefined,  // Include the display name
-        fromDate: fromDate || undefined,  // Send as string YYYY-MM-DD
-        toDate: toDate || undefined,      // Send as string YYYY-MM-DD
+      // Build params object conditionally to avoid sending undefined values
+      const params: any = {
         limit,
-        hasFiles: hasFiles === true ? true : undefined,  // Only send true when explicitly checked
-        isRealtimeUpdate, // Pass this flag through
-        lastSearchTimestamp: isRealtimeUpdate ? realtimeStore.getLastSearchTimestamp() : undefined, // For incremental updates
-        isTodaysCatchup: isTodaysCatchupSearch  // Flag for Today's Catchup searches
+        isRealtimeUpdate,
+        isTodaysCatchup: isTodaysCatchupSearch
       };
+
+      // Only add properties that have actual values
+      const trimmedQuery = $searchQuery.trim();
+      if (trimmedQuery) params.query = trimmedQuery;
+      if (cleanChannel) params.channel = cleanChannel;
+      if (resolvedUserId) params.user = resolvedUserId;
+      if (user) params.userName = user;
+      if (fromDate) params.fromDate = fromDate;
+      if (toDate) params.toDate = toDate;
+      if (hasFiles === true) params.hasFiles = true;
+      if (fileExtensions.length > 0) params.fileExtensions = fileExtensions;
+      if (isRealtimeUpdate && realtimeStore.getLastSearchTimestamp()) {
+        params.lastSearchTimestamp = realtimeStore.getLastSearchTimestamp();
+      }
 
       // DEBUG: Log search parameters for user filter debugging
       console.log('[SearchBar] Search params being sent:', {
@@ -174,7 +195,8 @@
         userName: params.userName,
         fromDate: params.fromDate,
         toDate: params.toDate,
-        hasFiles: params.hasFiles
+        hasFiles: params.hasFiles,
+        fileExtensions: params.fileExtensions
       });
 
       searchParams.set(params);
@@ -663,6 +685,7 @@
     toDate = '';
     limit = 1000;
     hasFiles = false;
+    fileExtensions = [];
     // Reset Today's Catchup flag when filters are cleared
     isTodaysCatchupSearch = false;
     // Also clear the ChannelSelector component
@@ -807,6 +830,7 @@
     if (search.toDate !== undefined) toDate = search.toDate;
     if (search.limit !== undefined) limit = search.limit;
     if (search.hasFiles !== undefined) hasFiles = search.hasFiles;
+    if (search.fileExtensions !== undefined) fileExtensions = search.fileExtensions;
 
     // Execute the search
     handleSearch();
@@ -870,14 +894,8 @@
       if (id) registrations.push(id);
     }
 
-    // A: Has Attachments checkbox
-    const attachmentCheckbox = document.querySelector('.checkbox-label input[type="checkbox"]') as HTMLElement;
-    if (attachmentCheckbox) {
-      const id = accessKeyService.register('A', attachmentCheckbox, () => {
-        hasFiles = !hasFiles;
-      }, 10);
-      if (id) registrations.push(id);
-    }
+    // A: File Extensions filter (now handled by FileExtensionSelector component with 'F' key)
+    // Removed checkbox-based attachment filter
 
     // X: Clear Filters button
     const clearBtn = Array.from(document.querySelectorAll('.btn-secondary')).find(
@@ -1328,7 +1346,7 @@
           </div>
         {/if}
         
-        {#if channel || user || fromDate || toDate || hasFiles}
+        {#if channel || user || fromDate || toDate || fileExtensions.length > 0 || hasFiles}
           <div class="active-filters">
             <span class="filter-label">Active filters:</span>
             {#if channel}
@@ -1343,7 +1361,9 @@
             {#if toDate}
               <span class="filter-tag">To: {toDate}</span>
             {/if}
-            {#if hasFiles}
+            {#if fileExtensions.length > 0}
+              <span class="filter-tag">📎 Files: {fileExtensions.slice(0, 3).join(', ')}{fileExtensions.length > 3 ? ` +${fileExtensions.length - 3} more` : ''}</span>
+            {:else if hasFiles}
               <span class="filter-tag">📎 Has Attachments</span>
             {/if}
           </div>
@@ -1400,15 +1420,21 @@
           />
         </div>
 
-        <div class="filter-field filter-checkbox">
-          <label class="checkbox-label">
-            <input
-              type="checkbox"
-              bind:checked={hasFiles}
-            />
-            <span class="checkbox-icon">📎</span>
-            <span>Has Attachments</span>
-          </label>
+        <div class="filter-field filter-file-extensions">
+          <label for="file-extension-selector">Files:</label>
+          <FileExtensionSelector
+            id="file-extension-selector"
+            bind:selectedExtensions={fileExtensions}
+            on:change={() => {
+              // Auto-trigger search when file extensions change
+              handleSearch();
+            }}
+            on:clear={() => {
+              fileExtensions = [];
+              hasFiles = false;
+              handleSearch();
+            }}
+          />
         </div>
       </div>
       
@@ -1694,8 +1720,9 @@
     gap: 1rem;
     margin-bottom: 1rem;
   }
-  
-  .filter-row label {
+
+  .filter-row label,
+  .filter-field {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -1834,6 +1861,10 @@
     flex: 1;
     display: flex;
     align-items: center;
+  }
+
+  .filter-file-extensions {
+    flex: 1;
   }
 
   .checkbox-label {

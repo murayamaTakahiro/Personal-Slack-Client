@@ -1707,8 +1707,50 @@
         });
       }
 
+      // 🔥 DRASTIC FIX: Clean params to remove undefined values before API call
+      console.log('[App] RAW params before cleaning:', JSON.stringify(params, null, 2));
+
+      // Build clean params object - only include properties with actual values
+      const cleanParams: any = {};
+
+      // Always include these if they exist
+      if (params.limit !== undefined) cleanParams.limit = params.limit;
+      if (params.isRealtimeUpdate !== undefined) cleanParams.isRealtimeUpdate = params.isRealtimeUpdate;
+      if (params.isTodaysCatchup !== undefined) cleanParams.isTodaysCatchup = params.isTodaysCatchup;
+
+      // Conditional properties - only add if they have real values
+      if (params.query && typeof params.query === 'string' && params.query.trim()) {
+        cleanParams.query = params.query.trim();
+      }
+      if (params.channel && typeof params.channel === 'string' && params.channel.trim()) {
+        cleanParams.channel = params.channel.trim();
+      }
+      if (params.user && typeof params.user === 'string' && params.user.trim()) {
+        cleanParams.user = params.user.trim();
+      }
+      if (params.userName) cleanParams.userName = params.userName;
+      if (params.fromDate) cleanParams.fromDate = params.fromDate;
+      if (params.toDate) cleanParams.toDate = params.toDate;
+      if (params.hasFiles === true) cleanParams.hasFiles = true;
+      if (params.fileExtensions && Array.isArray(params.fileExtensions) && params.fileExtensions.length > 0) {
+        cleanParams.fileExtensions = params.fileExtensions;
+      }
+      if (params.lastSearchTimestamp) cleanParams.lastSearchTimestamp = params.lastSearchTimestamp;
+
+      console.log('[App] CLEANED params after removing undefined:', JSON.stringify(cleanParams, null, 2));
+
+      // 🎯 NEW APPROACH: Let Rust use conversations.history for file extension filters
+      // conversations.history includes file metadata, which search.messages doesn't
+      // Rust will detect fileExtensions and automatically use conversations.history API
+      console.log('[App] 📝 File extension filter will use conversations.history API via Rust');
+
       // Use batched search for multi-channel searches when enabled
-      const result = await searchMessagesWithBatching(params);
+      const result = await searchMessagesWithBatching(cleanParams);
+
+      // File extension filtering is now handled by Rust
+      // Rust uses conversations.history API which includes file metadata
+      // and applies the filter server-side before returning results
+      console.log('[App] ✅ File extension filtering handled by Rust via conversations.history');
 
       // Deduplicate messages by timestamp to prevent duplicate key errors in ResultList
       // This can happen when using channel + user filters with conversations.history API

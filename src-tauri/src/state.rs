@@ -224,6 +224,7 @@ impl AppState {
         to_date: &Option<String>,
         limit: &Option<usize>,
         has_files: &Option<bool>,
+        file_extensions: &Option<Vec<String>>,
     ) -> u64 {
         let mut hasher = DefaultHasher::new();
         query.hash(&mut hasher);
@@ -233,6 +234,7 @@ impl AppState {
         to_date.hash(&mut hasher);
         limit.hash(&mut hasher);
         has_files.hash(&mut hasher);
+        file_extensions.hash(&mut hasher);
         hasher.finish()
     }
 
@@ -245,8 +247,9 @@ impl AppState {
         to_date: &Option<String>,
         limit: &Option<usize>,
         has_files: &Option<bool>,
+        file_extensions: &Option<Vec<String>>,
     ) -> Option<SearchResult> {
-        let cache_key = Self::hash_search_params(query, channel, user, from_date, to_date, limit, has_files);
+        let cache_key = Self::hash_search_params(query, channel, user, from_date, to_date, limit, has_files, file_extensions);
         let cache = self.search_cache.read().await;
 
         if let Some(cached) = cache.get(&cache_key) {
@@ -280,9 +283,10 @@ impl AppState {
         to_date: &Option<String>,
         limit: &Option<usize>,
         has_files: &Option<bool>,
+        file_extensions: &Option<Vec<String>>,
         result: SearchResult,
     ) {
-        let cache_key = Self::hash_search_params(query, channel, user, from_date, to_date, limit, has_files);
+        let cache_key = Self::hash_search_params(query, channel, user, from_date, to_date, limit, has_files, file_extensions);
         let mut cache = self.search_cache.write().await;
 
         // Keep cache size reasonable (max 50 searches)

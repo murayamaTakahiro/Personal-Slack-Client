@@ -27,8 +27,14 @@ export async function searchMessagesWithBatching(params: SearchParams): Promise<
   if (!shouldUseBatching) {
     // Use regular single search
     // IMPORTANT: Tauri expects exact parameter names from Rust function signature
+
+    // If no query but filters exist (including fileExtensions), use wildcard to search all messages
+    const hasFilters = params.channel || params.user || params.fromDate || params.toDate ||
+                       (params.fileExtensions && params.fileExtensions.length > 0);
+    const query = (params.query && params.query.trim()) || (hasFilters ? '*' : '');
+
     const invokeParams: Record<string, any> = {
-      query: params.query || '',
+      query,
     };
 
     // Only include optional parameters if they have values
@@ -44,6 +50,7 @@ export async function searchMessagesWithBatching(params: SearchParams): Promise<
     if (params.limit) invokeParams.limit = params.limit;
     if (params.isRealtimeUpdate) invokeParams.forceRefresh = params.isRealtimeUpdate;
     if (params.hasFiles === true) invokeParams.hasFiles = true;
+    if (params.fileExtensions && params.fileExtensions.length > 0) invokeParams.fileExtensions = params.fileExtensions;
 
     const result = await invoke<SearchResult>('search_messages', invokeParams);
 

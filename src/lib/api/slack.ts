@@ -10,8 +10,13 @@ import type {
 } from '../types/slack';
 
 export async function searchMessages(params: SearchParams): Promise<SearchResult> {
+  // If no query but filters exist (including fileExtensions), use wildcard to search all messages
+  const hasFilters = params.channel || params.user || params.fromDate || params.toDate ||
+                     (params.fileExtensions && params.fileExtensions.length > 0);
+  const query = (params.query && params.query.trim()) || (hasFilters ? '*' : '');
+
   const result = await invoke<SearchResult>('search_messages', {
-    query: params.query || '',  // Send empty string if no query
+    query,  // Send wildcard if no query but filters exist
     channel: params.channel,
     user: params.user,
     // Handle both Date objects and string formats
@@ -19,7 +24,9 @@ export async function searchMessages(params: SearchParams): Promise<SearchResult
     toDate: params.toDate instanceof Date ? params.toDate.toISOString() : params.toDate,
     limit: params.limit,
     force_refresh: params.isRealtimeUpdate || false,  // Add force refresh for realtime updates - using snake_case for Rust
-    last_timestamp: params.lastSearchTimestamp || undefined  // For incremental fetching in live mode
+    last_timestamp: params.lastSearchTimestamp || undefined,  // For incremental fetching in live mode
+    has_files: params.hasFiles || undefined,  // Deprecated: kept for backward compatibility
+    file_extensions: params.fileExtensions || undefined  // Filter by file extensions (snake_case for Rust)
   });
 
   // Debug: Check if reactions are included in the response

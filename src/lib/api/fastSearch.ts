@@ -153,6 +153,13 @@ export function shouldUseFastSearch(params: SearchParams): boolean {
     return false;
   }
 
+  // 🔥 NEVER use fast search for file extension filtering
+  // File extension filters use conversations.history API which includes file metadata
+  if (params.fileExtensions && params.fileExtensions.length > 0) {
+    console.log('[FastSearch] File extension filter detected - disabling fast search (will use conversations.history)');
+    return false;
+  }
+
   // Use fast search for:
   // 1. Multi-channel searches (likely to have many results)
   // 2. No query (channel browse - lots of messages)

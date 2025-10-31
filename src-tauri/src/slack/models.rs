@@ -10,7 +10,8 @@ pub struct SearchRequest {
     pub to_date: Option<String>,   // ISO 8601
     pub limit: Option<usize>,      // デフォルト: 100
     pub is_realtime: Option<bool>, // Flag for realtime/live mode searches
-    pub has_files: Option<bool>,   // Filter messages with attachments
+    pub has_files: Option<bool>,   // Deprecated: Filter messages with attachments
+    pub file_extensions: Option<Vec<String>>, // Filter by file extensions (e.g., ["pdf", "jpg", "png"])
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

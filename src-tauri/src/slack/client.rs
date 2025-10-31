@@ -1743,6 +1743,15 @@ pub fn build_search_query(params: &SearchRequest) -> String {
     let mut query_parts = Vec::new();
     let has_text_query = !params.query.trim().is_empty();
 
+    // 🔥 CRITICAL FIX: When file_extensions are specified, use conversations.history
+    // because search.messages doesn't include file metadata in responses
+    if let Some(ref extensions) = params.file_extensions {
+        if !extensions.is_empty() && params.channel.is_some() && !params.channel.as_ref().unwrap().contains(',') {
+            info!("File extensions filter detected with single channel - will use conversations.history for file metadata");
+            return "USE_CONVERSATIONS_HISTORY".to_string();
+        }
+    }
+
     // Only add the query if it's not empty
     if has_text_query {
         query_parts.push(params.query.clone());
@@ -1917,15 +1926,28 @@ pub fn build_search_query(params: &SearchRequest) -> String {
     let has_filters = params.channel.is_some()
         || params.user.is_some()
         || params.from_date.is_some()
-        || params.to_date.is_some();
+        || params.to_date.is_some()
+        || params.file_extensions.as_ref().map_or(false, |exts| !exts.is_empty());
 
     // Build the final query
-    // For filter-only searches, we need to be careful about how we construct the query
+    // For filter-only searches, we need to handle file_extensions specially
     let final_query = if !has_text_query && has_filters {
-        // When we have filters but no text query, don't add wildcard
-        // Instead, let the filters work on their own
-        // The API should return all messages matching the filters
-        query_parts.join(" ")
+        // file_extensions can't be added to Slack API query, so we need a wildcard
+        // if the only filter is file_extensions
+        let has_api_filters = params.channel.is_some()
+            || params.user.is_some()
+            || params.from_date.is_some()
+            || params.to_date.is_some();
+
+        if !has_api_filters && params.file_extensions.as_ref().map_or(false, |exts| !exts.is_empty()) {
+            // Only file_extensions filter - need wildcard to get all messages for filtering
+            "*".to_string()
+        } else if query_parts.is_empty() {
+            // Have API filters but no query - filters work on their own
+            "".to_string()
+        } else {
+            query_parts.join(" ")
+        }
     } else if query_parts.is_empty() {
         // If absolutely no query parts at all, return empty to indicate
         // that we should use a different API method (conversations.history)

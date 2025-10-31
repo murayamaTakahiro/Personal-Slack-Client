@@ -20,7 +20,8 @@ export interface SearchParams {
   limit?: number;
   isRealtimeUpdate?: boolean;
   lastSearchTimestamp?: string | null; // For incremental updates in live mode
-  hasFiles?: boolean;  // Filter messages with attachments
+  hasFiles?: boolean;  // Deprecated: Use fileExtensions instead. Kept for backward compatibility
+  fileExtensions?: string[];  // Filter by file extensions (e.g., ['pdf', 'jpg', 'png'])
   isTodaysCatchup?: boolean;  // Flag for Today's Catchup searches
 }
 

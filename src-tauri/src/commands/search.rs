@@ -18,6 +18,31 @@ fn replace_user_mentions(text: &str, user_cache: &HashMap<String, CachedUser>) -
     crate::slack::parser::replace_user_mentions(text, user_cache)
 }
 
+/// Extract file extension from filename
+fn get_file_extension(filename: &str) -> Option<String> {
+    filename.rsplit('.').next()
+        .filter(|ext| !ext.is_empty() && ext != &filename)
+        .map(|ext| ext.to_lowercase())
+}
+
+/// Check if a message has files matching the specified extensions (OR condition)
+fn matches_file_extensions(msg: &Message, extensions: &[String]) -> bool {
+    if let Some(files) = &msg.files {
+        if files.is_empty() {
+            return false;
+        }
+        // OR condition: message matches if ANY file has a matching extension
+        return files.iter().any(|file| {
+            if let Some(ext) = get_file_extension(&file.name) {
+                extensions.iter().any(|target_ext| ext == target_ext.to_lowercase())
+            } else {
+                false
+            }
+        });
+    }
+    false
+}
+
 #[tauri::command]
 pub async fn search_messages(
     query: String,
@@ -28,18 +53,19 @@ pub async fn search_messages(
     limit: Option<usize>,
     force_refresh: Option<bool>, // Add this parameter
     last_timestamp: Option<String>, // For incremental updates
-    has_files: Option<bool>, // Filter messages with attachments
+    has_files: Option<bool>, // Deprecated: Filter messages with attachments
+    file_extensions: Option<Vec<String>>, // Filter by file extensions
     state: State<'_, AppState>,
 ) -> AppResult<SearchResult> {
     let start_time = Instant::now();
 
-    info!("[SEARCH DEBUG] search_messages called with force_refresh: {:?}, query: '{}', channel: {:?}",
-          force_refresh, query, channel);
+    info!("[SEARCH DEBUG] search_messages called with force_refresh: {:?}, query: '{}', channel: {:?}, file_extensions: {:?}",
+          force_refresh, query, channel, file_extensions);
 
     // Check cache first (skip if force_refresh is true)
     if !force_refresh.unwrap_or(false) {
         if let Some(cached_result) = state
-            .get_cached_search(&query, &channel, &user, &from_date, &to_date, &limit, &has_files)
+            .get_cached_search(&query, &channel, &user, &from_date, &to_date, &limit, &has_files, &file_extensions)
             .await
         {
             info!(
@@ -113,6 +139,8 @@ pub async fn search_messages(
                 let user = user.clone();  // This might be multiple users with commas
                 let from_date = from_date.clone();
                 let to_date = to_date.clone();
+                let has_files = has_files;
+                let file_extensions = file_extensions.clone();
 
                 search_futures.push(Box::pin(async move {
                     // Check if this is a DM/Group DM channel
@@ -178,6 +206,7 @@ pub async fn search_messages(
                             limit: Some(max_results),
                             is_realtime: force_refresh,
                             has_files,
+                            file_extensions: file_extensions.clone(),
                         };
 
                         let search_query = build_search_query(&search_request);
@@ -434,6 +463,7 @@ pub async fn search_messages(
                             limit,
                             is_realtime: force_refresh,
                             has_files,
+                            file_extensions: file_extensions.clone(),
                         };
 
                         let search_query = build_search_query(&search_request);
@@ -457,6 +487,7 @@ pub async fn search_messages(
                     limit,
                     is_realtime: force_refresh,
                     has_files,
+                            file_extensions: file_extensions.clone(),
                 };
 
                 let search_query = build_search_query(&search_request);
@@ -465,8 +496,93 @@ pub async fn search_messages(
                     search_query
                 );
 
-                all_slack_messages =
-                    fetch_all_results(&client, search_query.clone(), max_results).await?;
+                // 🔥 CRITICAL: Detect USE_CONVERSATIONS_HISTORY flag for file extension filtering
+                // When file extensions are specified, we need conversations.history API (not search.messages)
+                // because only conversations.history includes file metadata in responses
+                if search_query == "USE_CONVERSATIONS_HISTORY" {
+                    info!("USE_CONVERSATIONS_HISTORY flag detected - using conversations.history API for file metadata");
+
+                    // Extract channel name and resolve to ID
+                    let channel_name = match channel.as_ref() {
+                        Some(ch) => ch.trim_start_matches('#'),
+                        None => {
+                            error!("Channel is required for conversations.history");
+                            return Err(AppError::ApiError("Channel is required".to_string()));
+                        }
+                    };
+
+                    // Resolve channel name to ID
+                    let channel_id = match client.resolve_channel_id(channel_name).await {
+                        Ok(id) => {
+                            info!("Resolved channel '{}' to ID: {}", channel_name, id);
+                            id
+                        }
+                        Err(e) => {
+                            error!("Failed to resolve channel '{}': {}", channel_name, e);
+                            return Err(AppError::from(anyhow!("Channel '{}' not found", channel_name)));
+                        }
+                    };
+
+                    // Convert date formats to Unix timestamps
+                    let oldest = from_date.as_ref().map(|d| {
+                        if let Some(date_part) = d.split('T').next() {
+                            if let Ok(date) = chrono::NaiveDate::parse_from_str(date_part, "%Y-%m-%d") {
+                                if let Some(datetime) = date.and_hms_opt(0, 0, 0) {
+                                    let timestamp = datetime.and_utc().timestamp();
+                                    return timestamp.to_string();
+                                }
+                            }
+                        }
+                        d.clone()
+                    });
+
+                    let latest = to_date.as_ref().map(|d| {
+                        if let Some(date_part) = d.split('T').next() {
+                            if let Ok(date) = chrono::NaiveDate::parse_from_str(date_part, "%Y-%m-%d") {
+                                if let Some(datetime) = date.and_hms_opt(23, 59, 59) {
+                                    let timestamp = datetime.and_utc().timestamp();
+                                    return timestamp.to_string();
+                                }
+                            }
+                        }
+                        d.clone()
+                    });
+
+                    // Get messages from conversations.history (includes file metadata)
+                    match client.get_channel_messages(&channel_id, oldest, latest, max_results).await {
+                        Ok(mut messages) => {
+                            info!("Retrieved {} messages from conversations.history for channel {}", messages.len(), channel_id);
+
+                            // Add channel info to messages (conversations.history doesn't include this)
+                            for msg in &mut messages {
+                                if msg.channel.is_none() {
+                                    msg.channel = Some(SlackChannelInfo {
+                                        id: channel_id.clone(),
+                                        name: channel_name.to_string(),
+                                    });
+                                }
+                                // Generate permalink if missing
+                                if msg.permalink.is_none() {
+                                    msg.permalink = Some(format!(
+                                        "https://workspace.slack.com/archives/{}/p{}",
+                                        channel_id,
+                                        msg.ts.replace(".", "")
+                                    ));
+                                }
+                            }
+
+                            all_slack_messages = messages;
+                        }
+                        Err(e) => {
+                            error!("Failed to get channel messages: {}", e);
+                            return Err(AppError::from(e));
+                        }
+                    }
+                } else {
+                    // Normal search flow using search.messages API
+                    all_slack_messages =
+                        fetch_all_results(&client, search_query.clone(), max_results).await?;
+                }
 
                 // Filter by user IDs if multi-user search
                 if let Some(ref users) = user {
@@ -520,6 +636,7 @@ pub async fn search_messages(
             user: user.clone(),
             from_date: from_date.clone(),
             has_files,
+                            file_extensions: file_extensions.clone(),
             to_date: to_date.clone(),
             limit,
             is_realtime: force_refresh,
@@ -819,8 +936,20 @@ pub async fn search_messages(
     //     }
     // }
 
-    // Apply file filter if requested
-    if let Some(true) = has_files {
+    // Apply file extension filter if requested (takes precedence over has_files)
+    if let Some(ref extensions) = file_extensions {
+        if !extensions.is_empty() {
+            let before_count = messages.len();
+            messages.retain(|msg| matches_file_extensions(msg, extensions));
+            info!(
+                "Applied file extension filter ({:?}): {}/{} messages match",
+                extensions,
+                messages.len(),
+                before_count
+            );
+        }
+    } else if let Some(true) = has_files {
+        // Fallback to has_files filter for backward compatibility
         messages.retain(|msg| {
             msg.files.is_some() && !msg.files.as_ref().unwrap().is_empty()
         });
@@ -849,6 +978,7 @@ pub async fn search_messages(
                 limit,
                 is_realtime: force_refresh,
                 has_files,
+                            file_extensions: file_extensions.clone(),
             };
             build_search_query(&search_request)
         } else {
@@ -862,6 +992,7 @@ pub async fn search_messages(
                 limit,
                 is_realtime: force_refresh,
                 has_files,
+                            file_extensions: file_extensions.clone(),
             };
             build_search_query(&search_request)
         }
@@ -875,6 +1006,7 @@ pub async fn search_messages(
             limit,
             is_realtime: force_refresh,
             has_files,
+                            file_extensions: file_extensions.clone(),
         };
         build_search_query(&search_request)
     };
@@ -907,6 +1039,7 @@ pub async fn search_messages(
                 &to_date,
                 &limit,
                 &has_files,
+                &file_extensions,
                 result.clone(),
             )
             .await;
@@ -1649,6 +1782,7 @@ pub async fn search_messages_fast(
     limit: Option<usize>,
     force_refresh: Option<bool>,
     has_files: Option<bool>,
+    file_extensions: Option<Vec<String>>,
     state: State<'_, AppState>,
 ) -> AppResult<SearchResult> {
     // This is an optimized version that returns messages immediately without reactions
@@ -1659,7 +1793,7 @@ pub async fn search_messages_fast(
     // Check cache first (skip if force_refresh is true)
     if !force_refresh.unwrap_or(false) {
         if let Some(cached_result) = state
-            .get_cached_search(&query, &channel, &user, &from_date, &to_date, &limit, &has_files)
+            .get_cached_search(&query, &channel, &user, &from_date, &to_date, &limit, &has_files, &file_extensions)
             .await
         {
             info!("Fast search: returning cached result in {}ms", start_time.elapsed().as_millis());
@@ -1710,6 +1844,8 @@ pub async fn search_messages_fast(
                 let user = user.clone();
                 let from_date = from_date.clone();
                 let to_date = to_date.clone();
+                let has_files = has_files;
+                let file_extensions = file_extensions.clone();
 
                 async move {
                     // Check if this is a DM/Group DM channel
@@ -1775,6 +1911,7 @@ pub async fn search_messages_fast(
                             channel: Some(channel.clone()),
                             user,
                             has_files,
+                            file_extensions: file_extensions.clone(),
                             from_date,
                             to_date,
                             limit: Some(max_results),
@@ -1869,6 +2006,7 @@ pub async fn search_messages_fast(
                 limit,
                 is_realtime: force_refresh,
                 has_files,
+                            file_extensions: file_extensions.clone(),
             };
             
             let search_query = build_search_query(&search_request);
@@ -2137,6 +2275,7 @@ pub async fn search_messages_fast(
             query: query.clone(),
             channel: channel.clone(),
             has_files,
+                            file_extensions: file_extensions.clone(),
             user: user.clone(),
             from_date: from_date.clone(),
             to_date: to_date.clone(),
@@ -2313,8 +2452,20 @@ pub async fn search_messages_fast(
         info!("Fast search: Skipping reaction cache due to force_refresh=true");
     }
 
-    // Apply file filter if requested
-    if let Some(true) = has_files {
+    // Apply file extension filter if requested (takes precedence over has_files)
+    if let Some(ref extensions) = file_extensions {
+        if !extensions.is_empty() {
+            let before_count = messages.len();
+            messages.retain(|msg| matches_file_extensions(msg, extensions));
+            info!(
+                "Fast search: Applied file extension filter ({:?}): {}/{} messages match",
+                extensions,
+                messages.len(),
+                before_count
+            );
+        }
+    } else if let Some(true) = has_files {
+        // Fallback to has_files filter for backward compatibility
         let before_count = messages.len();
         messages.retain(|msg| {
             msg.files.is_some() && !msg.files.as_ref().unwrap().is_empty()
@@ -2344,6 +2495,7 @@ pub async fn search_messages_fast(
                 limit,
                 is_realtime: force_refresh,
                 has_files,
+                            file_extensions: file_extensions.clone(),
             };
             build_search_query(&search_request)
         } else {
@@ -2357,6 +2509,7 @@ pub async fn search_messages_fast(
                 limit,
                 is_realtime: force_refresh,
                 has_files,
+                            file_extensions: file_extensions.clone(),
             };
             build_search_query(&search_request)
         }
@@ -2370,6 +2523,7 @@ pub async fn search_messages_fast(
             limit,
             is_realtime: force_refresh,
             has_files,
+                            file_extensions: file_extensions.clone(),
         };
         build_search_query(&search_request)
     };
