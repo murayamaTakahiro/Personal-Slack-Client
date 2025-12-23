@@ -7,7 +7,7 @@
 
 **🚀 Supercharged Slack desktop client that breaks free from limitations - unlimited search, advanced file previews, and professional-grade productivity features**
 
-[Why Use This?](#-why-personal-slack-client) • [Features](#-features) • [Installation](#-installation) • [Quick Start](#-quick-start) • [Keyboard Shortcuts](#️-keyboard-shortcuts)
+[Why Use This?](#-why-personal-slack-client) • [Features](#-features) • [Demo Videos](#-demo-videos) • [Installation](#-installation) • [Quick Start](#-quick-start) • [Keyboard Shortcuts](#️-keyboard-shortcuts)
 
 ---
 
@@ -59,6 +59,23 @@
 - **Zoom Controls** (`Ctrl +/-/0`): Scale UI from 50% to 200%
 - **Performance Monitor** (`Ctrl+Shift+P`): Track API usage and response times
 - **Channel Favorites**: Star channels with `f` for quick access
+
+## 🎬 Demo Videos
+
+### 🔗 Bulk URL Expansion
+Instantly expand and open all URLs from a message with a single keystroke (`Alt+Enter`). Perfect for quickly accessing multiple links shared in conversations.
+
+![Bulk URL Expansion Demo](docs/demos/bulk-url-expansion.gif)
+
+### 🧵 Thread Export
+Export entire thread conversations to Markdown or TSV format (`Ctrl+E`) with complete message history, attachments, and metadata. Ideal for documentation or feeding context to AI assistants like ChatGPT and Claude.
+
+![Thread Export Demo](docs/demos/thread-export.gif)
+
+### 📁 Advanced File Preview & Bulk Download
+Preview Office files, images, PDFs directly in the app without downloading. Download all attachments from a message with the `d` key for efficient file management.
+
+![File Preview and Download Demo](docs/demos/file-preview-and-download.gif)
 
 ## ✨ Features
 
