@@ -73,7 +73,7 @@ Export entire thread conversations to Markdown or TSV format (`Ctrl+E`) with com
 ![Thread Export Demo](docs/demos/thread-export.gif)
 
 ### 📁 Advanced File Preview & Bulk Download
-Preview Office files, images, PDFs directly in the app without downloading. Download all attachments from a message with the `d` key for efficient file management.
+Preview Office files, images, PDFs directly in the app without downloading. Download all attachments from a message with the `d` key, or copy file contents to clipboard with the `c` key for efficient file management.
 
 ![File Preview and Download Demo](docs/demos/file-preview-and-download.gif)
 
